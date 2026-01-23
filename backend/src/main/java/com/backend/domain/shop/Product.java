@@ -1,11 +1,13 @@
 package com.backend.domain.shop;
 
 import com.backend.domain.BaseEntity;
+import com.backend.domain.member.Member;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.BatchSize;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -40,15 +42,18 @@ public class Product extends BaseEntity {
     @Column(name = "base_price", nullable = false, precision = 18, scale = 2)
     private BigDecimal basePrice = BigDecimal.ZERO;
 
-    // 작성자 - 추후 멤버 id 연결
-    @Column(name = "created_by", nullable = false)
-    private Long createdBy;
+    // 작성자
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "created_by", nullable = false)
+    private Member createdBy;
 
     // 관계 정리
     // FetchType.LAZY 명시로 N+1 문제 방지 (필요할 때만 조회)
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @BatchSize(size = 20) // N+1 문제 방지: 20개씩 배치로 조회
     private final List<ProductImage> images = new ArrayList<>();
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @BatchSize(size = 20) // N+1 문제 방지: 20개씩 배치로 조회
     private final List<ProductVariant> variants = new ArrayList<>();
 
     @Builder
@@ -56,7 +61,7 @@ public class Product extends BaseEntity {
                    String description,
                    ProductStatus status,
                    BigDecimal basePrice,
-                   Long createdBy) {
+                   Member createdBy) {
         this.name = name;
         this.description = description;
         this.status = (status != null) ? status : ProductStatus.DRAFT;

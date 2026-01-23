@@ -4,14 +4,16 @@ import com.backend.common.dto.PageRequest;
 import com.backend.common.dto.PageResponse;
 import com.backend.common.exception.BusinessException;
 import com.backend.common.exception.ErrorCode;
+import com.backend.domain.member.Member;
 import com.backend.domain.shop.Product;
 import com.backend.dto.shop.mapper.ProductMapper;
 import com.backend.dto.shop.request.ProductCreateRequest;
 import com.backend.dto.shop.request.ProductSearchRequest;
 import com.backend.dto.shop.request.ProductUpdateRequest;
 import com.backend.dto.shop.response.ProductResponse;
-import com.backend.repository.shop.products.ProductRepository;
-import com.backend.repository.shop.products.ProductSearch;
+import com.backend.repository.member.MemberRepository;
+import com.backend.repository.shop.ProductRepository;
+import com.backend.repository.shop.ProductSearch;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -27,6 +29,7 @@ public class ProductServiceImpl implements ProductService {
     private final ProductRepository productRepository;
     private final ProductSearch productSearch;
     private final ProductMapper productMapper;
+    private final MemberRepository memberRepository;
 
     @Override
     @Transactional
@@ -38,15 +41,19 @@ public class ProductServiceImpl implements ProductService {
 
         // 중복 체크
         if (productRepository.existsByName(request.getName())) {
-            throw new BusinessException(ErrorCode.PRODUCT_ALREADY_EXISTS);
+            throw new BusinessException(ErrorCode.SHOP_PRODUCT_ALREADY_EXISTS);
         }
+
+        // Member 조회
+        Member member = memberRepository.findById(createdBy != null ? createdBy : 1L)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, createdBy));
 
         // 도메인 엔티티 생성
         Product product = Product.builder()
                 .name(request.getName())
                 .description(request.getDescription())
                 .basePrice(request.getBasePrice())
-                .createdBy(createdBy != null ? createdBy : 1L) // TODO: 추후 member 도메인 추가 시 제거
+                .createdBy(member)
                 .build();
 
         // 저장
@@ -60,7 +67,7 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public ProductResponse findById(Long id) {
         Product product = productRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_NOT_FOUND, id));
+                .orElseThrow(() -> new BusinessException(ErrorCode.SHOP_PRODUCT_NOT_FOUND, id));
 
         return productMapper.toResponse(product);
     }
@@ -87,7 +94,7 @@ public class ProductServiceImpl implements ProductService {
         // }
 
         Product product = productRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_NOT_FOUND, id));
+                .orElseThrow(() -> new BusinessException(ErrorCode.SHOP_PRODUCT_NOT_FOUND, id));
 
         // 부분 업데이트 (null이 아닌 필드만 업데이트)
         if (request.getName() != null && !request.getName().trim().isEmpty()) {
@@ -98,7 +105,7 @@ public class ProductServiceImpl implements ProductService {
                 productRepository.findByNameAndDeletedAtIsNull(newName)
                         .filter(p -> !p.getId().equals(id))
                         .ifPresent(p -> {
-                            throw new BusinessException(ErrorCode.PRODUCT_ALREADY_EXISTS);
+                            throw new BusinessException(ErrorCode.SHOP_PRODUCT_ALREADY_EXISTS);
                         });
             }
             product.changeName(newName);
@@ -125,7 +132,7 @@ public class ProductServiceImpl implements ProductService {
         // }
 
         Product product = productRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_NOT_FOUND, id));
+                .orElseThrow(() -> new BusinessException(ErrorCode.SHOP_PRODUCT_NOT_FOUND, id));
 
         // 소프트 삭제
         product.softDelete();

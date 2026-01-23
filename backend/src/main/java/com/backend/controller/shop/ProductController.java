@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
@@ -24,12 +25,10 @@ public class ProductController {
 
     private final ProductService productService;
 
-    /**
-     * 상품 등록 (Admin)
-     * TODO: 추후 member 도메인 추가 시 @PreAuthorize("hasRole('ADMIN')") 추가
-     */
+    // 상품 등록 (Admin)
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ProductResponse> create(
             @Valid @RequestBody ProductCreateRequest request) {
         // TODO: 추후 JWT에서 사용자 ID 추출
@@ -43,19 +42,14 @@ public class ProductController {
                 .body(response);
     }
 
-    /**
-     * 상품 단건 조회
-     */
+    // 상품 단건 조회
     @GetMapping("/{id}")
     public ResponseEntity<ProductResponse> findById(@PathVariable Long id) {
         ProductResponse response = productService.findById(id);
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * 상품 리스트 조회 (페이징, 검색, 필터링, 정렬)
-     * Query Parameters: page, size, sortBy, direction, keyword, categoryId, minPrice, maxPrice, status
-     */
+    // 상품 리스트 조회 (페이징, 검색, 필터링, 정렬)
     @GetMapping
     public ResponseEntity<PageResponse<ProductResponse>> findAll(
             @Valid @ModelAttribute PageRequest pageRequest,
@@ -64,11 +58,9 @@ public class ProductController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * 상품 정보 수정 (Admin)
-     * TODO: 추후 member 도메인 추가 시 @PreAuthorize("hasRole('ADMIN')") 추가
-     */
+    // 상품 정보 수정 (Admin)
     @PatchMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ProductResponse> update(
             @PathVariable Long id,
             @Valid @RequestBody ProductUpdateRequest request) {
@@ -76,11 +68,9 @@ public class ProductController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * 상품 삭제 (Admin)
-     * TODO: 추후 member 도메인 추가 시 @PreAuthorize("hasRole('ADMIN')") 추가
-     */
+    // 상품 삭제 (Admin)
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         productService.delete(id);

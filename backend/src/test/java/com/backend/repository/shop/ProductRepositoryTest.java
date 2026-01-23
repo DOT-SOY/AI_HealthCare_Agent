@@ -1,10 +1,13 @@
 package com.backend.repository.shop;
 
+import com.backend.domain.member.Member;
+import com.backend.domain.member.MemberRole;
 import com.backend.domain.shop.*;
-import com.backend.repository.shop.products.CategoryRepository;
-import com.backend.repository.shop.products.ProductCategoryRepository;
-import com.backend.repository.shop.products.ProductRepository;
-import com.backend.repository.shop.products.ProductVariantRepository;
+import com.backend.repository.member.MemberRepository;
+import com.backend.repository.shop.CategoryRepository;
+import com.backend.repository.shop.ProductCategoryRepository;
+import com.backend.repository.shop.ProductRepository;
+import com.backend.repository.shop.ProductVariantRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -38,23 +41,60 @@ class ProductRepositoryTest {
     @Autowired
     private ProductCategoryRepository productCategoryRepository;
 
+    @Autowired
+    private MemberRepository memberRepository;
+
     private Product fitnessProduct1;
     private Product fitnessProduct2;
+    private Member testMember;
 
     @BeforeEach
     void setUp() {
-        // 피트니스 관련 더미 데이터 생성 및 실제 DB에 저장
-        createFitnessDummyData();
+        // 멤버가 이미 생성되어 있는지 확인 (멤버 생성 테스트에서 생성됨)
+        // 여러 멤버가 있을 수 있으므로 첫 번째만 가져옴
+        testMember = memberRepository.findAll().stream()
+                .filter(m -> "test@example.com".equals(m.getEmail()))
+                .findFirst()
+                .orElse(null);
+        
+        // 멤버가 없으면 생성하고 피트니스 관련 더미 데이터 생성
+        if (testMember == null) {
+            testMember = getOrCreateTestMember();
+        }
+        // 피트니스 관련 더미 데이터 생성 (이미 있으면 재생성하지 않음)
+        if (fitnessProduct1 == null || fitnessProduct2 == null) {
+            createFitnessDummyData();
+        }
+    }
+
+    private Member getOrCreateTestMember() {
+        if (testMember == null) {
+            testMember = memberRepository.findAll().stream()
+                    .filter(m -> "test@example.com".equals(m.getEmail()))
+                    .findFirst()
+                    .orElseGet(() -> {
+                        Member member = Member.builder()
+                                .email("test@example.com")
+                                .pw("password")
+                                .nickname("테스트유저")
+                                .social(false)
+                                .build();
+                        member.addRole(MemberRole.ADMIN);
+                        return memberRepository.save(member);
+                    });
+        }
+        return testMember;
     }
 
     private void createFitnessDummyData() {
+        Member member = getOrCreateTestMember();
         // 조정 가능 덤벨 세트
         fitnessProduct1 = Product.builder()
                 .name("아이언맥스 조정 가능 덤벨 세트 20kg")
                 .description("한 쌍으로 2kg부터 20kg까지 조정 가능한 프리웨이트 덤벨 세트입니다. 공간 효율적이고 다양한 근력 운동에 활용할 수 있습니다. 고품질 철제 재질과 안전한 잠금 장치로 구성되어 있습니다.")
                 .status(ProductStatus.ACTIVE)
                 .basePrice(new BigDecimal("89000"))
-                .createdBy(1L)
+                .createdBy(member)
                 .build();
         fitnessProduct1 = productRepository.save(fitnessProduct1);
         entityManager.flush();
@@ -65,22 +105,52 @@ class ProductRepositoryTest {
                 .description("미끄럼 방지 처리가 된 두꺼운 요가 매트입니다. 10mm 두께로 충격 흡수에 탁월하며, 요가, 필라테스, 스트레칭 등 다양한 운동에 적합합니다. 세척이 쉬운 소재로 위생적입니다.")
                 .status(ProductStatus.ACTIVE)
                 .basePrice(new BigDecimal("125000"))
-                .createdBy(1L)
+                .createdBy(member)
                 .build();
         fitnessProduct2 = productRepository.save(fitnessProduct2);
         entityManager.flush();
+    }
+
+    // ========== Member 테스트 ==========
+
+    @Test
+    @DisplayName("멤버 생성 성공")
+    void createMember_Success() {
+        // given
+        Member member = Member.builder()
+                .email("test@example.com")
+                .pw("password")
+                .nickname("테스트유저")
+                .social(false)
+                .build();
+        member.addRole(MemberRole.ADMIN);
+
+        // when
+        Member saved = memberRepository.save(member);
+        entityManager.flush();
+        entityManager.clear();
+
+        // then
+        assertThat(saved.getId()).isNotNull();
+        assertThat(saved.getEmail()).isEqualTo("test@example.com");
+        assertThat(saved.getNickname()).isEqualTo("테스트유저");
+        assertThat(saved.getRoleList()).contains(MemberRole.ADMIN);
+        
+        // testMember에 저장하여 다른 테스트에서 사용할 수 있도록 함
+        testMember = saved;
     }
 
     @Test
     @DisplayName("상품 저장 및 조회")
     void saveAndFind() {
         // given
+        Member member = getOrCreateTestMember();
         Product product = Product.builder()
                 .name("옵티멈 골드 스탠다드 휘핑 프로틴 2.27kg")
                 .description("우유 단백질과 유청 단백질을 혼합한 고품질 프로틴 파우더입니다. 운동 후 근육 회복과 성장을 돕는 필수 아미노산을 함유하고 있습니다.")
                 .status(ProductStatus.DRAFT)
                 .basePrice(new BigDecimal("45000"))
-                .createdBy(1L)
+                .createdBy(member)
                 .build();
 
         // when
@@ -100,7 +170,10 @@ class ProductRepositoryTest {
     @DisplayName("상품명 중복 체크")
     void existsByName() {
         // given - setUp()에서 생성된 데이터 사용
-        // healthProduct1의 이름으로 중복 체크
+        // fitnessProduct1이 없으면 생성
+        if (fitnessProduct1 == null) {
+            createFitnessDummyData();
+        }
 
         // when
         boolean exists = productRepository.existsByName("아이언맥스 조정 가능 덤벨 세트 20kg");
@@ -115,6 +188,9 @@ class ProductRepositoryTest {
     @DisplayName("소프트 삭제된 상품은 조회되지 않음")
     void findByIdAndDeletedAtIsNull_ExcludesSoftDeleted() {
         // given - setUp()에서 생성된 데이터 사용
+        if (fitnessProduct1 == null) {
+            createFitnessDummyData();
+        }
         Product saved = fitnessProduct1;
 
         // when - 소프트 삭제
@@ -132,6 +208,9 @@ class ProductRepositoryTest {
     @DisplayName("저장된 피트니스 상품 조회 테스트")
     void findSavedFitnessProducts() {
         // given - setUp()에서 생성된 데이터
+        if (fitnessProduct1 == null || fitnessProduct2 == null) {
+            createFitnessDummyData();
+        }
 
         // when
         Optional<Product> found1 = productRepository.findByIdAndDeletedAtIsNull(fitnessProduct1.getId());
@@ -155,7 +234,7 @@ class ProductRepositoryTest {
     void createCategory_Success() {
         // given
         Category category = Category.builder()
-                .name("운동용품")
+                .categoryType(CategoryType.HEALTH_GOODS)
                 .sortOrder(1)
                 .build();
 
@@ -167,7 +246,8 @@ class ProductRepositoryTest {
         // then
         Optional<Category> found = categoryRepository.findById(saved.getId());
         assertThat(found).isPresent();
-        assertThat(found.get().getName()).isEqualTo("운동용품");
+        assertThat(found.get().getName()).isEqualTo("헬스용품");
+        assertThat(found.get().getCategoryType()).isEqualTo(CategoryType.HEALTH_GOODS);
         assertThat(found.get().getSortOrder()).isEqualTo(1);
         assertThat(found.get().isRoot()).isTrue();
     }
@@ -177,7 +257,7 @@ class ProductRepositoryTest {
     void categoryParentChildRelationship() {
         // given
         Category parent = Category.builder()
-                .name("운동용품")
+                .categoryType(CategoryType.HEALTH_GOODS)
                 .sortOrder(1)
                 .build();
         parent = categoryRepository.save(parent);
@@ -185,7 +265,7 @@ class ProductRepositoryTest {
 
         Category child = Category.builder()
                 .parent(parent)
-                .name("덤벨")
+                .categoryType(CategoryType.HEALTH_GOODS)
                 .sortOrder(1)
                 .build();
         child = categoryRepository.save(child);
@@ -205,18 +285,18 @@ class ProductRepositoryTest {
     }
 
     @Test
-    @DisplayName("카테고리명 변경")
-    void changeCategoryName() {
+    @DisplayName("카테고리 타입 변경")
+    void changeCategoryType() {
         // given
         Category category = Category.builder()
-                .name("운동용품")
+                .categoryType(CategoryType.HEALTH_GOODS)
                 .sortOrder(1)
                 .build();
         category = categoryRepository.save(category);
         entityManager.flush();
 
         // when
-        category.changeName("피트니스 용품");
+        category.changeCategoryType(CategoryType.SUPPLEMENT);
         categoryRepository.save(category);
         entityManager.flush();
         entityManager.clear();
@@ -224,23 +304,8 @@ class ProductRepositoryTest {
         // then
         Optional<Category> found = categoryRepository.findById(category.getId());
         assertThat(found).isPresent();
-        assertThat(found.get().getName()).isEqualTo("피트니스 용품");
-    }
-
-    @Test
-    @DisplayName("카테고리명 변경 실패 - 빈 값")
-    void changeCategoryName_Empty() {
-        // given
-        final Category category = Category.builder()
-                .name("운동용품")
-                .sortOrder(1)
-                .build();
-        categoryRepository.save(category);
-
-        // when & then
-        assertThatThrownBy(() -> category.changeName(""))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("카테고리명은 필수입니다");
+        assertThat(found.get().getCategoryType()).isEqualTo(CategoryType.SUPPLEMENT);
+        assertThat(found.get().getName()).isEqualTo("보충제");
     }
 
     @Test
@@ -248,14 +313,14 @@ class ProductRepositoryTest {
     void moveCategory() {
         // given
         Category parent1 = Category.builder()
-                .name("운동용품")
+                .categoryType(CategoryType.HEALTH_GOODS)
                 .sortOrder(1)
                 .build();
         parent1 = categoryRepository.save(parent1);
         entityManager.flush();
 
         Category parent2 = Category.builder()
-                .name("건강식품")
+                .categoryType(CategoryType.SUPPLEMENT)
                 .sortOrder(2)
                 .build();
         parent2 = categoryRepository.save(parent2);
@@ -263,7 +328,7 @@ class ProductRepositoryTest {
 
         Category child = Category.builder()
                 .parent(parent1)
-                .name("덤벨")
+                .categoryType(CategoryType.HEALTH_GOODS)
                 .sortOrder(1)
                 .build();
         child = categoryRepository.save(child);
@@ -286,7 +351,7 @@ class ProductRepositoryTest {
     void moveCategoryToRoot() {
         // given
         Category parent = Category.builder()
-                .name("운동용품")
+                .categoryType(CategoryType.HEALTH_GOODS)
                 .sortOrder(1)
                 .build();
         parent = categoryRepository.save(parent);
@@ -294,7 +359,7 @@ class ProductRepositoryTest {
 
         Category child = Category.builder()
                 .parent(parent)
-                .name("덤벨")
+                .categoryType(CategoryType.HEALTH_GOODS)
                 .sortOrder(1)
                 .build();
         child = categoryRepository.save(child);
@@ -319,6 +384,9 @@ class ProductRepositoryTest {
     @DisplayName("상품 Variant 생성 및 저장")
     void createProductVariant_Success() {
         // given
+        if (fitnessProduct1 == null) {
+            createFitnessDummyData();
+        }
         Product product = fitnessProduct1;
         ProductVariant variant = ProductVariant.builder()
                 .product(product)
@@ -347,6 +415,9 @@ class ProductRepositoryTest {
     @DisplayName("Variant 가격이 null일 때 상품 기본 가격 사용")
     void variantResolvePrice_UseBasePrice() {
         // given
+        if (fitnessProduct1 == null) {
+            createFitnessDummyData();
+        }
         Product product = fitnessProduct1; // basePrice = 89000
         ProductVariant variant = ProductVariant.builder()
                 .product(product)
@@ -372,6 +443,9 @@ class ProductRepositoryTest {
     @DisplayName("Variant 재고 수량 변경")
     void updateVariantStock() {
         // given
+        if (fitnessProduct1 == null) {
+            createFitnessDummyData();
+        }
         Product product = fitnessProduct1;
         ProductVariant variant = ProductVariant.builder()
                 .product(product)
@@ -398,6 +472,9 @@ class ProductRepositoryTest {
     @DisplayName("Variant 재고 증가")
     void increaseVariantStock() {
         // given
+        if (fitnessProduct1 == null) {
+            createFitnessDummyData();
+        }
         Product product = fitnessProduct1;
         ProductVariant variant = ProductVariant.builder()
                 .product(product)
@@ -424,6 +501,9 @@ class ProductRepositoryTest {
     @DisplayName("Variant 재고 감소")
     void decreaseVariantStock() {
         // given
+        if (fitnessProduct1 == null) {
+            createFitnessDummyData();
+        }
         Product product = fitnessProduct1;
         ProductVariant variant = ProductVariant.builder()
                 .product(product)
@@ -450,6 +530,9 @@ class ProductRepositoryTest {
     @DisplayName("Variant 재고 감소 실패 - 재고 부족")
     void decreaseVariantStock_InsufficientStock() {
         // given
+        if (fitnessProduct1 == null) {
+            createFitnessDummyData();
+        }
         Product product = fitnessProduct1;
         final ProductVariant variant = ProductVariant.builder()
                 .product(product)
@@ -469,6 +552,9 @@ class ProductRepositoryTest {
     @DisplayName("상품 ID로 Variant 목록 조회")
     void findVariantsByProductId() {
         // given
+        if (fitnessProduct1 == null) {
+            createFitnessDummyData();
+        }
         Product product = fitnessProduct1;
         ProductVariant variant1 = ProductVariant.builder()
                 .product(product)
@@ -500,6 +586,9 @@ class ProductRepositoryTest {
     @DisplayName("SKU로 Variant 조회")
     void findVariantBySku() {
         // given
+        if (fitnessProduct1 == null) {
+            createFitnessDummyData();
+        }
         Product product = fitnessProduct1;
         ProductVariant variant = ProductVariant.builder()
                 .product(product)
@@ -525,9 +614,12 @@ class ProductRepositoryTest {
     @DisplayName("상품에 카테고리 연결")
     void linkProductToCategory() {
         // given
+        if (fitnessProduct1 == null) {
+            createFitnessDummyData();
+        }
         Product product = fitnessProduct1;
         Category category = Category.builder()
-                .name("운동용품")
+                .categoryType(CategoryType.HEALTH_GOODS)
                 .sortOrder(1)
                 .build();
         category = categoryRepository.save(category);
@@ -545,17 +637,21 @@ class ProductRepositoryTest {
         // then
         List<ProductCategory> productCategories = productCategoryRepository.findByProductId(product.getId());
         assertThat(productCategories).hasSize(1);
-        assertThat(productCategories.get(0).getCategory().getName()).isEqualTo("운동용품");
+        assertThat(productCategories.get(0).getCategory().getName()).isEqualTo("헬스용품");
+        assertThat(productCategories.get(0).getCategory().getCategoryType()).isEqualTo(CategoryType.HEALTH_GOODS);
     }
 
     @Test
     @DisplayName("카테고리로 연결된 상품 조회")
     void findProductsByCategory() {
         // given
+        if (fitnessProduct1 == null || fitnessProduct2 == null) {
+            createFitnessDummyData();
+        }
         Product product1 = fitnessProduct1;
         Product product2 = fitnessProduct2;
         Category category = Category.builder()
-                .name("피트니스 용품")
+                .categoryType(CategoryType.HEALTH_GOODS)
                 .sortOrder(1)
                 .build();
         category = categoryRepository.save(category);

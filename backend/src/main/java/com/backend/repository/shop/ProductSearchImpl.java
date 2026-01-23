@@ -1,4 +1,4 @@
-package com.backend.repository.shop.products;
+package com.backend.repository.shop;
 
 import com.backend.domain.shop.Product;
 import com.backend.domain.shop.ProductStatus;
@@ -32,7 +32,7 @@ public class ProductSearchImpl implements ProductSearch {
         QProductCategory productCategory = QProductCategory.productCategory;
         QCategory category = QCategory.category;
 
-        // 기본 쿼리 (카테고리 필터가 있을 때만 조인)
+        // 기본 쿼리 (@BatchSize로 N+1 문제 방지 - 페치 조인 대신 배치 사이즈 사용)
         JPAQuery<Product> query = queryFactory
                 .selectFrom(product);
         
@@ -64,7 +64,7 @@ public class ProductSearchImpl implements ProductSearch {
                 .limit(pageable.getPageSize())
                 .fetch();
 
-        // 카운트 쿼리 (성능 최적화 - 카테고리 필터가 있을 때만 조인)
+        // 카운트 쿼리 (성능 최적화 - 카운트만 수행)
         JPAQuery<Long> countQuery = queryFactory
                 .select(product.countDistinct())
                 .from(product);

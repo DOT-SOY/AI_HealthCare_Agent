@@ -30,9 +30,10 @@ public class Category extends BaseEntity {
     @OneToMany(mappedBy = "parent")
     private final List<Category> children = new ArrayList<>();
 
-    // 카테고리명
-    @Column(nullable = false, length = 100)
-    private String name;
+    // 카테고리 타입 (enum)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "category_type", nullable = false, length = 50)
+    private CategoryType categoryType;
 
     // 정렬 순서
     @Column(name = "sort_order", nullable = false)
@@ -40,10 +41,13 @@ public class Category extends BaseEntity {
 
     @Builder
     public Category(Category parent,
-                   String name,
+                   CategoryType categoryType,
                    Integer sortOrder) {
+        if (categoryType == null) {
+            throw new IllegalArgumentException("카테고리 타입은 필수입니다.");
+        }
         this.parent = parent;
-        this.name = name;
+        this.categoryType = categoryType;
         this.sortOrder = (sortOrder != null) ? sortOrder : 0;
     }
 
@@ -65,12 +69,12 @@ public class Category extends BaseEntity {
         moveTo(null);
     }
 
-    // 카테고리명 변경
-    public void changeName(String name) {
-        if (name == null || name.trim().isEmpty()) {
-            throw new IllegalArgumentException("카테고리명은 필수입니다.");
+    // 카테고리 타입 변경
+    public void changeCategoryType(CategoryType categoryType) {
+        if (categoryType == null) {
+            throw new IllegalArgumentException("카테고리 타입은 필수입니다.");
         }
-        this.name = name.trim();
+        this.categoryType = categoryType;
     }
 
     // 정렬 순서 변경
@@ -84,5 +88,10 @@ public class Category extends BaseEntity {
     // 루트 카테고리 여부
     public boolean isRoot() {
         return this.parent == null;
+    }
+
+    // 카테고리명 조회 (카테고리 타입의 displayName 반환)
+    public String getName() {
+        return this.categoryType.getDisplayName();
     }
 }

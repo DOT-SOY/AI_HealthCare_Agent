@@ -1,4 +1,4 @@
-package com.backend.repository.shop.products;
+package com.backend.repository.shop;
 
 import com.backend.domain.shop.ProductCategory;
 import com.backend.domain.shop.ProductCategoryId;

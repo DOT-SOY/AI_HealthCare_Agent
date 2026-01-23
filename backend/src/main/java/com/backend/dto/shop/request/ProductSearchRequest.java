@@ -1,7 +1,7 @@
 package com.backend.dto.shop.request;
 
 import com.backend.domain.shop.ProductStatus;
-import com.backend.repository.shop.products.ProductSearchCondition;
+import com.backend.repository.shop.ProductSearchCondition;
 import lombok.Getter;
 import lombok.Setter;
 

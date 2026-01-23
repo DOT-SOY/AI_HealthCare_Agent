@@ -10,12 +10,12 @@ import java.util.List;
 @Getter
 @Builder
 public class PageResponse<T> {
-    private List<T> items;  // api-design-principles 문서에 맞춰 items로 변경
+    private List<T> items;
     private int page;
-    @JsonProperty("page_size")  // api-design-principles 문서에 맞춰 snake_case 지원
+    @JsonProperty("page_size")
     private int pageSize;
-    private long total;  // api-design-principles 문서에 맞춰 total로 변경
-    private int pages;  // api-design-principles 문서에 맞춰 pages로 변경
+    private long total;
+    private int pages;
     @JsonProperty("has_next")
     private boolean hasNext;
     @JsonProperty("has_previous")
