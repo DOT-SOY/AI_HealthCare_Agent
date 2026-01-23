@@ -47,4 +47,9 @@ public class MemberBodyInfo {
     // 비고
     @Column(name = "notes", length = 1000)
     private String notes;
+
+    // 목적 (운동 목적)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "purpose")
+    private ExercisePurpose purpose;
 }

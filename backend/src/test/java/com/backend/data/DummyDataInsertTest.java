@@ -1,5 +1,6 @@
 package com.backend.data;
 
+import com.backend.entity.ExercisePurpose;
 import com.backend.entity.Gender;
 import com.backend.entity.Member;
 import com.backend.entity.MemberBodyInfo;
@@ -215,6 +216,10 @@ class DummyDataInsertTest {
                 double bodyFat = baseBodyFat + (Math.random() * 3 - 1.5); // ±1.5%
                 double muscle = baseMuscle + (Math.random() * 3 - 1.5); // ±1.5kg
 
+                // 운동 목적: 체중 감량, 근육 증가, 건강 유지, 체력 증진, 유연성 중 하나씩 순환 배정
+                ExercisePurpose[] purposes = ExercisePurpose.values();
+                ExercisePurpose purpose = purposes[i % purposes.length];
+
                 MemberBodyInfo bodyInfo = new MemberBodyInfo();
                 bodyInfo.setMember(member);
                 bodyInfo.setHeight(Math.round(height * 10.0) / 10.0); // 소수점 1자리
@@ -223,6 +228,7 @@ class DummyDataInsertTest {
                 bodyInfo.setBodyFatPercent(Math.round(bodyFat * 10.0) / 10.0);
                 bodyInfo.setSkeletalMuscleMass(Math.round(muscle * 10.0) / 10.0);
                 bodyInfo.setNotes(String.format("%s의 %d번째 측정 기록", member.getName(), i + 1));
+                bodyInfo.setPurpose(purpose);
 
                 bodyInfos.add(bodyInfo);
             }
