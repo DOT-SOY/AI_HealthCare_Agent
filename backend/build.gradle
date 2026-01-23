@@ -27,6 +27,30 @@ repositories {
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
+    // 1. 유효성 검증 (Validation)
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    // 2. 스프링 시큐리티 (보안 설정, 암호화)
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+
+    // 3. JWT (JSON Web Token)
+    implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
+
+    // 4. Redis (Refresh Token 저장)
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.apache.commons:commons-pool2:2.11.1'
+
+    // 5. Gson (JSON 처리)
+    implementation 'com.google.code.gson:gson:2.10.1'
+
+    // 6. Rate Limiting (Bucket4j)
+    implementation 'com.bucket4j:bucket4j-core:8.7.0'
+
+    // 7. AOP (Rate Limiting을 위한)
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
+
 	compileOnly 'org.projectlombok:lombok'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 	runtimeOnly 'org.mariadb.jdbc:mariadb-java-client'
@@ -34,6 +58,7 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
+
 
 tasks.named('test') {
 	useJUnitPlatform()
