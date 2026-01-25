@@ -35,6 +35,13 @@ public enum ErrorCode {
     SHOP_STOCK_INVALID_QUANTITY("SHOP_STOCK_001", "재고 수량이 유효하지 않습니다.", HttpStatus.BAD_REQUEST),
     SHOP_STOCK_INSUFFICIENT("SHOP_STOCK_002", "재고가 부족합니다. (요청: %s, 현재: %s)", HttpStatus.BAD_REQUEST),
     
+    // ========== 파일 업로드 ==========
+    FILE_EMPTY("FILE_001", "업로드할 파일이 없습니다.", HttpStatus.BAD_REQUEST),
+    FILE_TOO_LARGE("FILE_002", "파일 크기가 너무 큽니다. (최대: %s MB)", HttpStatus.PAYLOAD_TOO_LARGE),
+    FILE_INVALID_TYPE("FILE_003", "지원하지 않는 파일 타입입니다. (허용: %s)", HttpStatus.BAD_REQUEST),
+    FILE_INVALID_DIRECTORY("FILE_004", "유효하지 않은 디렉토리입니다.", HttpStatus.BAD_REQUEST),
+    FILE_UPLOAD_FAILED("FILE_005", "파일 업로드에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+    
     // ========== JWT 인증/보안 ==========
     JWT_MALFORMED("JWT_001", "잘못된 JWT 형식입니다.", HttpStatus.UNAUTHORIZED),
     JWT_EXPIRED("JWT_002", "만료된 JWT 토큰입니다.", HttpStatus.UNAUTHORIZED),

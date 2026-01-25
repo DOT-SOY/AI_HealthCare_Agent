@@ -1,6 +1,48 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, Clock, FileText, UtensilsCrossed, ShoppingBag, Star, User } from "lucide-react";
+
+// 간단한 SVG 아이콘 컴포넌트들
+const HomeIcon = ({ className }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+  </svg>
+);
+
+const ClockIcon = ({ className }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
+const FileTextIcon = ({ className }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+  </svg>
+);
+
+const UtensilsIcon = ({ className }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+  </svg>
+);
+
+const ShoppingBagIcon = ({ className }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+  </svg>
+);
+
+const StarIcon = ({ className }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+  </svg>
+);
+
+const UserIcon = ({ className }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+  </svg>
+);
 
 const BasicMenu = () => {
   const location = useLocation();
@@ -10,13 +52,13 @@ const BasicMenu = () => {
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
   const menuItems = [
-    { icon: Home, label: "메인", path: "/" },
-    { icon: Clock, label: "루틴", path: "/routine" },
-    { icon: FileText, label: "기록", path: "/record" },
-    { icon: UtensilsCrossed, label: "식사", path: "/meal" },
-    { icon: ShoppingBag, label: "쇼핑", path: "/shop" },
-    { icon: Star, label: "랭킹", path: "/ranking" },
-    { icon: User, label: "프로필", path: "/profile" },
+    { icon: HomeIcon, label: "메인", path: "/" },
+    { icon: ClockIcon, label: "루틴", path: "/routine" },
+    { icon: FileTextIcon, label: "기록", path: "/record" },
+    { icon: UtensilsIcon, label: "식사", path: "/meal" },
+    { icon: ShoppingBagIcon, label: "쇼핑", path: "/shop" },
+    { icon: StarIcon, label: "랭킹", path: "/ranking" },
+    { icon: UserIcon, label: "프로필", path: "/profile" },
   ];
 
   const isActive = (path) => {

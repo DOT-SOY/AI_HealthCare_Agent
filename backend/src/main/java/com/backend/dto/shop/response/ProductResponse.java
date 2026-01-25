@@ -5,11 +5,14 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 
 @Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -22,9 +25,7 @@ public class ProductResponse {
     private Instant createdAt;
     private Instant updatedAt;
     private Long createdBy; // 작성자 ID
-    
-    // TODO: 추후 이미지 도메인 연동 시 추가
-    // private List<ProductImageResponse> images;
+    private List<ProductImageResponse> images;
     
     // TODO: 추후 variant 도메인 연동 시 추가
     // private List<ProductVariantResponse> variants;

@@ -49,6 +49,16 @@ public class JWTCheckFilter extends OncePerRequestFilter{
             return true;
         }
 
+        // 파일 업로드 경로는 체크하지 않음 (TODO: 추후 ADMIN 권한으로 제한)
+        if (path.equals("/api/files/upload")) {
+            return true;
+        }
+
+        // 상품 관련 API는 모두 public 접근 허용 (TODO: 추후 ADMIN 권한으로 제한)
+        if (path.equals("/api/v1/products") || path.startsWith("/api/v1/products/")) {
+            return true;
+        }
+
         return false;
     }
     @Override // 실제 JWT 검증 처리를 수행. 성공 → SecurityContext에 인증 정보 설정, 실패 → JSON 에러 응답

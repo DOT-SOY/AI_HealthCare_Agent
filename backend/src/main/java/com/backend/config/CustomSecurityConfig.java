@@ -82,10 +82,10 @@ public class CustomSecurityConfig {
         // ✅ 인가 규칙: Preflight(OPTIONS)는 인증 없이 통과시켜야 브라우저가 실제 요청을 보낼 수 있음
         http.authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                // 로그인/회원 관련은 누구나 접근
                 .requestMatchers("/api/member/**").permitAll()
-                // 이미지 <img src>는 Authorization 헤더를 못 싣기 때문에 공개 허용
                 .requestMatchers("/api/files/view/**").permitAll()
+                .requestMatchers("/api/files/upload").permitAll()  // TODO: 추후 ADMIN 권한으로 제한
+                .requestMatchers("/api/v1/products/**").permitAll()  // TODO: 추후 ADMIN 권한으로 제한 (생성/수정/삭제)
                 // 나머지는 JWT 인증 필요
                 .anyRequest().authenticated()
         );

@@ -28,8 +28,13 @@ public class ProductImage extends BaseEntity {
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
-    // 이미지 URL
-    @Column(nullable = false, length = 1000)
+    // 스토리지 키 (파일 경로)
+    @Column(name = "file_path", length = 1000)
+    private String filePath;
+
+    // 이미지 URL (deprecated: 점진적 마이그레이션을 위해 유지, 신규는 filePath 사용)
+    @Deprecated
+    @Column(nullable = true, length = 1000)
     private String url;
 
     // 대표 이미지 여부
@@ -38,11 +43,13 @@ public class ProductImage extends BaseEntity {
 
     @Builder
     public ProductImage(Product product,
-                      String url,
+                      String filePath,
+                      String url, // deprecated: 하위 호환성 유지
                       Boolean primaryImage) {
         this.uuid = UUID.randomUUID();
         this.product = product;
-        this.url = url;
+        this.filePath = filePath;
+        this.url = url; // deprecated
         this.primaryImage = (primaryImage != null) ? primaryImage : false;
     }
 
@@ -56,7 +63,16 @@ public class ProductImage extends BaseEntity {
         this.primaryImage = false;
     }
 
-    // 이미지 URL 변경
+    // 스토리지 키 변경
+    public void changeFilePath(String filePath) {
+        if (filePath == null || filePath.trim().isEmpty()) {
+            throw new IllegalArgumentException("파일 경로는 필수입니다.");
+        }
+        this.filePath = filePath.trim();
+    }
+
+    // 이미지 URL 변경 (deprecated: 하위 호환성 유지)
+    @Deprecated
     public void changeUrl(String url) {
         if (url == null || url.trim().isEmpty()) {
             throw new IllegalArgumentException("이미지 URL은 필수입니다.");
