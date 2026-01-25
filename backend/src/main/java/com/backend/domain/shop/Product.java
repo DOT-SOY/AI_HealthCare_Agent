@@ -44,7 +44,7 @@ public class Product extends BaseEntity {
 
     // 작성자
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "created_by", nullable = false)
+    @JoinColumn(name = "created_by", referencedColumnName = "member_id", nullable = false)
     private Member createdBy;
 
     // 관계 정리

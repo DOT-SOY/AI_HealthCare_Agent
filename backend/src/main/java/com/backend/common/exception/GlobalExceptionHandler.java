@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
  * <p>처리하는 예외 타입:
  * <ul>
  *   <li>BusinessException: 비즈니스 로직 예외</li>
+ *   <li>JWTException: JWT 인증/보안 예외</li>
  *   <li>MethodArgumentNotValidException: @Valid 검증 실패 (JSON 요청)</li>
  *   <li>BindException: @Valid 검증 실패 (폼 요청)</li>
  *   <li>IllegalArgumentException: 잘못된 인자 예외</li>
@@ -40,6 +41,26 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleBusinessException(
             BusinessException e, HttpServletRequest request) {
         log.warn("BusinessException: {} - {}", e.getErrorCode().getCode(), e.getMessage());
+        
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .error(e.getErrorCode().getCode())
+                .message(e.getFormattedMessage()) // 포맷팅된 메시지 사용
+                .timestamp(Instant.now().toString())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity
+                .status(e.getErrorCode().getStatus())
+                .body(errorResponse);
+    }
+
+    /**
+     * JWT 인증/보안 예외 처리
+     */
+    @ExceptionHandler(JWTException.class)
+    public ResponseEntity<ErrorResponse> handleJWTException(
+            JWTException e, HttpServletRequest request) {
+        log.warn("JWTException: {} - {}", e.getErrorCode().getCode(), e.getMessage());
         
         ErrorResponse errorResponse = ErrorResponse.builder()
                 .error(e.getErrorCode().getCode())

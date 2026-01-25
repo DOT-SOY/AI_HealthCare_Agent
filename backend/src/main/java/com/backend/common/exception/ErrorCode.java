@@ -33,7 +33,21 @@ public enum ErrorCode {
     SHOP_PRODUCT_INVALID_STATUS("SHOP_PRODUCT_003", "유효하지 않은 상품 상태입니다.", HttpStatus.BAD_REQUEST),
     SHOP_CATEGORY_NOT_FOUND("SHOP_CATEGORY_001", "카테고리를 찾을 수 없습니다. (ID: %s)", HttpStatus.NOT_FOUND),
     SHOP_STOCK_INVALID_QUANTITY("SHOP_STOCK_001", "재고 수량이 유효하지 않습니다.", HttpStatus.BAD_REQUEST),
-    SHOP_STOCK_INSUFFICIENT("SHOP_STOCK_002", "재고가 부족합니다. (요청: %s, 현재: %s)", HttpStatus.BAD_REQUEST);
+    SHOP_STOCK_INSUFFICIENT("SHOP_STOCK_002", "재고가 부족합니다. (요청: %s, 현재: %s)", HttpStatus.BAD_REQUEST),
+    
+    // ========== JWT 인증/보안 ==========
+    JWT_MALFORMED("JWT_001", "잘못된 JWT 형식입니다.", HttpStatus.UNAUTHORIZED),
+    JWT_EXPIRED("JWT_002", "만료된 JWT 토큰입니다.", HttpStatus.UNAUTHORIZED),
+    JWT_INVALID("JWT_003", "유효하지 않은 JWT 토큰입니다.", HttpStatus.UNAUTHORIZED),
+    JWT_INVALID_TOKEN_TYPE("JWT_004", "유효하지 않은 토큰 타입입니다.", HttpStatus.UNAUTHORIZED),
+    JWT_ERROR("JWT_005", "JWT 처리 중 오류가 발생했습니다.", HttpStatus.UNAUTHORIZED),
+    JWT_INVALID_REFRESH_CLAIMS("JWT_006", "유효하지 않은 Refresh Token 클레임입니다.", HttpStatus.UNAUTHORIZED),
+    JWT_REFRESH_BINDING_MISMATCH("JWT_007", "Access Token과 Refresh Token의 주체가 일치하지 않습니다.", HttpStatus.UNAUTHORIZED),
+    JWT_UNKNOWN_REFRESH("JWT_008", "알 수 없는 Refresh Token입니다.", HttpStatus.UNAUTHORIZED),
+    JWT_REFRESH_REPLAY_DETECTED("JWT_009", "Refresh Token 재사용이 감지되었습니다. (Replay 공격)", HttpStatus.UNAUTHORIZED),
+    JWT_REFRESH_TAMPERED("JWT_010", "변조된 Refresh Token이 감지되었습니다.", HttpStatus.UNAUTHORIZED),
+    JWT_REFRESH_DEVICE_MISMATCH("JWT_011", "Refresh Token의 기기 정보가 일치하지 않습니다.", HttpStatus.UNAUTHORIZED),
+    JWT_REFRESH_IP_MISMATCH("JWT_012", "Refresh Token의 IP 주소가 일치하지 않습니다.", HttpStatus.UNAUTHORIZED);
     
     // ========== 루틴 (예시) ==========
     // ROUTINE_NOT_FOUND("ROUTINE_001", "루틴을 찾을 수 없습니다. (ID: %s)", HttpStatus.NOT_FOUND),
