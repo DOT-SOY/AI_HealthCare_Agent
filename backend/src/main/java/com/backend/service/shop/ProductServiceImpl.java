@@ -128,11 +128,11 @@ public class ProductServiceImpl implements ProductService {
                 pageRequest.toPageable()
         );
 
-        // 2-쿼리 전략: product ids로 images를 한 번에 조회
+        // 2-쿼리 전략: product ids로 images와 variants를 한 번에 조회
         List<Product> productList = products.getContent();
         if (productList.isEmpty()) {
             return PageResponse.of(
-                    products.map(p -> toResponseWithImages(p, java.util.Collections.emptyList())),
+                    products.map(p -> toResponseWithImagesAndVariants(p, java.util.Collections.emptyList(), java.util.Collections.emptyList())),
                     pageRequest.getPage()
             );
         }
@@ -145,20 +145,30 @@ public class ProductServiceImpl implements ProductService {
         // 3. 모든 images를 한 번에 조회 (1번의 쿼리)
         List<ProductImage> allImages = productImageRepository.findByProductIdIn(productIds);
 
-        // 4. Product ID별로 images 그룹화
+        // 4. 모든 variants를 한 번에 조회 (1번의 쿼리)
+        List<ProductVariant> allVariants = productVariantRepository.findByProductIdIn(productIds);
+
+        // 5. Product ID별로 images와 variants 그룹화
         Map<Long, List<ProductImage>> imagesByProductId = allImages.stream()
                 .collect(Collectors.groupingBy(image -> image.getProduct().getId()));
+        
+        Map<Long, List<ProductVariant>> variantsByProductId = allVariants.stream()
+                .collect(Collectors.groupingBy(variant -> variant.getProduct().getId()));
 
-        // 5. 각 Product에 images 설정 후 변환
+        // 6. 각 Product에 images와 variants 설정 후 변환
         List<ProductResponse> responses = productList.stream()
                 .map(product -> {
-                    // Product에 images 설정 (영속성 컨텍스트에 이미 로드된 images 사용)
+                    // Product에 images와 variants 설정 (영속성 컨텍스트에 이미 로드된 데이터 사용)
                     List<ProductImage> productImages = imagesByProductId.getOrDefault(
                             product.getId(), 
                             java.util.Collections.emptyList()
                     );
-                    // images를 product에 설정 (프록시 대신 실제 컬렉션 사용)
-                    return toResponseWithImages(product, productImages);
+                    List<ProductVariant> productVariants = variantsByProductId.getOrDefault(
+                            product.getId(),
+                            java.util.Collections.emptyList()
+                    );
+                    // images와 variants를 product에 설정 (프록시 대신 실제 컬렉션 사용)
+                    return toResponseWithImagesAndVariants(product, productImages, productVariants);
                 })
                 .collect(Collectors.toList());
 
@@ -319,6 +329,38 @@ public class ProductServiceImpl implements ProductService {
                 .updatedAt(response.getUpdatedAt())
                 .createdBy(response.getCreatedBy())
                 .images(imageResponses)
+                .build();
+    }
+
+    /**
+     * Product 엔티티를 ProductResponse로 변환하고 이미지 URL과 variants를 조립합니다.
+     * 2-쿼리 전략에서 사용 (이미 조회된 images와 variants를 전달)
+     * 
+     * @param product Product 엔티티
+     * @param images 이미 조회된 ProductImage 리스트
+     * @param variants 이미 조회된 ProductVariant 리스트
+     * @return 이미지 URL과 variants가 조립된 ProductResponse
+     */
+    private ProductResponse toResponseWithImagesAndVariants(Product product, List<ProductImage> images, List<ProductVariant> variants) {
+        ProductResponse response = toResponseWithImages(product, images);
+        
+        // Variants 변환
+        List<ProductVariantResponse> variantResponses = variants.stream()
+                .map(ProductVariantResponse::from)
+                .collect(Collectors.toList());
+        
+        // Builder를 사용하여 variants 필드 설정
+        return ProductResponse.builder()
+                .id(response.getId())
+                .name(response.getName())
+                .description(response.getDescription())
+                .status(response.getStatus())
+                .basePrice(response.getBasePrice())
+                .createdAt(response.getCreatedAt())
+                .updatedAt(response.getUpdatedAt())
+                .createdBy(response.getCreatedBy())
+                .images(response.getImages())
+                .variants(variantResponses)
                 .build();
     }
 

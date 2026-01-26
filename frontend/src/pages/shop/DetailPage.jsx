@@ -1,15 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getProduct } from '../../services/productApi';
+import { useCart } from '../../components/layout/ShopLayout';
+import QtyStepper from '../../components/cart/QtyStepper';
 
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { addToCart } = useCart();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState(null);
+  const [qty, setQty] = useState(1);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -95,6 +99,10 @@ const ProductDetail = () => {
     : product.basePrice;
 
   const hasVariants = product.variants && product.variants.length > 0;
+
+  const handleAddToCart = () => {
+    addToCart(product, selectedVariant, qty);
+  };
 
   return (
     <div className="w-full">
@@ -219,6 +227,25 @@ const ProductDetail = () => {
                 </div>
               </div>
             )}
+
+            <div className="mb-6 border-t pt-6">
+              <h2 className="text-xl font-semibold mb-3">수량 선택</h2>
+              <div className="flex items-center gap-4 mb-4">
+                <QtyStepper
+                  value={qty}
+                  onChange={setQty}
+                  disabled={product.status !== 'ACTIVE'}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleAddToCart}
+                disabled={product.status !== 'ACTIVE' || (hasVariants && !selectedVariant)}
+                className="w-full py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition font-medium text-lg"
+              >
+                장바구니에 담기
+              </button>
+            </div>
 
             <div className="border-t pt-6">
               <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">

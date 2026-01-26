@@ -1,9 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getProductList } from '../../services/productApi';
+import { useCart } from '../../components/layout/ShopLayout';
+import QtyStepper from '../../components/cart/QtyStepper';
 
 const ProductList = () => {
   const navigate = useNavigate();
+  const { addToCart } = useCart();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -15,6 +18,9 @@ const ProductList = () => {
   const [keyword, setKeyword] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
+  const [productQtys, setProductQtys] = useState({});
+  const [selectedVariants, setSelectedVariants] = useState({}); // 각 상품별 선택된 variant 저장
+  const isAddingToCartRef = useRef(false);
   
   // 카테고리 타입 정의 (CategoryType enum과 일치)
   // TODO: 실제 카테고리 API가 추가되면 동적으로 가져오도록 수정
@@ -99,6 +105,50 @@ const ProductList = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleAddToCart = (e, product) => {
+    // 중복 호출 방지
+    if (isAddingToCartRef.current) {
+      return;
+    }
+    
+    e.preventDefault();
+    e.stopPropagation();
+    isAddingToCartRef.current = true;
+    
+    // 옵션이 있는 경우 선택된 variant 확인
+    const hasVariants = product.variants && product.variants.length > 0;
+    const selectedVariant = hasVariants ? selectedVariants[product.id] : null;
+    
+    // 옵션이 있는데 선택되지 않은 경우 처리하지 않음
+    if (hasVariants && !selectedVariant) {
+      isAddingToCartRef.current = false;
+      return;
+    }
+    
+    // 현재 QtyStepper에 표시된 수량을 가져옴 (productQtys 상태와 동기화)
+    const currentQty = productQtys[product.id] ?? 1;
+    addToCart(product, selectedVariant, currentQty);
+    
+    // 다음 프레임에서 플래그 리셋 (React의 배치 업데이트 후)
+    setTimeout(() => {
+      isAddingToCartRef.current = false;
+    }, 0);
+  };
+
+  const handleQtyChange = (productId, newQty) => {
+    setProductQtys((prev) => ({
+      ...prev,
+      [productId]: newQty,
+    }));
+  };
+
+  const handleVariantChange = (productId, variant) => {
+    setSelectedVariants((prev) => ({
+      ...prev,
+      [productId]: variant,
+    }));
+  };
+
   // 대표 이미지 URL 가져오기
   const getPrimaryImageUrl = (product) => {
     if (!product.images || product.images.length === 0) {
@@ -106,6 +156,15 @@ const ProductList = () => {
     }
     const primaryImage = product.images.find(img => img.primaryImage);
     return primaryImage ? primaryImage.url : product.images[0].url;
+  };
+
+  // 상품의 표시 가격 계산 (선택된 variant가 있으면 variant 가격, 없으면 기본 가격)
+  const getDisplayPrice = (product) => {
+    const selectedVariant = selectedVariants[product.id];
+    if (selectedVariant && selectedVariant.price != null) {
+      return Number(selectedVariant.price);
+    }
+    return product.basePrice;
   };
 
   if (loading && products.length === 0) {
@@ -204,38 +263,92 @@ const ProductList = () => {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
             {products.map((product) => (
-              <Link
+              <div
                 key={product.id}
-                to={`/shop/detail/${product.id}`}
-                className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+                className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow flex flex-col"
               >
-                <div className="aspect-square bg-gray-100 overflow-hidden">
-                  <img
-                    src={getPrimaryImageUrl(product)}
-                    alt={product.name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.src = 'https://via.placeholder.com/300x300?text=No+Image';
-                    }}
-                  />
-                </div>
-                <div className="p-4">
-                  <h3 className="font-semibold text-lg mb-2 line-clamp-2">{product.name}</h3>
-                  <p className="text-gray-600 text-sm mb-3 line-clamp-2">{product.description}</p>
-                  <div className="flex justify-between items-center">
-                    <span className="text-2xl font-bold text-blue-600">
-                      {product.basePrice?.toLocaleString()}원
-                    </span>
-                    <span className={`px-2 py-1 rounded text-xs ${
-                      product.status === 'ACTIVE' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {product.status === 'ACTIVE' ? '판매중' : '품절'}
-                    </span>
+                <Link to={`/shop/detail/${product.id}`} className="block">
+                  <div className="aspect-square bg-gray-100 overflow-hidden">
+                    <img
+                      src={getPrimaryImageUrl(product)}
+                      alt={product.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.src = 'https://via.placeholder.com/300x300?text=No+Image';
+                      }}
+                    />
                   </div>
+                  <div className="p-4">
+                    <h3 className="font-semibold text-lg mb-2 line-clamp-2">{product.name}</h3>
+                    <p className="text-gray-600 text-sm mb-3 line-clamp-2">{product.description}</p>
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-2xl font-bold text-blue-600">
+                        {getDisplayPrice(product)?.toLocaleString()}원
+                      </span>
+                      <span className={`px-2 py-1 rounded text-xs ${
+                        product.status === 'ACTIVE' 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {product.status === 'ACTIVE' ? '판매중' : '품절'}
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+                <div className="p-4 pt-0 mt-auto border-t">
+                  {/* 옵션 선택 */}
+                  {product.variants && product.variants.filter(v => v.active).length > 0 && (
+                    <div className="mb-3">
+                      <span className="text-sm text-gray-600 mb-2 block">옵션:</span>
+                      <div className="flex flex-wrap gap-2">
+                        {product.variants
+                          .filter((v) => v.active)
+                          .map((v) => {
+                            const label = v.optionText || `옵션 #${v.id}`;
+                            const isSelected = selectedVariants[product.id]?.id === v.id;
+                            return (
+                              <button
+                                key={v.id}
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleVariantChange(product.id, isSelected ? null : v);
+                                }}
+                                className={`px-3 py-1 rounded text-xs font-medium transition border ${
+                                  isSelected
+                                    ? 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600'
+                                    : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:bg-blue-50'
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-sm text-gray-600">수량:</span>
+                    <QtyStepper
+                      value={productQtys[product.id] ?? 1}
+                      onChange={(newQty) => handleQtyChange(product.id, newQty)}
+                      disabled={product.status !== 'ACTIVE'}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => handleAddToCart(e, product)}
+                    disabled={
+                      product.status !== 'ACTIVE' ||
+                      (product.variants && product.variants.filter(v => v.active).length > 0 && !selectedVariants[product.id])
+                    }
+                    className="w-full py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition font-medium"
+                  >
+                    담기
+                  </button>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
 
