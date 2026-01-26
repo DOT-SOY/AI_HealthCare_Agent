@@ -1,7 +1,9 @@
 package com.backend.dto.shop.response;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.util.UUID;
 
@@ -10,6 +12,8 @@ import java.util.UUID;
  */
 @Getter
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class ProductImageResponse {
     private UUID uuid;
     private String url; // FileStorageService를 통해 조립된 URL

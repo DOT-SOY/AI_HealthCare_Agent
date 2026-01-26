@@ -7,7 +7,6 @@ import com.backend.common.exception.ErrorCode;
 import com.backend.domain.member.Member;
 import com.backend.domain.shop.Product;
 import com.backend.domain.shop.ProductImage;
-import com.backend.dto.shop.mapper.ProductMapper;
 import com.backend.dto.shop.request.ProductCreateRequest;
 import com.backend.dto.shop.request.ProductSearchRequest;
 import com.backend.dto.shop.request.ProductUpdateRequest;
@@ -21,11 +20,13 @@ import com.backend.service.file.FileStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.support.PageableExecutionUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -37,7 +38,6 @@ public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepository;
     private final ProductSearch productSearch;
-    private final ProductMapper productMapper;
     private final MemberRepository memberRepository;
     private final FileStorageService fileStorageService;
     private final ProductImageRepository productImageRepository;
@@ -90,13 +90,55 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public PageResponse<ProductResponse> findAll(PageRequest pageRequest, ProductSearchRequest searchRequest) {
+        // 1. Products 페이징 조회 (createdBy만 페치 조인, images는 제외)
         Page<Product> products = productSearch.search(
                 searchRequest.toCondition(),
                 pageRequest.toPageable()
         );
 
+        // 2-쿼리 전략: product ids로 images를 한 번에 조회
+        List<Product> productList = products.getContent();
+        if (productList.isEmpty()) {
+            return PageResponse.of(
+                    products.map(this::toResponseWithImages),
+                    pageRequest.getPage()
+            );
+        }
+
+        // 2. Product IDs 추출
+        List<Long> productIds = productList.stream()
+                .map(Product::getId)
+                .collect(Collectors.toList());
+
+        // 3. 모든 images를 한 번에 조회 (1번의 쿼리)
+        List<ProductImage> allImages = productImageRepository.findByProductIdIn(productIds);
+
+        // 4. Product ID별로 images 그룹화
+        Map<Long, List<ProductImage>> imagesByProductId = allImages.stream()
+                .collect(Collectors.groupingBy(image -> image.getProduct().getId()));
+
+        // 5. 각 Product에 images 설정 후 변환
+        List<ProductResponse> responses = productList.stream()
+                .map(product -> {
+                    // Product에 images 설정 (영속성 컨텍스트에 이미 로드된 images 사용)
+                    List<ProductImage> productImages = imagesByProductId.getOrDefault(
+                            product.getId(), 
+                            java.util.Collections.emptyList()
+                    );
+                    // images를 product에 설정 (프록시 대신 실제 컬렉션 사용)
+                    return toResponseWithImages(product, productImages);
+                })
+                .collect(Collectors.toList());
+
+        // Page 객체 재생성 (변환된 responses 사용)
+        Page<ProductResponse> responsePage = org.springframework.data.support.PageableExecutionUtils.getPage(
+                responses,
+                products.getPageable(),
+                products::getTotalElements
+        );
+
         return PageResponse.of(
-                products.map(this::toResponseWithImages),
+                responsePage,
                 pageRequest.getPage()
         );
     }
@@ -169,10 +211,23 @@ public class ProductServiceImpl implements ProductService {
      * @return 이미지 URL이 조립된 ProductResponse
      */
     private ProductResponse toResponseWithImages(Product product) {
-        ProductResponse response = productMapper.toResponse(product);
+        // 단건 조회 시에는 product.getImages() 사용 (이미 @EntityGraph로 로드됨)
+        return toResponseWithImages(product, product.getImages());
+    }
+
+    /**
+     * Product 엔티티를 ProductResponse로 변환하고 이미지 URL을 조립합니다.
+     * 2-쿼리 전략에서 사용 (이미 조회된 images를 전달)
+     * 
+     * @param product Product 엔티티
+     * @param images 이미 조회된 ProductImage 리스트 (null이면 product.getImages() 사용)
+     * @return 이미지 URL이 조립된 ProductResponse
+     */
+    private ProductResponse toResponseWithImages(Product product, List<ProductImage> images) {
+        ProductResponse response = ProductResponse.from(product);
         
         // 이미지 목록을 ProductImageResponse로 변환
-        List<ProductImageResponse> imageResponses = product.getImages().stream()
+        List<ProductImageResponse> imageResponses = images.stream()
                 .sorted(Comparator.comparing(ProductImage::getCreatedAt))
                 .map(this::toImageResponse)
                 .collect(Collectors.toList());

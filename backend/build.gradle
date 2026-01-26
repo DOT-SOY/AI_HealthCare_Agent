@@ -60,6 +60,9 @@ dependencies {
     // Lombok
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
+    
+    // Lombok + MapStruct 통합
+    annotationProcessor 'org.projectlombok:lombok-mapstruct-binding:0.2.0'
 
     // Dev & DB
     developmentOnly 'org.springframework.boot:spring-boot-devtools'

@@ -32,9 +32,11 @@ public class ProductSearchImpl implements ProductSearch {
         QProductCategory productCategory = QProductCategory.productCategory;
         QCategory category = QCategory.category;
 
-        // 기본 쿼리 (@BatchSize로 N+1 문제 방지 - 페치 조인 대신 배치 사이즈 사용)
+        // 기본 쿼리 (2-쿼리 전략: images는 별도 조회)
+        // ManyToOne인 createdBy만 페치 조인 (OneToMany인 images는 제외)
         JPAQuery<Product> query = queryFactory
-                .selectFrom(product);
+                .selectFrom(product)
+                .leftJoin(product.createdBy).fetchJoin();  // Member 페치 조인 (ManyToOne만)
         
         // 카테고리 필터가 있을 때만 조인
         if (condition.getCategoryId() != null) {
@@ -50,7 +52,7 @@ public class ProductSearchImpl implements ProductSearch {
                         statusEq(condition.getStatus())
                 );
         
-        // 카테고리 조인 시 중복 방지를 위해 distinct 사용 (조인이 없을 때는 불필요하지만 성능 영향 미미)
+        // 카테고리 조인 시 중복 방지를 위해 distinct 사용
         if (condition.getCategoryId() != null) {
             query.distinct();
         }

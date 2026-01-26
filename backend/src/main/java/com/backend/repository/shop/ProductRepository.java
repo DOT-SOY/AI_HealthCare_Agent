@@ -11,7 +11,8 @@ import java.util.Optional;
 public interface ProductRepository extends JpaRepository<Product, Long> {
     boolean existsByName(String name);
     
-    // @BatchSize로 N+1 문제 방지 (Product 엔티티에 @BatchSize 적용됨)
+    // 페치 조인으로 N+1 문제 방지 (createdBy, images를 한 번에 조회)
+    @EntityGraph(attributePaths = {"createdBy", "images"})
     Optional<Product> findByIdAndDeletedAtIsNull(Long id);
     
     Optional<Product> findByNameAndDeletedAtIsNull(String name);
