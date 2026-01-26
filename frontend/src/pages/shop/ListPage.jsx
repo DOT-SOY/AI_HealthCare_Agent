@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { getProductList } from '../../services/productApi';
 
 const ProductList = () => {
+  const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -13,36 +14,84 @@ const ProductList = () => {
   const [hasPrevious, setHasPrevious] = useState(false);
   const [keyword, setKeyword] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState(null);
+  
+  // 카테고리 타입 정의 (CategoryType enum과 일치)
+  // TODO: 실제 카테고리 API가 추가되면 동적으로 가져오도록 수정
+  const categoryTypes = [
+    { type: 'FOOD', name: '음식' },
+    { type: 'SUPPLEMENT', name: '보충제' },
+    { type: 'HEALTH_GOODS', name: '헬스용품' },
+    { type: 'CLOTHING', name: '의류' },
+    { type: 'ETC', name: '기타' },
+  ];
+  
+  // 카테고리 타입을 카테고리 ID로 매핑 (임시)
+  // 실제로는 백엔드에서 카테고리 API를 통해 동적으로 가져와야 합니다
+  const categoryTypeToIdMap = {
+    'FOOD': 1,
+    'SUPPLEMENT': 2,
+    'HEALTH_GOODS': 3,
+    'CLOTHING': 4,
+    'ETC': 5,
+  };
 
   useEffect(() => {
+    const abortController = new AbortController();
+    
+    const loadProducts = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await getProductList({
+          page,
+          page_size: pageSize,
+          keyword,
+          categoryId: selectedCategoryId,
+          signal: abortController.signal, // AbortController signal 전달
+        });
+        
+        // 요청이 취소되었는지 확인
+        if (abortController.signal.aborted) return;
+        
+        setProducts(response.items || []);
+        setTotal(response.total || 0);
+        setHasNext(response.has_next || false);
+        setHasPrevious(response.has_previous || false);
+      } catch (err) {
+        // AbortError는 무시 (요청 취소)
+        if (err.name === 'AbortError') return;
+        
+        // 요청이 취소되었는지 확인
+        if (abortController.signal.aborted) return;
+        
+        setError(err.message || '상품 목록을 불러오는데 실패했습니다.');
+        console.error('Failed to load products:', err);
+      } finally {
+        // 요청이 취소되었는지 확인
+        if (!abortController.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    };
+    
     loadProducts();
-  }, [page, keyword]);
-
-  const loadProducts = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await getProductList({
-        page,
-        page_size: pageSize,
-        keyword,
-      });
-      setProducts(response.items || []);
-      setTotal(response.total || 0);
-      setHasNext(response.has_next || false);
-      setHasPrevious(response.has_previous || false);
-    } catch (err) {
-      setError(err.message || '상품 목록을 불러오는데 실패했습니다.');
-      console.error('Failed to load products:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    
+    // cleanup: 컴포넌트 언마운트 또는 의존성 변경 시 이전 요청 취소
+    return () => {
+      abortController.abort();
+    };
+  }, [page, keyword, selectedCategoryId]);
 
   const handleSearch = (e) => {
     e.preventDefault();
     setKeyword(searchInput);
     setPage(1); // 검색 시 첫 페이지로
+  };
+
+  const handleCategoryFilter = (categoryId) => {
+    setSelectedCategoryId(categoryId === selectedCategoryId ? null : categoryId);
+    setPage(1); // 카테고리 필터 변경 시 첫 페이지로
   };
 
   const handlePageChange = (newPage) => {
@@ -78,7 +127,16 @@ const ProductList = () => {
   return (
     <div className="w-full">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-4">상품 목록</h1>
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+          <h1 className="text-3xl font-bold">상품 목록</h1>
+          <button
+            type="button"
+            onClick={() => navigate('/shop/admin/create')}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium"
+          >
+            상품 등록
+          </button>
+        </div>
         
         {/* 검색 폼 */}
         <form onSubmit={handleSearch} className="mb-6">
@@ -98,6 +156,43 @@ const ProductList = () => {
             </button>
           </div>
         </form>
+
+        {/* 카테고리 필터 */}
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold mb-3">카테고리</h2>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => handleCategoryFilter(null)}
+              className={`px-4 py-2 rounded-lg font-medium transition ${
+                selectedCategoryId === null
+                  ? 'bg-blue-500 text-white hover:bg-blue-600 shadow-md'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              전체
+            </button>
+            {categoryTypes.map((category) => {
+              const categoryId = categoryTypeToIdMap[category.type];
+              return (
+                <button
+                  key={category.type}
+                  type="button"
+                  onClick={() => {
+                    handleCategoryFilter(categoryId);
+                  }}
+                  className={`px-4 py-2 rounded-lg font-medium transition ${
+                    selectedCategoryId === categoryId
+                      ? 'bg-blue-500 text-white hover:bg-blue-600 shadow-md'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {category.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* 상품 그리드 */}

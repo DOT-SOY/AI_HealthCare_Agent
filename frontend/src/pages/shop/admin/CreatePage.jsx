@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createProduct } from '../../../services/productApi';
 import { uploadFiles } from '../../../services/fileApi';
+import { CATEGORY_TYPES } from '../../../constants/categoryTypes';
 
 const ProductCreatePage = () => {
   const navigate = useNavigate();
@@ -9,6 +10,7 @@ const ProductCreatePage = () => {
     name: '',
     description: '',
     basePrice: '',
+    status: 'DRAFT', // 기본값: DRAFT
   });
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploadedFiles, setUploadedFiles] = useState([]);
@@ -16,6 +18,14 @@ const ProductCreatePage = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const [selectedCategoryTypes, setSelectedCategoryTypes] = useState([]);
+  const [variants, setVariants] = useState([]);
+
+  const toggleCategory = (value) => {
+    setSelectedCategoryTypes((prev) =>
+      prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]
+    );
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -100,7 +110,16 @@ const ProductCreatePage = () => {
         name: formData.name.trim(),
         description: formData.description.trim(),
         basePrice: parseFloat(formData.basePrice),
+        status: formData.status || 'DRAFT',
         imageFilePaths: uploadedFiles.map(file => file.filePath),
+        variants: variants.length > 0 ? variants.map(v => ({
+          sku: v.sku,
+          optionText: (v.optionDisplay ?? '').trim(),
+          price: v.price ? parseFloat(v.price) : null,
+          stockQty: parseInt(v.stockQty) || 0,
+          active: v.active !== undefined ? v.active : true,
+        })) : undefined,
+        categoryTypes: selectedCategoryTypes.length > 0 ? selectedCategoryTypes : undefined,
       };
 
       const result = await createProduct(productData);
@@ -175,7 +194,176 @@ const ProductCreatePage = () => {
                 placeholder="0"
               />
             </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                판매 상태
+              </label>
+              <select
+                name="status"
+                value={formData.status}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="DRAFT">임시 저장 (DRAFT)</option>
+                <option value="ACTIVE">판매 중 (ACTIVE)</option>
+                <option value="INACTIVE">판매 중지 (INACTIVE)</option>
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                상품의 판매 상태를 선택하세요. 기본값은 임시 저장입니다.
+              </p>
+            </div>
           </div>
+        </div>
+
+        {/* 카테고리 선택 (Enum · 버튼) */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h2 className="text-xl font-semibold mb-4">카테고리</h2>
+          <p className="text-sm text-gray-500 mb-3">선택한 카테고리는 버튼을 다시 눌러 해제할 수 있습니다.</p>
+          <div className="flex flex-wrap gap-2">
+            {CATEGORY_TYPES.map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => toggleCategory(value)}
+                className={`px-4 py-2 rounded-lg font-medium transition ${
+                  selectedCategoryTypes.includes(value)
+                    ? 'bg-blue-500 text-white hover:bg-blue-600'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 상품 변형(Variants) */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">상품 변형</h2>
+            <button
+              type="button"
+              onClick={() => setVariants([...variants, { sku: '', optionDisplay: '', price: '', stockQty: 0, active: true }])}
+              className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+            >
+              + 변형 추가
+            </button>
+          </div>
+
+          {variants.length > 0 && (
+            <div className="space-y-4">
+              {variants.map((variant, index) => (
+                <div key={index} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-medium">변형 #{index + 1}</h3>
+                    <button
+                      type="button"
+                      onClick={() => setVariants(variants.filter((_, i) => i !== index))}
+                      className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+                    >
+                      삭제
+                    </button>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        SKU 코드 <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={variant.sku}
+                        onChange={(e) => {
+                          setVariants(variants.map((v, i) =>
+                            i === index ? { ...v, sku: e.target.value } : v
+                          ));
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="예: PROD-001-RED-L"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        옵션 <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={variant.optionDisplay ?? ''}
+                        onChange={(e) => {
+                          setVariants(variants.map((v, i) =>
+                            i === index ? { ...v, optionDisplay: e.target.value } : v
+                          ));
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="예: 색상: 빨강, 사이즈: L"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        가격 (선택)
+                      </label>
+                      <input
+                        type="number"
+                        value={variant.price}
+                        onChange={(e) => {
+                          setVariants(variants.map((v, i) =>
+                            i === index ? { ...v, price: e.target.value } : v
+                          ));
+                        }}
+                        min="0"
+                        step="0.01"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="기본 가격 사용 시 비워두기"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        재고 수량 <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        value={variant.stockQty}
+                        onChange={(e) => {
+                          setVariants(variants.map((v, i) =>
+                            i === index ? { ...v, stockQty: parseInt(e.target.value) || 0 } : v
+                          ));
+                        }}
+                        min="0"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+
+                    <div className="col-span-2">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={variant.active}
+                          onChange={(e) => {
+                            setVariants(variants.map((v, i) =>
+                              i === index ? { ...v, active: e.target.checked } : v
+                            ));
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm">활성화</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {variants.length === 0 && (
+            <p className="text-sm text-gray-500">변형이 없으면 기본 상품만 판매됩니다.</p>
+          )}
         </div>
 
         {/* 이미지 업로드 */}

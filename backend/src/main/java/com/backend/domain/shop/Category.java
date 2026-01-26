@@ -13,7 +13,15 @@ import java.util.List;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "categories")
+@Table(
+    name = "categories",
+    uniqueConstraints = {
+        @UniqueConstraint(
+            name = "uk_category_type_parent",
+            columnNames = {"category_type", "parent_id"}
+        )
+    }
+)
 public class Category extends BaseEntity {
 
     // PK

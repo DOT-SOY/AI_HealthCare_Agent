@@ -1,6 +1,4 @@
-import fetchAPI from './api';
-
-const API_BASE_URL = 'http://localhost:8080/api';
+import jwtAxios from './jwtAxios';
 
 /**
  * 파일 업로드 API
@@ -14,63 +12,26 @@ export const uploadFile = async (file, directory = 'products', onProgress = null
   formData.append('file', file);
   formData.append('directory', directory);
 
-  const url = `${API_BASE_URL}/files/upload`;
-
-  // JWT 토큰이 있으면 Authorization 헤더 추가
-  const headers = {};
-  const token = localStorage.getItem('accessToken');
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-
+  const config = {
+    // FormData 사용 시 Content-Type은 axios가 자동으로 설정 (multipart/form-data + boundary)
+    headers: {
+      'Content-Type': undefined, // axios가 자동으로 설정하도록
+    },
     // 진행률 추적
-    if (onProgress) {
-      xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable) {
-          const percentComplete = Math.round((e.loaded / e.total) * 100);
+    ...(onProgress && {
+      onUploadProgress: (progressEvent) => {
+        if (progressEvent.total) {
+          const percentComplete = Math.round(
+            (progressEvent.loaded * 100) / progressEvent.total
+          );
           onProgress(percentComplete);
         }
-      });
-    }
+      },
+    }),
+  };
 
-    xhr.addEventListener('load', () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const response = JSON.parse(xhr.responseText);
-          resolve(response);
-        } catch (error) {
-          reject(new Error('Invalid JSON response'));
-        }
-      } else {
-        try {
-          const errorData = JSON.parse(xhr.responseText);
-          reject(new Error(errorData.message || `HTTP error! status: ${xhr.status}`));
-        } catch {
-          reject(new Error(`HTTP error! status: ${xhr.status}`));
-        }
-      }
-    });
-
-    xhr.addEventListener('error', () => {
-      reject(new Error('Network error'));
-    });
-
-    xhr.addEventListener('abort', () => {
-      reject(new Error('Upload aborted'));
-    });
-
-    xhr.open('POST', url);
-    
-    // Authorization 헤더 설정
-    if (token) {
-      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-    }
-
-    xhr.send(formData);
-  });
+  const response = await jwtAxios.post('/files/upload', formData, config);
+  return response.data;
 };
 
 /**

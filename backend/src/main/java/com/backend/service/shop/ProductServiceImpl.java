@@ -5,17 +5,27 @@ import com.backend.common.dto.PageResponse;
 import com.backend.common.exception.BusinessException;
 import com.backend.common.exception.ErrorCode;
 import com.backend.domain.member.Member;
+import com.backend.domain.shop.Category;
+import com.backend.domain.shop.CategoryType;
 import com.backend.domain.shop.Product;
+import com.backend.domain.shop.ProductCategory;
 import com.backend.domain.shop.ProductImage;
+import com.backend.domain.shop.ProductVariant;
 import com.backend.dto.shop.request.ProductCreateRequest;
 import com.backend.dto.shop.request.ProductSearchRequest;
 import com.backend.dto.shop.request.ProductUpdateRequest;
+import com.backend.dto.shop.request.ProductVariantRequest;
+import com.backend.dto.shop.response.CategoryResponse;
 import com.backend.dto.shop.response.ProductImageResponse;
 import com.backend.dto.shop.response.ProductResponse;
+import com.backend.dto.shop.response.ProductVariantResponse;
 import com.backend.repository.member.MemberRepository;
+import com.backend.repository.shop.CategoryRepository;
+import com.backend.repository.shop.ProductCategoryRepository;
 import com.backend.repository.shop.ProductImageRepository;
 import com.backend.repository.shop.ProductRepository;
 import com.backend.repository.shop.ProductSearch;
+import com.backend.repository.shop.ProductVariantRepository;
 import com.backend.service.file.FileStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +34,7 @@ import org.springframework.data.support.PageableExecutionUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +52,9 @@ public class ProductServiceImpl implements ProductService {
     private final MemberRepository memberRepository;
     private final FileStorageService fileStorageService;
     private final ProductImageRepository productImageRepository;
+    private final ProductVariantRepository productVariantRepository;
+    private final CategoryRepository categoryRepository;
+    private final ProductCategoryRepository productCategoryRepository;
 
     @Override
     @Transactional
@@ -64,6 +78,7 @@ public class ProductServiceImpl implements ProductService {
                 .name(request.getName())
                 .description(request.getDescription())
                 .basePrice(request.getBasePrice())
+                .status(request.getStatus()) // null이면 기본값 DRAFT로 설정됨
                 .createdBy(member)
                 .build();
 
@@ -76,8 +91,21 @@ public class ProductServiceImpl implements ProductService {
             connectImagesToProduct(saved.getId(), request.getImageFilePaths());
         }
 
-        // DTO 변환 및 이미지 URL 조립
-        return toResponseWithImages(saved);
+        // Variants 연결 (variants가 있으면)
+        if (request.getVariants() != null && !request.getVariants().isEmpty()) {
+            connectVariantsToProduct(saved, request.getVariants());
+        }
+
+        // Categories 연결 (categoryTypes 우선, 없으면 categoryIds)
+        List<Long> categoryIdsToUse = resolveCategoryIds(request.getCategoryTypes(), request.getCategoryIds());
+        if (categoryIdsToUse != null && !categoryIdsToUse.isEmpty()) {
+            connectCategoriesToProduct(saved, categoryIdsToUse);
+        }
+
+        // DTO 변환 및 이미지 URL 조립 (images와 variants를 별도로 조회)
+        List<ProductImage> images = productImageRepository.findByProductId(saved.getId());
+        List<ProductVariant> variants = productVariantRepository.findByProductId(saved.getId());
+        return toFullResponse(saved, images, variants);
     }
 
     @Override
@@ -85,7 +113,11 @@ public class ProductServiceImpl implements ProductService {
         Product product = productRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.SHOP_PRODUCT_NOT_FOUND, id));
 
-        return toResponseWithImages(product);
+        // images와 variants를 별도로 조회 (MultipleBagFetchException 방지)
+        List<ProductImage> images = productImageRepository.findByProductId(id);
+        List<ProductVariant> variants = productVariantRepository.findByProductId(id);
+
+        return toFullResponse(product, images, variants);
     }
 
     @Override
@@ -100,7 +132,7 @@ public class ProductServiceImpl implements ProductService {
         List<Product> productList = products.getContent();
         if (productList.isEmpty()) {
             return PageResponse.of(
-                    products.map(this::toResponseWithImages),
+                    products.map(p -> toResponseWithImages(p, java.util.Collections.emptyList())),
                     pageRequest.getPage()
             );
         }
@@ -174,16 +206,33 @@ public class ProductServiceImpl implements ProductService {
         if (request.getBasePrice() != null) {
             product.changeBasePrice(request.getBasePrice());
         }
+        if (request.getStatus() != null) {
+            product.changeStatus(request.getStatus());
+        }
 
         // 이미지 업데이트 (imageFilePaths가 null이 아니면 처리)
         if (request.getImageFilePaths() != null) {
-            updateProductImages(id, request.getImageFilePaths());
+            updateProductImages(product, request.getImageFilePaths());
+        }
+
+        // Variants 업데이트 (variants가 null이 아니면 처리)
+        if (request.getVariants() != null) {
+            updateProductVariants(product, request.getVariants());
+        }
+
+        // Categories 업데이트 (categoryTypes 우선, 없으면 categoryIds)
+        List<Long> categoryIdsToUse = resolveCategoryIds(request.getCategoryTypes(), request.getCategoryIds());
+        if (categoryIdsToUse != null) {
+            updateProductCategories(product, categoryIdsToUse);
         }
 
         Product updated = productRepository.save(product);
         log.info("Product updated: id={}", updated.getId());
 
-        return toResponseWithImages(updated);
+        // images와 variants를 별도로 조회 (MultipleBagFetchException 방지)
+        List<ProductImage> images = productImageRepository.findByProductId(updated.getId());
+        List<ProductVariant> variants = productVariantRepository.findByProductId(updated.getId());
+        return toFullResponse(updated, images, variants);
     }
 
     @Override
@@ -204,15 +253,42 @@ public class ProductServiceImpl implements ProductService {
         log.info("Product deleted: id={}", id);
     }
 
+
     /**
-     * Product 엔티티를 ProductResponse로 변환하고 이미지 URL을 조립합니다.
+     * Product 엔티티를 ProductResponse로 변환하고 variants와 categories를 포함합니다.
      * 
      * @param product Product 엔티티
-     * @return 이미지 URL이 조립된 ProductResponse
+     * @param images 이미 조회된 ProductImage 리스트
+     * @param variants 이미 조회된 ProductVariant 리스트
+     * @return 완전한 ProductResponse
      */
-    private ProductResponse toResponseWithImages(Product product) {
-        // 단건 조회 시에는 product.getImages() 사용 (이미 @EntityGraph로 로드됨)
-        return toResponseWithImages(product, product.getImages());
+    private ProductResponse toFullResponse(Product product, List<ProductImage> images, List<ProductVariant> variants) {
+        ProductResponse response = toResponseWithImages(product, images);
+        
+        // Variants 변환
+        List<ProductVariantResponse> variantResponses = variants.stream()
+                .map(ProductVariantResponse::from)
+                .collect(Collectors.toList());
+        
+        // Categories 변환
+        List<ProductCategory> productCategories = productCategoryRepository.findById_ProductId(product.getId());
+        List<CategoryResponse> categoryResponses = productCategories.stream()
+                .map(pc -> CategoryResponse.from(pc.getCategory()))
+                .collect(Collectors.toList());
+        
+        return ProductResponse.builder()
+                .id(response.getId())
+                .name(response.getName())
+                .description(response.getDescription())
+                .status(response.getStatus())
+                .basePrice(response.getBasePrice())
+                .createdAt(response.getCreatedAt())
+                .updatedAt(response.getUpdatedAt())
+                .createdBy(response.getCreatedBy())
+                .images(response.getImages())
+                .variants(variantResponses)
+                .categories(categoryResponses)
+                .build();
     }
 
     /**
@@ -248,28 +324,20 @@ public class ProductServiceImpl implements ProductService {
 
     /**
      * ProductImage 엔티티를 ProductImageResponse로 변환하고 URL을 조립합니다.
-     * 
+     *
      * @param image ProductImage 엔티티
      * @return URL이 조립된 ProductImageResponse
      */
     private ProductImageResponse toImageResponse(ProductImage image) {
-        String url;
         String filePath = image.getFilePath();
-        
-        // 점진적 마이그레이션: filePath가 있으면 filePath 사용, 없으면 기존 url 사용
-        if (filePath != null && !filePath.trim().isEmpty()) {
-            url = fileStorageService.getFileUrl(filePath);
-        } else if (image.getUrl() != null && !image.getUrl().trim().isEmpty()) {
-            // 기존 데이터 호환성 유지
-            url = image.getUrl();
-        } else {
-            url = null;
-        }
-        
+        String url = (filePath != null && !filePath.trim().isEmpty())
+                ? fileStorageService.getFileUrl(filePath)
+                : null;
+
         return ProductImageResponse.builder()
                 .uuid(image.getUuid())
                 .url(url)
-                .filePath(filePath) // 프론트엔드에서 이미지 수정 시 필요
+                .filePath(filePath)
                 .primaryImage(image.isPrimaryImage())
                 .build();
     }
@@ -430,34 +498,210 @@ public class ProductServiceImpl implements ProductService {
      * 상품의 이미지를 업데이트합니다.
      * imageFilePaths가 빈 리스트면 모든 이미지 제거, 값이 있으면 해당 이미지들로 교체합니다.
      * 
-     * @param productId 상품 ID
+     * Product.images 컬렉션을 clear 후 새 이미지만 추가하여, orphanRemoval로 기존 삭제 + cascade로
+     * 새 이미지 persist. repository 직접 delete/add 대신 컬렉션 기준으로 처리해 2중 반영(2배 복사)을 방지합니다.
+     * 
+     * @param product        상품 엔티티 (update 트랜잭션에서 로드된 것)
      * @param imageFilePaths 새로운 이미지 파일 경로 목록 (null이면 기존 유지, 빈 리스트면 모두 제거)
      */
     @Transactional
-    private void updateProductImages(Long productId, List<String> imageFilePaths) {
-        // 상품 존재 확인
-        Product product = productRepository.findByIdAndDeletedAtIsNull(productId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.SHOP_PRODUCT_NOT_FOUND, productId));
+    private void updateProductImages(Product product, List<String> imageFilePaths) {
+        long productId = product.getId();
 
-        // 기존 이미지 조회
-        List<ProductImage> existingImages = productImageRepository.findByProductId(productId);
+        // 기존 이미지 제거: 컬렉션 clear → orphanRemoval로 DB 삭제
+        product.getImages().clear();
 
-        // 빈 리스트면 모든 이미지 제거
-        if (imageFilePaths.isEmpty()) {
-            for (ProductImage image : existingImages) {
-                productImageRepository.delete(image);
-            }
+        if (imageFilePaths == null || imageFilePaths.isEmpty()) {
             log.info("All images removed from product: productId={}", productId);
             return;
         }
 
-        // 기존 이미지 모두 삭제
-        for (ProductImage image : existingImages) {
-            productImageRepository.delete(image);
+        // 새 이미지 생성 후 product.images에만 추가 (cascade로 persist는 save(product) 시)
+        boolean first = true;
+        for (String filePath : imageFilePaths) {
+            if (filePath == null || filePath.trim().isEmpty()) {
+                continue;
+            }
+            ProductImage image = ProductImage.builder()
+                    .product(product)
+                    .filePath(filePath.trim())
+                    .primaryImage(first)
+                    .build();
+            product.getImages().add(image);
+            first = false;
+            log.info("Image added to product: productId={}, filePath={}, isPrimary={}",
+                    productId, filePath.trim(), image.isPrimaryImage());
+        }
+        log.info("Product images updated: productId={}, imageCount={}", productId, product.getImages().size());
+    }
+
+    /**
+     * 상품에 Variants를 연결합니다.
+     * 
+     * @param product Product 엔티티
+     * @param variantRequests Variant 요청 목록
+     */
+    @Transactional
+    private void connectVariantsToProduct(Product product, List<ProductVariantRequest> variantRequests) {
+        if (variantRequests == null || variantRequests.isEmpty()) {
+            return;
         }
 
-        // 새로운 이미지들로 교체
-        connectImagesToProduct(productId, imageFilePaths);
-        log.info("Product images updated: productId={}, imageCount={}", productId, imageFilePaths.size());
+        for (ProductVariantRequest variantRequest : variantRequests) {
+            ProductVariant variant = ProductVariant.builder()
+                    .product(product)
+                    .sku(variantRequest.getSku())
+                    .optionText(variantRequest.getOptionText())
+                    .price(variantRequest.getPrice())
+                    .stockQty(variantRequest.getStockQty() != null ? variantRequest.getStockQty() : 0)
+                    .active(variantRequest.getActive() != null ? variantRequest.getActive() : true)
+                    .build();
+
+            product.getVariants().add(variant);
+            log.info("Variant connected to product: productId={}, sku={}", product.getId(), variant.getSku());
+        }
+    }
+
+    /**
+     * 상품의 Variants를 업데이트합니다.
+     * variants가 빈 리스트면 모든 variants 제거, 값이 있으면 해당 variants로 교체합니다.
+     * 
+     * @param product Product 엔티티
+     * @param variantRequests 새로운 Variant 요청 목록 (null이면 기존 유지, 빈 리스트면 모두 제거)
+     */
+    @Transactional
+    private void updateProductVariants(Product product, List<ProductVariantRequest> variantRequests) {
+        // 기존 variants 모두 제거
+        product.getVariants().clear();
+
+        // 빈 리스트면 모든 variants 제거하고 종료
+        if (variantRequests.isEmpty()) {
+            log.info("All variants removed from product: productId={}", product.getId());
+            return;
+        }
+
+        // 새로운 variants로 교체
+        connectVariantsToProduct(product, variantRequests);
+        log.info("Product variants updated: productId={}, variantCount={}", product.getId(), variantRequests.size());
+    }
+
+    /**
+     * categoryTypes(Enum 이름) 또는 categoryIds를 카테고리 ID 목록으로 반환합니다.
+     * categoryTypes가 있으면 우선 사용하고, 해당 타입의 루트 Category ID로 변환합니다.
+     * 
+     * Lazy Create: Category가 없으면 자동으로 루트 Category를 생성합니다.
+     * Enum 선택 → 저장 시 알아서 Category가 추가되는 방식입니다.
+     *
+     * @param categoryTypes Enum 이름 목록 (FOOD, SUPPLEMENT 등)
+     * @param categoryIds   카테고리 ID 목록 (categoryTypes가 없을 때 사용)
+     * @return ID 목록. 둘 다 없으면 null(기존 유지), 빈 리스트면 전체 제거 의미
+     */
+    private List<Long> resolveCategoryIds(List<String> categoryTypes, List<Long> categoryIds) {
+        if (categoryTypes != null && !categoryTypes.isEmpty()) {
+            List<Long> ids = new ArrayList<>();
+            for (String typeName : categoryTypes) {
+                CategoryType type;
+                try {
+                    type = CategoryType.valueOf(typeName);
+                } catch (IllegalArgumentException e) {
+                    throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+                }
+                Category category = getOrCreateRootCategory(type);
+                ids.add(category.getId());
+            }
+            return ids;
+        }
+        return categoryIds;
+    }
+
+    /**
+     * CategoryType에 해당하는 루트 Category를 조회하거나, 없으면 생성합니다.
+     * Lazy Create 패턴: Enum 선택 시 자동으로 Category가 생성됩니다.
+     * 
+     * 동시성 문제 방지:
+     * - 이 메서드는 @Transactional 메서드(create/update) 내에서 호출되므로,
+     *   같은 트랜잭션 내에서는 일관성 보장
+     * - 다른 트랜잭션이 동시에 생성하려 하면, save 후 다시 조회하여 기존 것을 사용
+     * 
+     * 권장사항 (프로덕션 환경):
+     * - DB에 (category_type, parent_id) unique constraint 추가 시 더 안전합니다.
+     *   예: ALTER TABLE categories ADD UNIQUE KEY uk_category_type_parent (category_type, parent_id);
+     * - 또는 분산 환경에서는 Redis Lock 등을 사용할 수 있습니다.
+     *
+     * @param categoryType CategoryType enum
+     * @return 루트 Category (parent=null)
+     */
+    @Transactional
+    private Category getOrCreateRootCategory(CategoryType categoryType) {
+        // 1. 기존 루트 Category 조회
+        return categoryRepository.findByCategoryTypeAndParentIsNull(categoryType)
+                .orElseGet(() -> {
+                    // 2. 없으면 생성
+                    log.info("Creating root category for type: {} (Lazy Create)", categoryType);
+                    Category newCategory = Category.builder()
+                            .parent(null) // 루트 카테고리
+                            .categoryType(categoryType)
+                            .sortOrder(0)
+                            .build();
+                    
+                    Category saved = categoryRepository.saveAndFlush(newCategory);
+                    
+                    // 3. saveAndFlush 후 다시 조회 (다른 트랜잭션이 먼저 생성했을 수 있음)
+                    // 트랜잭션 격리 수준에 따라, 다른 트랜잭션의 커밋된 데이터를 볼 수 있음
+                    return categoryRepository.findByCategoryTypeAndParentIsNull(categoryType)
+                            .orElse(saved); // 혹시 모를 경우를 대비해 saved 반환
+                });
+    }
+
+    /**
+     * 상품에 Categories를 연결합니다.
+     *
+     * @param product Product 엔티티
+     * @param categoryIds 카테고리 ID 목록
+     */
+    @Transactional
+    private void connectCategoriesToProduct(Product product, List<Long> categoryIds) {
+        if (categoryIds == null || categoryIds.isEmpty()) {
+            return;
+        }
+
+        for (Long categoryId : categoryIds) {
+            Category category = categoryRepository.findById(categoryId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.SHOP_CATEGORY_NOT_FOUND, categoryId));
+
+            ProductCategory productCategory = ProductCategory.builder()
+                    .product(product)
+                    .category(category)
+                    .build();
+
+            productCategoryRepository.save(productCategory);
+            log.info("Category connected to product: productId={}, categoryId={}", product.getId(), categoryId);
+        }
+    }
+
+    /**
+     * 상품의 Categories를 업데이트합니다.
+     * categoryIds가 빈 리스트면 모든 categories 제거, 값이 있으면 해당 categories로 교체합니다.
+     * 
+     * @param product Product 엔티티
+     * @param categoryIds 새로운 카테고리 ID 목록 (null이면 기존 유지, 빈 리스트면 모두 제거)
+     */
+    @Transactional
+    private void updateProductCategories(Product product, List<Long> categoryIds) {
+        // 기존 categories 모두 제거
+        List<ProductCategory> existingCategories = productCategoryRepository.findById_ProductId(product.getId());
+        for (ProductCategory productCategory : existingCategories) {
+            productCategoryRepository.delete(productCategory);
+        }
+
+        // 빈 리스트면 모든 categories 제거하고 종료
+        if (categoryIds.isEmpty()) {
+            log.info("All categories removed from product: productId={}", product.getId());
+            return;
+        }
+
+        // 새로운 categories로 교체
+        connectCategoriesToProduct(product, categoryIds);
+        log.info("Product categories updated: productId={}, categoryCount={}", product.getId(), categoryIds.size());
     }
 }

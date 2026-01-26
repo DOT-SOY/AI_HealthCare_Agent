@@ -127,7 +127,7 @@ class ProductControllerTest {
         ProductVariant variant1 = ProductVariant.builder()
                 .product(fitnessProduct1)
                 .sku("DUMBBELL-20KG-BLACK")
-                .optionJson("{\"weight\":\"20kg\",\"color\":\"black\"}")
+                .optionText("weight: 20kg, color: black")
                 .price(new BigDecimal("89000"))
                 .stockQty(10)
                 .active(true)

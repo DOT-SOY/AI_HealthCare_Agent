@@ -1,38 +1,60 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getProduct } from '../../services/productApi';
 
 const ProductDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [selectedVariant, setSelectedVariant] = useState(null);
 
   useEffect(() => {
-    loadProduct();
-  }, [id]);
-
-  const loadProduct = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await getProduct(id);
-      setProduct(data);
-      // primaryImage가 있는 이미지를 기본 선택
-      if (data.images && data.images.length > 0) {
-        const primaryIndex = data.images.findIndex(img => img.primaryImage);
-        if (primaryIndex >= 0) {
-          setSelectedImageIndex(primaryIndex);
+    const abortController = new AbortController();
+    
+    const loadProduct = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        setSelectedVariant(null);
+        const data = await getProduct(id, abortController.signal); // AbortController signal 전달
+        
+        // 요청이 취소되었는지 확인
+        if (abortController.signal.aborted) return;
+        
+        setProduct(data);
+        if (data.images && data.images.length > 0) {
+          const primaryIndex = data.images.findIndex(img => img.primaryImage);
+          if (primaryIndex >= 0) {
+            setSelectedImageIndex(primaryIndex);
+          }
+        }
+      } catch (err) {
+        // AbortError는 무시 (요청 취소)
+        if (err.name === 'AbortError') return;
+        
+        // 요청이 취소되었는지 확인
+        if (abortController.signal.aborted) return;
+        
+        setError(err.message || '상품 정보를 불러오는데 실패했습니다.');
+        console.error('Failed to load product:', err);
+      } finally {
+        // 요청이 취소되었는지 확인
+        if (!abortController.signal.aborted) {
+          setLoading(false);
         }
       }
-    } catch (err) {
-      setError(err.message || '상품 정보를 불러오는데 실패했습니다.');
-      console.error('Failed to load product:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+    
+    loadProduct();
+    
+    // cleanup: 컴포넌트 언마운트 또는 id 변경 시 이전 요청 취소
+    return () => {
+      abortController.abort();
+    };
+  }, [id]);
 
   if (loading) {
     return (
@@ -68,14 +90,29 @@ const ProductDetail = () => {
     ? product.images[selectedImageIndex] 
     : null;
 
+  const displayPrice = selectedVariant
+    ? (selectedVariant.price != null ? Number(selectedVariant.price) : product.basePrice)
+    : product.basePrice;
+
+  const hasVariants = product.variants && product.variants.length > 0;
+
   return (
     <div className="w-full">
-      <Link 
-        to="/shop/list" 
-        className="inline-block mb-4 text-blue-500 hover:underline"
-      >
-        ← 목록으로 돌아가기
-      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+        <Link 
+          to="/shop/list" 
+          className="text-blue-500 hover:underline"
+        >
+          ← 목록으로 돌아가기
+        </Link>
+        <button
+          type="button"
+          onClick={() => navigate(`/shop/admin/edit/${id}`)}
+          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium"
+        >
+          상품 수정
+        </button>
+      </div>
 
       <div className="bg-white rounded-lg shadow-lg overflow-hidden">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-8">
@@ -141,14 +178,47 @@ const ProductDetail = () => {
 
             <div className="mb-6">
               <div className="text-4xl font-bold text-blue-600 mb-2">
-                {product.basePrice?.toLocaleString()}원
+                {displayPrice != null ? displayPrice.toLocaleString() : '-'}원
               </div>
+              {hasVariants && selectedVariant && (
+                <p className="text-sm text-gray-600">
+                  선택된 옵션: {selectedVariant.optionText}
+                </p>
+              )}
             </div>
 
             <div className="mb-6">
               <h2 className="text-xl font-semibold mb-2">상품 설명</h2>
               <p className="text-gray-700 whitespace-pre-wrap">{product.description}</p>
             </div>
+
+            {hasVariants && (
+              <div className="mb-6">
+                <h2 className="text-xl font-semibold mb-3">옵션 (변형)</h2>
+                <div className="flex flex-wrap gap-2">
+                  {product.variants
+                    .filter((v) => v.active)
+                    .map((v) => {
+                      const label = v.optionText || `옵션 #${v.id}`;
+                      const isSelected = selectedVariant?.id === v.id;
+                      return (
+                        <button
+                          key={v.id}
+                          type="button"
+                          onClick={() => setSelectedVariant(isSelected ? null : v)}
+                          className={`px-4 py-2 rounded-lg font-medium transition border-2 ${
+                            isSelected
+                              ? 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600'
+                              : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:bg-blue-50'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
 
             <div className="border-t pt-6">
               <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
