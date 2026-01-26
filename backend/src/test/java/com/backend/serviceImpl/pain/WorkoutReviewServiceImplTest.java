@@ -61,7 +61,7 @@ class WorkoutReviewServiceImplTest {
         exercises.add(Exercise.builder()
             .id(1L)
             .name("벤치프레스")
-            .category(ExerciseCategory.CHEST)
+//            .category(ExerciseCategory.CHEST)
             .sets(3)
             .reps(10)
             .weight(80.0)

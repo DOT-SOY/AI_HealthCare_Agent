@@ -13,42 +13,6 @@ import java.util.Map;
 @Slf4j
 public class GlobalExceptionHandler {
     
-    @ExceptionHandler(RoutineNotFoundException.class)
-    public ResponseEntity<Map<String, String>> handleRoutineNotFoundException(RoutineNotFoundException e) {
-        log.error("루틴을 찾을 수 없음: {}", e.getMessage());
-        Map<String, String> error = new HashMap<>();
-        error.put("error", "루틴을 찾을 수 없습니다.");
-        error.put("message", e.getMessage());
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
-    }
-    
-    @ExceptionHandler(ExerciseNotFoundException.class)
-    public ResponseEntity<Map<String, String>> handleExerciseNotFoundException(ExerciseNotFoundException e) {
-        log.error("운동을 찾을 수 없음: {}", e.getMessage());
-        Map<String, String> error = new HashMap<>();
-        error.put("error", "운동을 찾을 수 없습니다.");
-        error.put("message", e.getMessage());
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
-    }
-    
-    @ExceptionHandler(MemberNotFoundException.class)
-    public ResponseEntity<Map<String, String>> handleMemberNotFoundException(MemberNotFoundException e) {
-        log.error("회원을 찾을 수 없음: {}", e.getMessage());
-        Map<String, String> error = new HashMap<>();
-        error.put("error", "회원을 찾을 수 없습니다.");
-        error.put("message", e.getMessage());
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
-    }
-    
-    @ExceptionHandler(AIServerException.class)
-    public ResponseEntity<Map<String, String>> handleAIServerException(AIServerException e) {
-        log.error("AI 서버 오류: {}", e.getMessage(), e);
-        Map<String, String> error = new HashMap<>();
-        error.put("error", "AI 서버 통신 실패");
-        error.put("message", e.getMessage());
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(error);
-    }
-    
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleIllegalArgumentException(IllegalArgumentException e) {
         log.error("잘못된 요청: {}", e.getMessage());

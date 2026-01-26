@@ -12,7 +12,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -39,12 +38,21 @@ public class WorkoutReviewServiceImpl implements WorkoutReviewService {
             return;
         }
         
+        // JOIN FETCH로 이미 로드되었으므로 추가 쿼리 없음
+        int totalExercises = todayRoutine.getExercises().size();
+        long completedCount = todayRoutine.getExercises().stream()
+            .filter(Exercise::isCompleted)
+            .count();
+        
+        log.info("운동 완료 상태 확인: memberId={}, routineId={}, totalExercises={}, completedCount={}", 
+            memberId, todayRoutine.getId(), totalExercises, completedCount);
+        
         // 모든 운동 완료 확인
-        boolean allCompleted = todayRoutine.getExercises().stream()
-            .allMatch(Exercise::isCompleted);
+        boolean allCompleted = totalExercises > 0 && completedCount == totalExercises;
         
         if (!allCompleted) {
-            log.debug("모든 운동이 완료되지 않았습니다: memberId={}", memberId);
+            log.debug("모든 운동이 완료되지 않았습니다: memberId={}, total={}, completed={}", 
+                memberId, totalExercises, completedCount);
             return;
         }
         
@@ -149,9 +157,11 @@ public class WorkoutReviewServiceImpl implements WorkoutReviewService {
             return false;
         }
         
-        // 오늘 루틴의 운동 카테고리 목록
+        // 오늘 루틴의 운동 카테고리 목록 (exerciseType의 mainTarget 사용)
         List<ExerciseCategory> todayCategories = routine.getExercises().stream()
-            .map(Exercise::getCategory)
+            .map(ex -> ex.getExerciseType() != null 
+                ? ex.getExerciseType().getMainTarget() 
+                : ExerciseCategory.CHEST) // 기본값
             .distinct()
             .collect(Collectors.toList());
         

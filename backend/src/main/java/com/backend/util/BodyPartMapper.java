@@ -15,20 +15,27 @@ public class BodyPartMapper {
         BODY_PART_TO_CATEGORY.put("가슴", ExerciseCategory.CHEST);
         BODY_PART_TO_CATEGORY.put("등", ExerciseCategory.BACK);
         BODY_PART_TO_CATEGORY.put("허리", ExerciseCategory.BACK);
-        BODY_PART_TO_CATEGORY.put("다리", ExerciseCategory.LEG);
-        BODY_PART_TO_CATEGORY.put("무릎", ExerciseCategory.LEG);
         BODY_PART_TO_CATEGORY.put("팔", ExerciseCategory.ARM);
-        BODY_PART_TO_CATEGORY.put("복근", ExerciseCategory.CORE);
         BODY_PART_TO_CATEGORY.put("코어", ExerciseCategory.CORE);
+        BODY_PART_TO_CATEGORY.put("복근", ExerciseCategory.ABS);
+        BODY_PART_TO_CATEGORY.put("둔근", ExerciseCategory.GLUTE);
+        BODY_PART_TO_CATEGORY.put("허벅지", ExerciseCategory.THIGH);
+        BODY_PART_TO_CATEGORY.put("다리", ExerciseCategory.THIGH);
+        BODY_PART_TO_CATEGORY.put("무릎", ExerciseCategory.THIGH);
+        BODY_PART_TO_CATEGORY.put("종아리", ExerciseCategory.CALF);
         
         // 영문 통증 부위 -> ExerciseCategory 매핑
         BODY_PART_TO_CATEGORY.put("shoulder", ExerciseCategory.SHOULDER);
         BODY_PART_TO_CATEGORY.put("chest", ExerciseCategory.CHEST);
         BODY_PART_TO_CATEGORY.put("back", ExerciseCategory.BACK);
-        BODY_PART_TO_CATEGORY.put("leg", ExerciseCategory.LEG);
-        BODY_PART_TO_CATEGORY.put("knee", ExerciseCategory.LEG);
         BODY_PART_TO_CATEGORY.put("arm", ExerciseCategory.ARM);
         BODY_PART_TO_CATEGORY.put("core", ExerciseCategory.CORE);
+        BODY_PART_TO_CATEGORY.put("abs", ExerciseCategory.ABS);
+        BODY_PART_TO_CATEGORY.put("glute", ExerciseCategory.GLUTE);
+        BODY_PART_TO_CATEGORY.put("thigh", ExerciseCategory.THIGH);
+        BODY_PART_TO_CATEGORY.put("leg", ExerciseCategory.THIGH);
+        BODY_PART_TO_CATEGORY.put("knee", ExerciseCategory.THIGH);
+        BODY_PART_TO_CATEGORY.put("calf", ExerciseCategory.CALF);
     }
     
     /**

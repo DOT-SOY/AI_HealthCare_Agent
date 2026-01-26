@@ -26,9 +26,9 @@ public class PainAdviceClient {
      */
     public PainAdviceResponse requestAdvice(String bodyPart, long count, String description) {
         Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("area", bodyPart);
-        requestBody.put("count", count);
-        requestBody.put("description", description);
+        requestBody.put("body_part", bodyPart); // Python AI 서버는 body_part를 요구
+        requestBody.put("count", (int) count); // int 타입으로 변환
+        requestBody.put("note", description); // Python AI 서버는 note를 요구
         
         return baseAIClient.postRequest("/pain/advice", requestBody, PainAdviceResponse.class);
     }

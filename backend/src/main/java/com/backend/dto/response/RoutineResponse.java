@@ -17,6 +17,7 @@ import java.util.List;
 public class RoutineResponse {
     private Long id;
     private LocalDate date;
+    private String title;
     private String status;
     private boolean isToday;
     private String summary;

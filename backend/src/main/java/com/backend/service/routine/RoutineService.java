@@ -2,6 +2,7 @@ package com.backend.service.routine;
 
 import com.backend.dto.request.ExerciseAddRequest;
 import com.backend.dto.request.ExerciseUpdateRequest;
+import com.backend.dto.request.RoutineCreateRequest;
 import com.backend.dto.response.ExerciseResponse;
 import com.backend.dto.response.RoutineResponse;
 
@@ -15,6 +16,8 @@ public interface RoutineService {
     List<RoutineResponse> getHistory(Long memberId, String bodyPart);
     
     RoutineResponse getRoutineById(Long routineId);
+    
+    RoutineResponse createRoutine(Long memberId, RoutineCreateRequest request);
     
     RoutineResponse updateRoutineStatus(Long routineId, String status);
     

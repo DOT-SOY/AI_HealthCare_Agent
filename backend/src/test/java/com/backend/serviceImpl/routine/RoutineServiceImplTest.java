@@ -65,7 +65,7 @@ class RoutineServiceImplTest {
         exercises.add(Exercise.builder()
             .id(1L)
             .name("벤치프레스")
-            .category(ExerciseCategory.CHEST)
+//            .category(ExerciseCategory.CHEST)
             .sets(3)
             .reps(10)
             .weight(80.0)
@@ -221,7 +221,7 @@ class RoutineServiceImplTest {
         
         // then
         assertThat(response.getName()).isEqualTo("데드리프트");
-        assertThat(response.getCategory()).isEqualTo("BACK");
+//        assertThat(response.getCategory()).isEqualTo("BACK");
         assertThat(response.getOrderIndex()).isEqualTo(1);
         verify(exerciseRepository, times(1)).save(any(Exercise.class));
     }

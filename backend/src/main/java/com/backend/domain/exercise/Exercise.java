@@ -22,8 +22,9 @@ public class Exercise {
     
     private String name;
     
-    @Enumerated(EnumType.STRING)
-    private ExerciseCategory category; // CHEST, BACK, LEG, ARM, SHOULDER, CORE, FULL_BODY
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "exercise_type_id", nullable = true)
+    private ExerciseType exerciseType; // 운동 타입 참조 (메인/서브 타겟 포함)
     
     private Integer sets;
     private Integer reps;
