@@ -1,7 +1,6 @@
 package com.backend.repository.meal;
 
 import com.backend.domain.meal.Meal;
-import com.backend.domain.meal.QMeal;
 import com.backend.dto.meal.MealCalendarDto;
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.CaseBuilder;
@@ -14,11 +13,6 @@ import java.util.List;
 
 import static com.backend.domain.meal.QMeal.meal;
 
-/**
- * [식단 데이터 검색 구현체]
- * QueryDSL을 사용하여 복잡한 통계 및 조회 쿼리를 수행합니다.
- * Null Safety를 보장하며, 대용량 데이터 조회 시 성능 최적화를 고려했습니다.
- */
 @Repository
 @RequiredArgsConstructor
 public class MealSearchImpl implements MealSearch {
@@ -33,15 +27,27 @@ public class MealSearchImpl implements MealSearch {
         return queryFactory
                 .select(Projections.fields(MealCalendarDto.class,
                         meal.mealDate,
-                        // [Null Safety] 칼로리가 NULL일 경우 0으로 처리하여 집계 오류 방지
+                        
+                        // 1. 실제 섭취한 칼로리 합계 (EATEN 상태만)
                         new CaseBuilder()
                             .when(meal.status.eq(Meal.MealStatus.EATEN)).then(meal.calories)
-                            .otherwise(0).sum().coalesce(0).as("totalCalories"),
-                        
-                        // [Count] 섭취 횟수 집계
+                            .otherwise(0).sum().coalesce(0).as("totalEatenCalories"),
+
+                        // 2. 원래 계획했던 칼로리 합계 (분석 비교용 - 상태 무관하게 Original 값 합산)
+                        //    단, 추가된 식단(isAdditional)은 계획에 없던 거니까 제외해야 정확한 비교 가능
+                        new CaseBuilder()
+                            .when(meal.isAdditional.isFalse()).then(meal.originalCalories)
+                            .otherwise(0).sum().coalesce(0).as("totalOriginalCalories"),
+
+                        // 3. 섭취 완료 횟수
                         new CaseBuilder()
                             .when(meal.status.eq(Meal.MealStatus.EATEN)).then(1)
-                            .otherwise(0).sum().coalesce(0).as("eatenCount")
+                            .otherwise(0).sum().coalesce(0).as("eatenCount"),
+
+                        // 4. 거른 끼니(SKIPPED) 횟수 (분석 데이터용)
+                        new CaseBuilder()
+                            .when(meal.status.eq(Meal.MealStatus.SKIPPED)).then(1)
+                            .otherwise(0).sum().coalesce(0).as("skippedCount")
                 ))
                 .from(meal)
                 .where(
@@ -61,11 +67,10 @@ public class MealSearchImpl implements MealSearch {
                         meal.userId.eq(userId),
                         meal.mealDate.eq(date)
                 )
-                // [Sort] 아침(1) -> 점심(2) -> 저녁(3) -> 간식(4) 순서 보장
                 .orderBy(
-                        meal.mealTime.asc(),
-                        meal.isAdditional.asc(), // 추가 식단은 하단 배치
-                        meal.scheduleId.asc()    // 동시간대 등록 시 먼저 등록한 순
+                        meal.mealTime.asc(),      // 아침->점심->저녁->간식
+                        meal.isAdditional.asc(),  // 정규 식사 -> 추가 식사
+                        meal.scheduleId.asc()     // 등록순
                 )
                 .fetch();
     }

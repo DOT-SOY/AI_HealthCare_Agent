@@ -25,8 +25,8 @@ public class AiMealConfig {
     @Bean
     public Request.Options requestOptions() {
         return new Request.Options(
-                5000, TimeUnit.MILLISECONDS, // connectTimeout (5초)
-                60000, TimeUnit.MILLISECONDS, // readTimeout (60초) - 핵심!
+                10000, TimeUnit.MILLISECONDS, // connectTimeout (10초)
+                180000, TimeUnit.MILLISECONDS, // readTimeout read (3분)
                 true
         );
     }
