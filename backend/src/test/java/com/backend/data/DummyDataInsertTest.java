@@ -1,11 +1,11 @@
 package com.backend.data;
 
-import com.backend.entity.ExercisePurpose;
-import com.backend.entity.Gender;
-import com.backend.entity.Member;
-import com.backend.entity.MemberBodyInfo;
-import com.backend.repository.MemberBodyInfoRepository;
-import com.backend.repository.MemberRepository;
+import com.backend.domain.memberbodyinfo.ExercisePurpose;
+import com.backend.domain.memberbodyinfo.MemberBodyInfo;
+import com.backend.domain.member.Member;
+import com.backend.domain.member.Member.Gender;
+import com.backend.repository.memberbodyinfo.MemberBodyInfoRepository;
+import com.backend.repository.member.MemberRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,13 +40,13 @@ class DummyDataInsertTest {
         // given
         List<Member> members = createMemberDummyData();
         
-        // 중복 체크: 이미 존재하는 ID는 제외
+        // 중복 체크: 이미 존재하는 이메일은 제외
         List<Member> newMembers = new ArrayList<>();
         for (Member member : members) {
-            if (!memberRepository.existsById(member.getId())) {
+            if (memberRepository.findByEmail(member.getEmail()).isEmpty()) {
                 newMembers.add(member);
             } else {
-                System.out.println(String.format("회원 ID %s는 이미 존재합니다. 건너뜁니다.", member.getId()));
+                System.out.println(String.format("회원 이메일 %s는 이미 존재합니다. 건너뜁니다.", member.getEmail()));
             }
         }
         
@@ -63,8 +63,8 @@ class DummyDataInsertTest {
         assertThat(savedMembers).hasSize(newMembers.size());
         System.out.println(String.format("=== 회원 더미 데이터 삽입 완료: %d명 ===", savedMembers.size()));
         savedMembers.forEach(member -> 
-            System.out.println(String.format("ID: %s, 이름: %s, 성별: %s, 생년월일: %s", 
-                member.getId(), member.getName(), member.getGender(), member.getBirthDate()))
+            System.out.println(String.format("ID: %d, 이메일: %s, 이름: %s, 성별: %s, 생년월일: %s", 
+                member.getId(), member.getEmail(), member.getName(), member.getGender(), member.getBirthDate()))
         );
         System.out.println(String.format("총 회원 수: %d", memberRepository.count()));
     }
@@ -90,11 +90,32 @@ class DummyDataInsertTest {
 
         // when - 각 회원에 대한 신체 정보 생성
         List<MemberBodyInfo> bodyInfos = createMemberBodyInfoDummyData(existingMembers);
-        List<MemberBodyInfo> savedBodyInfos = memberBodyInfoRepository.saveAll(bodyInfos);
+        
+        // 중복 체크: 이미 존재하는 신체 정보는 제외 (회원 + 측정 시간 기준)
+        List<MemberBodyInfo> newBodyInfos = new ArrayList<>();
+        for (MemberBodyInfo bodyInfo : bodyInfos) {
+            List<MemberBodyInfo> existing = memberBodyInfoRepository.findByMember(bodyInfo.getMember());
+            boolean isDuplicate = existing.stream()
+                .anyMatch(existingInfo -> existingInfo.getMeasuredTime().equals(bodyInfo.getMeasuredTime()));
+            
+            if (!isDuplicate) {
+                newBodyInfos.add(bodyInfo);
+            } else {
+                System.out.println(String.format("회원 %s의 %s 측정 기록은 이미 존재합니다. 건너뜁니다.", 
+                    bodyInfo.getMember().getEmail(), bodyInfo.getMeasuredTime()));
+            }
+        }
+        
+        if (newBodyInfos.isEmpty()) {
+            System.out.println("삽입할 새로운 신체 정보 데이터가 없습니다.");
+            return;
+        }
+        
+        List<MemberBodyInfo> savedBodyInfos = memberBodyInfoRepository.saveAll(newBodyInfos);
         memberBodyInfoRepository.flush();
 
         // then
-        assertThat(savedBodyInfos).hasSize(bodyInfos.size());
+        assertThat(savedBodyInfos).hasSize(newBodyInfos.size());
         System.out.println("=== 신체 정보 더미 데이터 삽입 완료 ===");
         System.out.println(String.format("삽입된 신체 정보: %d개", savedBodyInfos.size()));
         System.out.println(String.format("총 신체 정보 수: %d", memberBodyInfoRepository.count()));
@@ -115,13 +136,13 @@ class DummyDataInsertTest {
         // given
         List<Member> members = createMemberDummyData();
         
-        // 중복 체크: 이미 존재하는 ID는 제외
+        // 중복 체크: 이미 존재하는 이메일은 제외
         List<Member> newMembers = new ArrayList<>();
         for (Member member : members) {
-            if (!memberRepository.existsById(member.getId())) {
+            if (memberRepository.findByEmail(member.getEmail()).isEmpty()) {
                 newMembers.add(member);
             } else {
-                System.out.println(String.format("회원 ID %s는 이미 존재합니다. 건너뜁니다.", member.getId()));
+                System.out.println(String.format("회원 이메일 %s는 이미 존재합니다. 건너뜁니다.", member.getEmail()));
             }
         }
         
@@ -138,8 +159,27 @@ class DummyDataInsertTest {
         
         // 신체 정보 데이터 삽입
         List<MemberBodyInfo> bodyInfos = createMemberBodyInfoDummyData(savedMembers);
-        List<MemberBodyInfo> savedBodyInfos = memberBodyInfoRepository.saveAll(bodyInfos);
-        memberBodyInfoRepository.flush();
+        
+        // 중복 체크: 이미 존재하는 신체 정보는 제외 (회원 + 측정 시간 기준)
+        List<MemberBodyInfo> newBodyInfos = new ArrayList<>();
+        for (MemberBodyInfo bodyInfo : bodyInfos) {
+            List<MemberBodyInfo> existing = memberBodyInfoRepository.findByMember(bodyInfo.getMember());
+            boolean isDuplicate = existing.stream()
+                .anyMatch(existingInfo -> existingInfo.getMeasuredTime().equals(bodyInfo.getMeasuredTime()));
+            
+            if (!isDuplicate) {
+                newBodyInfos.add(bodyInfo);
+            }
+        }
+        
+        List<MemberBodyInfo> savedBodyInfos;
+        if (newBodyInfos.isEmpty()) {
+            System.out.println("새로운 신체 정보 데이터가 없습니다.");
+            savedBodyInfos = new ArrayList<>();
+        } else {
+            savedBodyInfos = memberBodyInfoRepository.saveAll(newBodyInfos);
+            memberBodyInfoRepository.flush();
+        }
 
         // then
         System.out.println("=== 전체 더미 데이터 삽입 완료 ===");
@@ -150,8 +190,8 @@ class DummyDataInsertTest {
         // 각 회원별 신체 정보 개수 확인
         savedMembers.forEach(member -> {
             List<MemberBodyInfo> memberBodyInfos = memberBodyInfoRepository.findByMemberId(member.getId());
-            System.out.println(String.format("회원 %s(%s): 신체 정보 %d개", 
-                member.getName(), member.getId(), memberBodyInfos.size()));
+            System.out.println(String.format("회원 %s(ID: %d, 이메일: %s): 신체 정보 %d개", 
+                member.getName(), member.getId(), member.getEmail(), memberBodyInfos.size()));
         });
     }
 
@@ -180,7 +220,7 @@ class DummyDataInsertTest {
 
         for (int i = 0; i < 10; i++) {
             Member member = Member.builder()
-                    .id("user" + String.format("%03d", i + 1))
+                    .email("user" + String.format("%03d", i + 1) + "@example.com")
                     .pw("password" + (i + 1))
                     .name(names[i])
                     .gender(genders[i])

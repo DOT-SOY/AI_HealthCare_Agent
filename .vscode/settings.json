@@ -5,5 +5,5 @@
     "files.autoGuessEncoding": true,
     "terminal.integrated.encoding": "utf8",
     "git.commitEncoding": "utf8",
-    "git.logOutputEncoding": "utf8"
-}
+    "git.logOutputEncoding": "utf8",
+    }

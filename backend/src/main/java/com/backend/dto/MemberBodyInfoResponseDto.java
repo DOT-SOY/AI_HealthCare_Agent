@@ -1,7 +1,7 @@
 package com.backend.dto;
 
-import com.backend.entity.ExercisePurpose;
-import com.backend.entity.MemberBodyInfo;
+import com.backend.domain.memberbodyinfo.ExercisePurpose;
+import com.backend.domain.memberbodyinfo.MemberBodyInfo;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -29,7 +29,7 @@ public class MemberBodyInfoResponseDto {
     public static MemberBodyInfoResponseDto from(MemberBodyInfo memberBodyInfo) {
         return MemberBodyInfoResponseDto.builder()
                 .id(memberBodyInfo.getId())
-                .memberId(memberBodyInfo.getMember().getId())
+                .memberId(String.valueOf(memberBodyInfo.getMember().getId()))
                 .memberName(memberBodyInfo.getMember().getName())
                 .height(memberBodyInfo.getHeight())
                 .weight(memberBodyInfo.getWeight())

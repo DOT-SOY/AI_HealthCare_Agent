@@ -1,0 +1,64 @@
+package com.backend.service.member;
+
+import com.backend.domain.member.Member;
+import com.backend.dto.member.MemberDTO;
+import com.backend.repository.member.MemberRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+@Transactional // 트랜잭션 처리 (오류 발생 시 롤백)
+@Log4j2        // 로그 기록용
+public class MemberServiceImpl implements MemberService {
+
+    private final MemberRepository memberRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    @Override
+    public Long join(MemberDTO memberDTO) {
+        // 간단 로깅 (향후 SecurityLogUtil 도입 시 교체 가능)
+        log.info("회원가입 요청: {}", memberDTO.getEmail());
+
+        // 1. 중복 이메일 검증
+        validateDuplicateMember(memberDTO.getEmail());
+
+        // 2. DTO -> Entity 변환 (비밀번호 암호화 포함)
+        Member member = dtoToEntity(memberDTO, passwordEncoder);
+
+        // 3. DB 저장
+        memberRepository.save(member);
+
+        return member.getId();
+    }
+
+    // 중복 검사 로직
+    private void validateDuplicateMember(String email) {
+        memberRepository.findByEmail(email)
+                .ifPresent(m -> {
+                    throw new IllegalStateException("이미 가입된 이메일입니다.");
+                });
+    }
+
+    @Override
+    public void withdraw(String email) {
+        log.info("회원 탈퇴 요청: {}", email);
+
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalStateException("회원 정보를 찾을 수 없습니다."));
+
+        // 이미 탈퇴한 회원인지 체크
+        if (member.isDeleted()) {
+            throw new IllegalStateException("이미 탈퇴한 회원입니다.");
+        }
+
+        // 논리 삭제 처리
+        member.changeDeleted(true);
+        // JPA 영속 상태이므로 트랜잭션 커밋 시 자동으로 UPDATE 됨
+
+        log.info("회원 탈퇴 완료: {}", email);
+    }
+}

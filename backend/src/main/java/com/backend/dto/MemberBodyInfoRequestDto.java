@@ -1,6 +1,7 @@
 package com.backend.dto;
 
-import com.backend.entity.ExercisePurpose;
+import com.backend.domain.memberbodyinfo.ExercisePurpose;
+
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
