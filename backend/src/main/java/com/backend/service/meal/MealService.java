@@ -63,4 +63,6 @@ public interface MealService {
      * 초과 섭취나 스킵 발생 시 남은 끼니를 다시 짭니다.
      */
     void asyncMealReplan(Long userId, LocalDate date);
+
+     void generateInitialPlan(Long userId, LocalDate date);
 }

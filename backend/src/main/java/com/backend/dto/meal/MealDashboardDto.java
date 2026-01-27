@@ -12,6 +12,10 @@ public class MealDashboardDto {
 
     private String date;
 
+    private MealTargetDto dayTarget; // 목표 정보
+    private List<MealDto> meals;     // 식단 리스트
+    private String aiAnalysis;       // AI 분석
+
     // [그래프용 영양소 정보]
     private NutritionSummary calories;
     private NutritionSummary carbs;
@@ -26,10 +30,6 @@ public class MealDashboardDto {
 
     // --- [탭 1: 식단 변동 내역] ---
     private List<String> analysisComments;
-
-    // --- [탭 2: AI 식단 분석] ---
-    private String aiAnalysis; 
-
 
     // --- Inner Classes ---
     @Getter @AllArgsConstructor @Builder

@@ -35,6 +35,9 @@ public class MealCalendarDto {
 
     // (기타 필요 시 사용)
     private Integer goalCalories;        
-    
+    private String dailyStatus; // "PERFECT", "PASS", "FAIL"
+    private Boolean isSuccess;  // 종합 성공 여부
+
+
     // 이 DTO는 필드가 많아서 생성자보다는 Builder나 Setter로 값 채우는 게 필수입니다.
 }

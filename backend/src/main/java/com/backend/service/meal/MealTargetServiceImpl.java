@@ -168,4 +168,29 @@ public class MealTargetServiceImpl implements MealTargetService {
     public void updateAiFeedback(Long userId, LocalDate date, String feedback) {
         targetRepository.findByUserIdAndTargetDate(userId, date).ifPresent(t -> t.updateFeedback(feedback));
     }
+    
+    @Override
+    public MealTargetDto calculateRemainingNutrients(Long userId, LocalDate date) {
+        // 1. 목표 조회
+        MealTargetDto target = getTargetByDate(userId, date);
+        if (target == null) return null; // 목표 없으면 계산 불가
+
+        // 2. 현재까지 먹은 양 조회
+        List<Meal> eatenMeals = mealSearch.findMealsByDateAndUser(userId, date).stream()
+                .filter(m -> m.getStatus() == Meal.MealStatus.EATEN)
+                .toList();
+
+        int currentCal = eatenMeals.stream().mapToInt(m -> m.getCalories() != null ? m.getCalories() : 0).sum();
+        int currentCarb = eatenMeals.stream().mapToInt(m -> m.getCarbs() != null ? m.getCarbs() : 0).sum();
+        int currentProt = eatenMeals.stream().mapToInt(m -> m.getProtein() != null ? m.getProtein() : 0).sum();
+        int currentFat = eatenMeals.stream().mapToInt(m -> m.getFat() != null ? m.getFat() : 0).sum();
+
+        // 3. 잔여량 계산 (음수가 나오면 0으로 처리)
+        return MealTargetDto.builder()
+                .goalCal(Math.max(0, target.getGoalCal() - currentCal))
+                .goalCarbs(Math.max(0, target.getGoalCarbs() - currentCarb))
+                .goalProtein(Math.max(0, target.getGoalProtein() - currentProt))
+                .goalFat(Math.max(0, target.getGoalFat() - currentFat))
+                .build();
+    }
 }

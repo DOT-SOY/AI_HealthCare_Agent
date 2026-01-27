@@ -2,8 +2,9 @@ package com.backend.service.meal;
 
 import com.backend.dto.meal.MealTargetDto;
 import com.backend.dto.meal.MealDashboardDto;
+import com.backend.dto.meal.MealCalendarDto;
 import java.time.LocalDate;
-
+import java.util.List; // import 추가
 /**
  * [목표 영양 수치 관리 서비스 인터페이스]
  * 일일 영양 목표 설정 및 목표 대비 달성도 판정 기능을 정의합니다.
@@ -30,4 +31,11 @@ public interface MealTargetService {
      * AI 심층 피드백(영양 조언) 저장
      */
     void updateAiFeedback(Long userId, LocalDate date, String feedback);
+
+  // [누락되었던 핵심 메서드 추가]
+    List<MealCalendarDto> getMonthlyCalendarStatus(Long userId, LocalDate yearMonth);
+    
+    // 재분배용 메서드
+    MealTargetDto calculateRemainingNutrients(Long userId, LocalDate date);
+
 }
