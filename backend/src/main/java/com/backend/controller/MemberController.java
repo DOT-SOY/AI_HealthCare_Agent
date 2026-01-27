@@ -5,6 +5,7 @@ import com.backend.security.token.RefreshTokenService;
 import com.backend.dto.member.MemberDTO;
 import com.backend.dto.member.MemberModifyDTO;
 import com.backend.service.member.MemberService; // 서비스 인터페이스 임포트
+import com.backend.repository.member.MemberRepository;
 import com.backend.util.JWTUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -30,6 +31,32 @@ public class MemberController {
 
     private final MemberService memberService;
     private final RefreshTokenService refreshTokenService;
+    private final MemberRepository memberRepository;
+
+    /**
+     * 이메일 중복확인 API
+     * - 회원가입 전 이메일 사용 가능 여부 확인
+     * - 탈퇴한 회원(isDeleted=true)은 제외하고 체크
+     */
+    @GetMapping("/check-email")
+    public ResponseEntity<?> checkEmail(@RequestParam String email) {
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "이메일을 입력해주세요."));
+        }
+
+        boolean exists = memberRepository.existsByEmailAndIsDeletedFalse(email);
+
+        if (exists) {
+            return ResponseEntity.ok().body(Map.of(
+                    "available", false,
+                    "message", "이메일이 이미 사용중입니다."
+            ));
+        }
+        return ResponseEntity.ok().body(Map.of(
+                "available", true,
+                "message", "사용 가능한 이메일입니다."
+        ));
+    }
 
     @PostMapping("/join")
     public ResponseEntity<?> join(@Valid @RequestBody MemberDTO memberDTO,
@@ -48,18 +75,12 @@ public class MemberController {
             return ResponseEntity.badRequest().body(errorMap);
         }
 
-        // 2. 정상 로직 실행
-        try {
-            memberService.join(memberDTO);
-            return ResponseEntity.ok().body(Map.of("message", "회원가입이 완료되었습니다."));
-        } catch (IllegalStateException e) {
-            // 중복 이메일 등 비즈니스 로직 예외
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        } catch (Exception e) {
-            // 서버 내부 에러는 로그로만 남기고, 클라이언트에는 일반 에러 메시지 전달
-            log.error("회원가입 중 시스템 오류 발생", e);
-            return ResponseEntity.internalServerError().body(Map.of("error", "회원가입 처리 중 오류가 발생했습니다."));
-        }
+        // 2. 정상 로직 실행 (중복 이메일 시 BusinessException → GlobalExceptionHandler에서 400 + code: "DELETED_ACCOUNT" 처리)
+        memberService.join(memberDTO);
+        return ResponseEntity.ok().body(Map.of(
+                "result", "success",
+                "message", "회원가입이 완료되었습니다."
+        ));
     }
 
     /**
