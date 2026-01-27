@@ -29,10 +29,10 @@ public class ProductVariant extends BaseEntity {
     @Column(nullable = false, length = 80)
     private String sku;
 
-    // 옵션 정보 (JSON 문자열)
+    // 옵션 정보 (평문 텍스트, 예: "색상: 빨강, 사이즈: L")
     @Lob
-    @Column(name = "option_json", nullable = false)
-    private String optionJson;
+    @Column(name = "option_text", nullable = false)
+    private String optionText;
 
     // 가격 (null이면 product.basePrice 사용)
     @Column(precision = 18, scale = 2)
@@ -49,13 +49,13 @@ public class ProductVariant extends BaseEntity {
     @Builder
     public ProductVariant(Product product,
                          String sku,
-                         String optionJson,
+                         String optionText,
                          BigDecimal price,
                          Integer stockQty,
                          Boolean active) {
         this.product = product;
         this.sku = sku;
-        this.optionJson = optionJson;
+        this.optionText = optionText;
         this.price = price;
         this.stockQty = (stockQty != null) ? stockQty : 0;
         this.active = (active != null) ? active : true;
