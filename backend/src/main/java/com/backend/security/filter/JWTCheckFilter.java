@@ -58,11 +58,10 @@ public class JWTCheckFilter extends OncePerRequestFilter{
             return true;
         }
 
-        // 카트 API는 인증 optional (게스트 허용)
-        // 단, /api/cart/merge는 JWT 필수이므로 예외에서 제외
-        if (path.startsWith("/api/cart") && !path.equals("/api/cart/merge")) {
-            return true;
-        }
+        // /api/cart/** 는 shouldNotFilter에서 제외하지 않음 → 필터를 반드시 타게 함.
+        // doFilterInternal에서 카트 일반 경로는 Authorization 없으면 통과(게스트),
+        // Authorization 있으면 JWT 검증 후 SecurityContext 세팅(회원).
+        // /api/cart/merge는 Authorization 없으면 401 반환.
 
         return false;
     }
@@ -80,13 +79,13 @@ public class JWTCheckFilter extends OncePerRequestFilter{
         String authHeaderStr = request.getHeader("Authorization");
         String path = request.getRequestURI();
 
-        // 카트 API는 인증 optional이므로 Authorization이 없어도 통과
-        // 단, /api/cart/merge는 JWT 필수
+        // 카트 일반 경로: 인증 없어도 통과(게스트). /api/cart/merge는 JWT 필수.
+        boolean isCartPath = path.startsWith("/api/cart");
         boolean isCartMerge = path.equals("/api/cart/merge");
         
         if (authHeaderStr == null || !authHeaderStr.startsWith("Bearer ")) {
-            // 카트 merge가 아니면 인증 없이 통과 (게스트 허용)
-            if (!isCartMerge) {
+            // 카트 일반 경로(merge 제외)만 인증 없이 통과
+            if (isCartPath && !isCartMerge) {
                 filterChain.doFilter(request, response);
                 return;
             }
@@ -137,6 +136,9 @@ public class JWTCheckFilter extends OncePerRequestFilter{
 
             // 지금 로그인한 사용자의 인증 정보(사용자 정보, 비밀번호, 권한 등)를 SecurityContext에 저장
             SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+            if (path.startsWith("/api/cart")) {
+                log.info("JWTCheckFilter: SecurityContext set for cart request, email={}", email);
+            }
 
         }catch(JWTException e){ // 예외 처리 (JWT 검증 실패만 처리)
             log.error("JWT Check Error..............");

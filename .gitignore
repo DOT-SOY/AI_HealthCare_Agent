@@ -1,6 +1,6 @@
 # backend
 /backend/build/
-.backend/.gradle/
+/backend/.gradle/
 **/*.log
 
 # frontend
@@ -10,3 +10,10 @@
 # env
 .env
 application-local.properties
+
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# Upload files (runtime data)
+uploads/

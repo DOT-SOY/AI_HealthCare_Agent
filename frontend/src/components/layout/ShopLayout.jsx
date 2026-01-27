@@ -1,7 +1,8 @@
-import { useState, createContext, useContext, useRef, useCallback } from 'react';
+import { useState, createContext, useContext, useCallback, useEffect } from 'react';
 import BasicLayout from './BasicLayout';
 import FloatingCartButton from '../cart/FloatingCartButton';
 import CartDrawer from '../cart/CartDrawer';
+import { addCartItem, getCart, updateCartItemQty, removeCartItem } from '../../services/cartApi';
 
 // 장바구니 Context 생성
 const CartContext = createContext(null);
@@ -14,74 +15,70 @@ export const useCart = () => {
   return context;
 };
 
+const emptyCart = { cartId: null, isGuest: true, items: [], totals: { itemCount: 0, totalQty: 0, totalPrice: 0 } };
+
 const ShopLayout = ({ children }) => {
-  // { items: Array, lastProcessedUpdateId: number }
-  const [cartState, setCartState] = useState({ items: [], lastProcessedUpdateId: 0 });
+  const [cartState, setCartState] = useState(emptyCart);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [animateButton, setAnimateButton] = useState(false);
 
-  // StrictMode/중복실행 방지용 updateId
-  const lastUpdateIdRef = useRef(0);
-
-  // 장바구니에 아이템 추가 (UI 전용 더미 상태)
-  const addToCart = useCallback((product, variant = null, qty = 1) => {
-    const updateId = ++lastUpdateIdRef.current;
-
-    setCartState((prev) => {
-      // prev는 항상 {items, lastProcessedUpdateId} 형태로 유지
-      if (prev.lastProcessedUpdateId === updateId) return prev;
-
-      const items = Array.isArray(prev.items) ? prev.items : [];
-
-      const existingIndex = items.findIndex(
-        (item) =>
-          item.product?.id === product?.id &&
-          ((!item.variant && !variant) || item.variant?.id === variant?.id)
-      );
-
-      const addQty = Number(qty ?? 1);
-
-      if (existingIndex >= 0) {
-        const updated = items.map((it, i) =>
-          i === existingIndex ? { ...it, qty: (it.qty ?? 0) + addQty } : it
-        );
-        return { items: updated, lastProcessedUpdateId: updateId };
-      }
-
-      return {
-        items: [...items, { product, variant, qty: Math.max(1, addQty) }],
-        lastProcessedUpdateId: updateId,
-      };
-    });
-
-    // 담기 성공 시 버튼 애니메이션
-    setAnimateButton(true);
-    setTimeout(() => setAnimateButton(false), 600);
+  const refreshCart = useCallback(async () => {
+    try {
+      const data = await getCart();
+      setCartState(data && (data.items != null) ? data : emptyCart);
+    } catch (_) {
+      setCartState(emptyCart);
+    }
   }, []);
 
-  // 장바구니 아이템 수량 업데이트 (index 기반)
-  const updateQty = useCallback((index, newQty) => {
+  useEffect(() => {
+    refreshCart();
+  }, [refreshCart]);
+
+  const addToCart = useCallback(async (product, variant = null, qty = 1) => {
+    let targetVariant = variant;
+    if (!targetVariant && product.variants?.length > 0) {
+      const active = product.variants.filter(v => v.active);
+      if (active.length > 0) targetVariant = active[0];
+    }
+    const addQty = Number(qty ?? 1);
+
+    try {
+      if (targetVariant?.id) {
+        await addCartItem(targetVariant.id, null, addQty);
+      } else {
+        await addCartItem(null, product.id, addQty);
+      }
+      await refreshCart();
+      setAnimateButton(true);
+      setTimeout(() => setAnimateButton(false), 600);
+    } catch (error) {
+      console.error('Failed to add item to cart:', error);
+      alert('장바구니에 담는 중 오류가 발생했습니다: ' + (error.message || '알 수 없는 오류'));
+    }
+  }, [refreshCart]);
+
+  // itemId 기준 수량 변경 — API 호출 후 GET /api/cart 재조회로 동기화
+  const updateQty = useCallback(async (itemId, newQty) => {
     const qty = Number(newQty);
     if (!Number.isFinite(qty) || qty < 1) return;
+    try {
+      await updateCartItemQty(itemId, qty);
+      await refreshCart();
+    } catch (e) {
+      console.error('Failed to update cart item:', e);
+    }
+  }, [refreshCart]);
 
-    setCartState((prev) => {
-      const items = Array.isArray(prev.items) ? prev.items : [];
-      if (index < 0 || index >= items.length) return prev;
-
-      const updated = items.map((it, i) => (i === index ? { ...it, qty } : it));
-      return { ...prev, items: updated };
-    });
-  }, []);
-
-  // 장바구니 아이템 제거 (index 기반)
-  const removeItem = useCallback((index) => {
-    setCartState((prev) => {
-      const items = Array.isArray(prev.items) ? prev.items : [];
-      if (index < 0 || index >= items.length) return prev;
-
-      return { ...prev, items: items.filter((_, i) => i !== index) };
-    });
-  }, []);
+  // itemId 기준 삭제 — variantId 사용 금지, API 호출 후 GET /api/cart 재조회로 동기화
+  const removeItem = useCallback(async (itemId) => {
+    try {
+      await removeCartItem(itemId);
+      await refreshCart();
+    } catch (e) {
+      console.error('Failed to remove cart item:', e);
+    }
+  }, [refreshCart]);
 
   const items = Array.isArray(cartState.items) ? cartState.items : [];
   const totalItemCount = items.reduce((sum, item) => sum + (Number(item?.qty) || 0), 0);
@@ -116,6 +113,7 @@ const ShopLayout = ({ children }) => {
           isOpen={isDrawerOpen}
           onClose={() => setIsDrawerOpen(false)}
           cartItems={items}
+          totals={cartState.totals}
           onUpdateQty={updateQty}
           onRemoveItem={removeItem}
         />

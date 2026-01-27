@@ -18,7 +18,7 @@ import java.net.URI;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/v1/products")
+@RequestMapping("/api/products")
 @RequiredArgsConstructor
 public class ProductController {
 
@@ -37,7 +37,7 @@ public class ProductController {
         ProductResponse response = productService.create(request, createdBy);
         
         return ResponseEntity
-                .created(URI.create("/api/v1/products/" + response.getId()))
+                .created(URI.create("/api/products/" + response.getId()))
                 .body(response);
     }
 

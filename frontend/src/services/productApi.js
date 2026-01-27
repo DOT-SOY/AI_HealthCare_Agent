@@ -4,7 +4,7 @@ import jwtAxios from './jwtAxios';
  * 상품 관련 API
  */
 
-const prefix = '/v1/products';
+const prefix = '/products';
 
 /**
  * 상품 리스트 조회 (페이징, 검색, 필터링)

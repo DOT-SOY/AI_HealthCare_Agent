@@ -29,10 +29,20 @@ public interface CartService {
      * 같은 variant가 있으면 수량 증가, 없으면 신규 라인 생성
      * 
      * @param cartKey 장바구니 식별자 (memberId 또는 guestToken)
-     * @param variantId 상품 변형 ID
+     * @param variantId 상품 변형 ID (필수)
      * @param qty 수량 (>=1)
      */
     void addItem(CartKey cartKey, Long variantId, Integer qty);
+    
+    /**
+     * 장바구니에 아이템 추가 (productId로 variant 자동 찾기/생성)
+     * 옵션이 없는 제품의 경우 사용
+     * 
+     * @param cartKey 장바구니 식별자 (memberId 또는 guestToken)
+     * @param productId 상품 ID
+     * @param qty 수량 (>=1)
+     */
+    void addItemByProductId(CartKey cartKey, Long productId, Integer qty);
     
     /**
      * 장바구니 아이템 수량 변경

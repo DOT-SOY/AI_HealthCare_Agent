@@ -60,8 +60,11 @@ const loginSlice = createSlice({
       // 소셜 로그인 회원이 사용
       const payload = action.payload;
       setCookie("member", JSON.stringify(payload), 1); // 1일 - 로그인 정보를 쿠키에 저장
-
-      // slice의 state를 payload로 변환
+      if (payload?.accessToken && typeof localStorage !== "undefined") {
+        try {
+          localStorage.setItem("accessToken", payload.accessToken);
+        } catch (_) {}
+      }
       return payload;
     },
   },
@@ -74,6 +77,11 @@ const loginSlice = createSlice({
         // 정상적인 로그인시에만 저장 (error 필드가 없을 때만)
         if (payload && !payload.error) {
           setCookie("member", JSON.stringify(payload), 1); //1일
+          if (payload.accessToken && typeof localStorage !== "undefined") {
+            try {
+              localStorage.setItem("accessToken", payload.accessToken);
+            } catch (_) {}
+          }
         }
 
         return payload;
@@ -90,16 +98,19 @@ const loginSlice = createSlice({
         return { ...initState, error: "로그인에 실패했습니다.", message: "로그인에 실패했습니다." };
       })
       .addCase(logoutPostAsync.fulfilled, (state, action) => {
-        // 로그아웃 처리: 쿠키 삭제, 로그인 상태 초기화, Redux state를 비로그인 상태로 되돌림
         removeCookie("member");
-        // Refresh Token 쿠키도 삭제 시도 (HttpOnly 쿠키는 서버에서 삭제해야 함)
         removeCookie("refreshToken");
+        try {
+          localStorage.removeItem("accessToken");
+        } catch (_) {}
         return { ...initState };
       })
       .addCase(logoutPostAsync.rejected, (state, action) => {
-        // 로그아웃 API 실패해도 프론트엔드 로그아웃은 진행
         removeCookie("member");
         removeCookie("refreshToken");
+        try {
+          localStorage.removeItem("accessToken");
+        } catch (_) {}
         return { ...initState };
       });
   },

@@ -86,6 +86,7 @@ public class CustomSecurityConfig {
                 .requestMatchers("/api/files/view/**").permitAll()
                 .requestMatchers("/api/files/upload").permitAll()  // TODO: 추후 ADMIN 권한으로 제한
                 .requestMatchers("/api/products/**").permitAll()  // TODO: 추후 ADMIN 권한으로 제한 (생성/수정/삭제)
+                .requestMatchers("/api/cart/**").permitAll()  // 카트 API는 인증 optional (게스트 허용)
                 // 나머지는 JWT 인증 필요
                 .anyRequest().authenticated()
         );
@@ -120,8 +121,8 @@ public class CustomSecurityConfig {
         configuration.setAllowedMethods(Arrays.asList("OPTIONS", "HEAD", "GET", "POST", "PUT", "PATCH", "DELETE"));
         // JWT 전달을 위한 Authorization 헤더 허용
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Cache-Control", "Content-Type"));
-        // 다운로드 시 브라우저가 파일명/헤더를 읽을 수 있도록 노출 (필요 시)
-        configuration.setExposedHeaders(Arrays.asList("Content-Disposition"));
+        // 다운로드 시 파일명, 카트 guest_token 발급 시 Set-Cookie 노출
+        configuration.setExposedHeaders(Arrays.asList("Content-Disposition", "Set-Cookie"));
         // 쿠키/인증 정보 허용
         configuration.setAllowCredentials(true);
 

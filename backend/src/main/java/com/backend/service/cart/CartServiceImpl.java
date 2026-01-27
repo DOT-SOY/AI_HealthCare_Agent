@@ -5,6 +5,7 @@ import com.backend.common.exception.ErrorCode;
 import com.backend.domain.cart.Cart;
 import com.backend.domain.cart.CartItem;
 import com.backend.domain.member.Member;
+import com.backend.domain.shop.Product;
 import com.backend.domain.shop.ProductImage;
 import com.backend.domain.shop.ProductVariant;
 import com.backend.dto.cart.response.CartItemResponse;
@@ -13,6 +14,7 @@ import com.backend.dto.cart.response.CartTotalsResponse;
 import com.backend.repository.cart.CartItemRepository;
 import com.backend.repository.cart.CartRepository;
 import com.backend.repository.member.MemberRepository;
+import com.backend.repository.shop.ProductRepository;
 import com.backend.repository.shop.ProductVariantRepository;
 import com.backend.service.file.FileStorageService;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +37,7 @@ public class CartServiceImpl implements CartService {
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
     private final ProductVariantRepository productVariantRepository;
+    private final ProductRepository productRepository;
     private final MemberRepository memberRepository;
     private final FileStorageService fileStorageService;
 
@@ -45,7 +48,7 @@ public class CartServiceImpl implements CartService {
         
         if (memberId != null) {
             // 회원 장바구니 조회 또는 생성
-            cart = cartRepository.findByMemberId(memberId)
+            cart = cartRepository.findByMember_Id(memberId)
                     .orElseGet(() -> {
                         Member member = memberRepository.findById(memberId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, memberId));
@@ -82,9 +85,14 @@ public class CartServiceImpl implements CartService {
             throw new BusinessException(ErrorCode.SHOP_CART_ITEM_INVALID_QUANTITY);
         }
 
-        // Variant 존재 확인
-        ProductVariant variant = productVariantRepository.findById(variantId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.SHOP_VARIANT_NOT_FOUND, variantId));
+        // Variant 존재 확인 또는 생성
+        ProductVariant variant;
+        if (variantId != null) {
+            variant = productVariantRepository.findById(variantId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.SHOP_VARIANT_NOT_FOUND, variantId));
+        } else {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "variantId는 필수입니다.");
+        }
 
         // 재고 검증
         if (!variant.isActive()) {
@@ -124,6 +132,42 @@ public class CartServiceImpl implements CartService {
             log.info("Cart item added: cartId={}, itemId={}, variantId={}, qty={}", 
                     cart.getId(), newItem.getId(), variantId, qty);
         }
+    }
+    
+    @Override
+    @Transactional
+    public void addItemByProductId(CartKey cartKey, Long productId, Integer qty) {
+        if (qty == null || qty < 1) {
+            throw new BusinessException(ErrorCode.SHOP_CART_ITEM_INVALID_QUANTITY);
+        }
+        
+        // Product 조회
+        Product product = productRepository.findByIdAndDeletedAtIsNull(productId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.SHOP_PRODUCT_NOT_FOUND, productId));
+        
+        // Product의 첫 번째 active variant 찾기
+        List<ProductVariant> variants = productVariantRepository.findByProductId(productId);
+        ProductVariant variant = variants.stream()
+                .filter(ProductVariant::isActive)
+                .findFirst()
+                .orElse(null);
+        
+        // variant가 없으면 기본 variant 생성
+        if (variant == null) {
+            variant = ProductVariant.builder()
+                    .product(product)
+                    .sku("DEFAULT-" + productId)
+                    .optionText("기본 옵션")
+                    .price(null)  // null이면 product.basePrice 사용
+                    .stockQty(999)  // 기본 재고
+                    .active(true)
+                    .build();
+            variant = productVariantRepository.save(variant);
+            log.info("Default variant created for product: productId={}, variantId={}", productId, variant.getId());
+        }
+        
+        // 기존 addItem 로직 재사용
+        addItem(cartKey, variant.getId(), qty);
     }
 
     @Override
@@ -203,7 +247,7 @@ public class CartServiceImpl implements CartService {
         
         // N+1 방지를 위해 EntityGraph로 items, variant, product, images를 한 번에 조회
         if (cartKey.isMember()) {
-            cart = cartRepository.findWithItemsByMemberId(cartKey.getMemberId())
+            cart = cartRepository.findWithItemsByMember_Id(cartKey.getMemberId())
                     .orElseGet(() -> {
                         // 회원 카트가 없으면 생성
                         Member member = memberRepository.findById(cartKey.getMemberId())
@@ -253,67 +297,64 @@ public class CartServiceImpl implements CartService {
     @Override
     @Transactional
     public void mergeGuestCartToMemberCart(String guestToken, Long memberId) {
-        // 1. 게스트 장바구니 조회
-        Cart guestCart = cartRepository.findByGuestToken(guestToken)
+        // 1. 게스트 장바구니 + items 한 번에 조회 (EntityGraph로 N+1/Lazy 방지)
+        Cart guestCart = cartRepository.findWithItemsByGuestToken(guestToken)
                 .orElse(null);
-        
-        // 게스트 카트가 없거나 비어있으면 종료
+
         if (guestCart == null || guestCart.getItems().isEmpty()) {
             log.info("Guest cart is empty or not found, skipping merge: guestToken={}", guestToken);
             return;
         }
-        
+
         // 2. 회원 장바구니 조회 또는 생성
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, memberId));
-        
-        Cart memberCart = cartRepository.findByMemberId(memberId)
+
+        Cart memberCart = cartRepository.findByMember_Id(memberId)
                 .orElseGet(() -> {
                     Cart newCart = Cart.builder()
                             .member(member)
                             .build();
                     return cartRepository.save(newCart);
                 });
-        
-        // 3. 게스트 장바구니의 아이템들을 회원 장바구니로 병합 (중복 variant는 수량 합산)
+
+        // 3. 게스트 아이템 병합: 재고 0 variant 제외, qty=0 CartItem 생성/유지 안 함
         for (CartItem guestItem : guestCart.getItems()) {
             ProductVariant variant = guestItem.getVariant();
-            
-            // 재고 검증
+
             if (!variant.isActive()) {
                 log.warn("Skipping inactive variant during merge: variantId={}", variant.getId());
                 continue;
             }
-            
+            if (variant.getStockQty() <= 0) {
+                log.warn("Skipping zero-stock variant during merge: variantId={}", variant.getId());
+                continue;
+            }
+
             CartItem existingItem = cartItemRepository
                     .findByCartIdAndVariantId(memberCart.getId(), variant.getId())
                     .orElse(null);
-            
+
             if (existingItem != null) {
-                // 기존 아이템이 있으면 수량 합산
                 int newQty = existingItem.getQty() + guestItem.getQty();
-                
-                // 재고 검증
                 if (variant.getStockQty() < newQty) {
-                    log.warn("Insufficient stock during merge, using max available: variantId={}, requested={}, available={}", 
-                            variant.getId(), newQty, variant.getStockQty());
                     newQty = variant.getStockQty();
                 }
-                
-                existingItem.updateQty(newQty);
-                cartItemRepository.save(existingItem);
-                log.info("Merged cart item: cartId={}, variantId={}, qty={}", 
-                        memberCart.getId(), variant.getId(), newQty);
-            } else {
-                // 신규 아이템 추가
-                // 재고 검증
-                int qty = guestItem.getQty();
-                if (variant.getStockQty() < qty) {
-                    log.warn("Insufficient stock during merge, using max available: variantId={}, requested={}, available={}", 
-                            variant.getId(), qty, variant.getStockQty());
-                    qty = variant.getStockQty();
+                if (newQty <= 0) {
+                    cartItemRepository.delete(existingItem);
+                    log.info("Removed cart item (qty would be 0): cartId={}, variantId={}",
+                            memberCart.getId(), variant.getId());
+                } else {
+                    existingItem.updateQty(newQty);
+                    cartItemRepository.save(existingItem);
+                    log.info("Merged cart item: cartId={}, variantId={}, qty={}",
+                            memberCart.getId(), variant.getId(), newQty);
                 }
-                
+            } else {
+                int qty = Math.min(guestItem.getQty(), variant.getStockQty());
+                if (qty <= 0) {
+                    continue;
+                }
                 CartItem newItem = CartItem.builder()
                         .cart(memberCart)
                         .variant(variant)
@@ -321,11 +362,11 @@ public class CartServiceImpl implements CartService {
                         .build();
                 memberCart.addItem(newItem);
                 cartItemRepository.save(newItem);
-                log.info("Added cart item from guest cart: cartId={}, variantId={}, qty={}", 
+                log.info("Added cart item from guest cart: cartId={}, variantId={}, qty={}",
                         memberCart.getId(), variant.getId(), qty);
             }
         }
-        
+
         // 4. 게스트 장바구니 삭제
         cartItemRepository.deleteByCartId(guestCart.getId());
         cartRepository.delete(guestCart);
@@ -397,33 +438,47 @@ public class CartServiceImpl implements CartService {
                 .build();
     }
 
-    /**
-     * 장바구니 조회 및 소유자 확인
-     * 
-     * @param cartKey 장바구니 식별자
-     * @return 장바구니 엔티티
-     */
-    private Cart getCartAndVerifyOwnership(CartKey cartKey) {
-        Cart cart;
+/**
+ * 장바구니 조회 및 소유자 확인 (없으면 자동 생성)
+ * 
+ * @param cartKey 장바구니 식별자
+ * @return 장바구니 엔티티
+ */
+private Cart getCartAndVerifyOwnership(CartKey cartKey) {
+    Cart cart;
+    
+    if (cartKey.isMember()) {
+        cart = cartRepository.findByMember_Id(cartKey.getMemberId())
+                .orElseGet(() -> {
+                    // 회원 카트가 없으면 생성
+                    Member member = memberRepository.findById(cartKey.getMemberId())
+                            .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, cartKey.getMemberId()));
+                    Cart newCart = Cart.builder()
+                            .member(member)
+                            .build();
+                    return cartRepository.save(newCart);
+                });
         
-        if (cartKey.isMember()) {
-            cart = cartRepository.findByMemberId(cartKey.getMemberId())
-                    .orElseThrow(() -> new BusinessException(ErrorCode.SHOP_CART_NOT_FOUND));
-            
-            // 회원 장바구니인지 확인
-            if (cart.getMember() == null || !cart.getMember().getId().equals(cartKey.getMemberId())) {
-                throw new BusinessException(ErrorCode.SHOP_CART_ACCESS_DENIED);
-            }
-        } else {
-            cart = cartRepository.findByGuestToken(cartKey.getGuestToken())
-                    .orElseThrow(() -> new BusinessException(ErrorCode.SHOP_CART_NOT_FOUND));
-            
-            // 게스트 장바구니인지 확인
-            if (cart.getGuestToken() == null || !cart.getGuestToken().equals(cartKey.getGuestToken())) {
-                throw new BusinessException(ErrorCode.SHOP_CART_ACCESS_DENIED);
-            }
+        // 회원 장바구니인지 확인
+        if (cart.getMember() == null || !cart.getMember().getId().equals(cartKey.getMemberId())) {
+            throw new BusinessException(ErrorCode.SHOP_CART_ACCESS_DENIED);
         }
+    } else {
+        cart = cartRepository.findByGuestToken(cartKey.getGuestToken())
+                .orElseGet(() -> {
+                    // 게스트 카트가 없으면 생성
+                    Cart newCart = Cart.builder()
+                            .guestToken(cartKey.getGuestToken())
+                            .build();
+                    return cartRepository.save(newCart);
+                });
         
-        return cart;
+        // 게스트 장바구니인지 확인
+        if (cart.getGuestToken() == null || !cart.getGuestToken().equals(cartKey.getGuestToken())) {
+            throw new BusinessException(ErrorCode.SHOP_CART_ACCESS_DENIED);
+        }
     }
+    
+    return cart;
+}
 }

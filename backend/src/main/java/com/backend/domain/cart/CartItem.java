@@ -1,12 +1,16 @@
 package com.backend.domain.cart;
 
-import com.backend.domain.BaseEntity;
 import com.backend.domain.shop.ProductVariant;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.time.Instant;
+
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -19,26 +23,30 @@ import lombok.NoArgsConstructor;
         )
     }
 )
-public class CartItem extends BaseEntity {
+public class CartItem {
 
-    // PK
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // 장바구니
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "cart_id", nullable = false)
     private Cart cart;
 
-    // 상품 변형
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "variant_id", nullable = false)
     private ProductVariant variant;
 
-    // 수량
     @Column(nullable = false)
     private Integer qty = 1;
+
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
 
     @Builder
     public CartItem(Cart cart, ProductVariant variant, Integer qty) {
