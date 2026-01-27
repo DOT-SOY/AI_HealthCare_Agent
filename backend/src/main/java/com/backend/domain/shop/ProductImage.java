@@ -7,6 +7,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.Where;
 import org.hibernate.type.SqlTypes;
 
 import java.util.UUID;
@@ -15,6 +17,8 @@ import java.util.UUID;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "product_images")
+@Where(clause = "deleted_at IS NULL")
+@SQLDelete(sql = "UPDATE product_images SET deleted_at = NOW() WHERE uuid = ?")
 public class ProductImage extends BaseEntity {
 
     // PK (UUID)
