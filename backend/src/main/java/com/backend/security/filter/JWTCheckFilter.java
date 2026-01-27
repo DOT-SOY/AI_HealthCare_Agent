@@ -39,8 +39,7 @@ public class JWTCheckFilter extends OncePerRequestFilter{
         if (path.equals("/api/member/login") ||
                 path.equals("/api/member/join") ||
                 path.equals("/api/member/refresh") ||
-                path.equals("/api/member/kakao") ||
-                path.equals("/api/member/login/face")) {
+                path.equals("/api/member/kakao")) {
             return true;
         }
 
@@ -55,7 +54,13 @@ public class JWTCheckFilter extends OncePerRequestFilter{
         }
 
         // 상품 관련 API는 모두 public 접근 허용 (TODO: 추후 ADMIN 권한으로 제한)
-        if (path.equals("/api/v1/products") || path.startsWith("/api/v1/products/")) {
+        if (path.equals("/api/products") || path.startsWith("/api/products/")) {
+            return true;
+        }
+
+        // 카트 API는 인증 optional (게스트 허용)
+        // 단, /api/cart/merge는 JWT 필수이므로 예외에서 제외
+        if (path.startsWith("/api/cart") && !path.equals("/api/cart/merge")) {
             return true;
         }
 
@@ -73,8 +78,19 @@ public class JWTCheckFilter extends OncePerRequestFilter{
 
         // 클라이언트에서 Authorization: Bearer <JWT>로 전달
         String authHeaderStr = request.getHeader("Authorization");
+        String path = request.getRequestURI();
 
+        // 카트 API는 인증 optional이므로 Authorization이 없어도 통과
+        // 단, /api/cart/merge는 JWT 필수
+        boolean isCartMerge = path.equals("/api/cart/merge");
+        
         if (authHeaderStr == null || !authHeaderStr.startsWith("Bearer ")) {
+            // 카트 merge가 아니면 인증 없이 통과 (게스트 허용)
+            if (!isCartMerge) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+            
             log.error("JWT Check Error: Authorization header is missing or invalid");
 
             // WebSocket 핸드셰이크 실패 시 403 Forbidden 반환

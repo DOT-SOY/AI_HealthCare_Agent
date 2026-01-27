@@ -2,12 +2,15 @@ package com.backend.service.member;
 
 import com.backend.domain.member.Member;
 import com.backend.dto.member.MemberDTO;
+import com.backend.dto.member.MemberModifyDTO;
 import com.backend.repository.member.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
 
 @Service
 @RequiredArgsConstructor
@@ -60,5 +63,29 @@ public class MemberServiceImpl implements MemberService {
         // JPA 영속 상태이므로 트랜잭션 커밋 시 자동으로 UPDATE 됨
 
         log.info("회원 탈퇴 완료: {}", email);
+    }
+
+    @Override
+    public void modify(String email, MemberModifyDTO memberModifyDTO) {
+        log.info("회원 정보 수정 요청: {}", email);
+
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalStateException("회원 정보를 찾을 수 없습니다."));
+
+        if (member.isDeleted()) {
+            throw new IllegalStateException("탈퇴된 계정입니다.");
+        }
+
+        member.setName(memberModifyDTO.getName());
+        member.setGender(Member.Gender.valueOf(memberModifyDTO.getGender()));
+        member.setBirthDate(LocalDate.parse(memberModifyDTO.getBirthDate()));
+        member.setHeight(memberModifyDTO.getHeight());
+        member.setWeight(memberModifyDTO.getWeight());
+        member.changePw(passwordEncoder.encode(memberModifyDTO.getPw()));
+
+        // 영속 상태라 save 호출 없이도 반영되지만, 명시적으로 남김
+        memberRepository.save(member);
+
+        log.info("회원 정보 수정 완료: {}", email);
     }
 }

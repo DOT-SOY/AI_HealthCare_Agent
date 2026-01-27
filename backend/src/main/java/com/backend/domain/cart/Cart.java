@@ -21,6 +21,10 @@ import java.util.List;
         @UniqueConstraint(
             name = "uk_cart_guest_token",
             columnNames = {"guest_token"}
+        ),
+        @UniqueConstraint(
+            name = "uk_cart_member_id",
+            columnNames = {"member_id"}
         )
     }
 )

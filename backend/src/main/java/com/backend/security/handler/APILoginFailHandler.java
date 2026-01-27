@@ -147,14 +147,6 @@ public class APILoginFailHandler implements AuthenticationFailureHandler {
                 responseData.put("error", "DELETED_ACCOUNT");
                 responseData.put("message", "탈퇴된 계정입니다.");
                 break;
-            case "FACE_LOGIN_DISABLED":
-                responseData.put("error", "FACE_LOGIN_DISABLED");
-                responseData.put("message", "얼굴 로그인이 비활성화되어 있습니다.");
-                break;
-            case "FACE_NOT_RECOGNIZED":
-                responseData.put("error", "FACE_NOT_RECOGNIZED");
-                responseData.put("message", "등록된 얼굴을 찾을 수 없습니다.");
-                break;
             case "Not Found":
             default:
                 // 일반적인 로그인 실패 또는 기타 에러 - 실패 횟수 증가

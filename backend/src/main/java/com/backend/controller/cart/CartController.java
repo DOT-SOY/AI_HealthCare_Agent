@@ -3,6 +3,7 @@ package com.backend.controller.cart;
 import com.backend.dto.cart.request.CartItemAddRequest;
 import com.backend.dto.cart.request.CartItemUpdateRequest;
 import com.backend.dto.cart.response.CartResponse;
+import com.backend.repository.member.MemberRepository;
 import com.backend.service.cart.CartKey;
 import com.backend.service.cart.CartService;
 import com.backend.util.CookieUtil;
@@ -17,12 +18,13 @@ import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/v1/cart")
+@RequestMapping("/api/cart")
 @RequiredArgsConstructor
 public class CartController {
 
     private final CartService cartService;
     private final CookieUtil cookieUtil;
+    private final MemberRepository memberRepository;
 
     /**
      * 장바구니 조회
@@ -117,33 +119,86 @@ public class CartController {
     }
 
     /**
+     * 게스트 장바구니를 회원 장바구니로 병합
+     * JWT 필수 (인증된 회원만 사용 가능)
+     * 
+     * @param httpRequest HTTP 요청 (쿠키 읽기용)
+     * @param httpResponse HTTP 응답 (쿠키 설정용)
+     * @return 병합된 장바구니 응답
+     */
+    @PostMapping("/merge")
+    public ResponseEntity<CartResponse> mergeCart(
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
+        // JWT 인증 필수 확인
+        org.springframework.security.core.Authentication authentication = 
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        
+        if (authentication == null || !authentication.isAuthenticated() 
+                || !(authentication.getPrincipal() instanceof String)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        
+        // 회원 정보 조회
+        String email = (String) authentication.getPrincipal();
+        var member = memberRepository.findByEmail(email)
+                .orElse(null);
+        
+        if (member == null || member.isDeleted()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        
+        // 게스트 토큰 읽기
+        String guestToken = cookieUtil.getGuestToken(httpRequest);
+        
+        if (guestToken != null && !guestToken.trim().isEmpty()) {
+            // 게스트 카트를 회원 카트로 병합
+            cartService.mergeGuestCartToMemberCart(guestToken.trim(), member.getId());
+            
+            // 게스트 토큰 쿠키 삭제
+            cookieUtil.removeGuestToken(httpRequest, httpResponse);
+        }
+        
+        // 병합된 회원 카트 반환
+        CartKey memberCartKey = CartKey.ofMember(member.getId());
+        CartResponse cartResponse = cartService.getCart(memberCartKey);
+        return ResponseEntity.ok(cartResponse);
+    }
+
+    /**
      * CartKey 해석 (회원 또는 게스트)
-     * 회원이면 SecurityContext에서 memberId 획득, 비회원이면 쿠키에서 guestToken 획득
+     * 회원이면 SecurityContext에서 email 추출 후 memberId 획득, 비회원이면 쿠키에서 guestToken 획득
      * 
      * @param request HTTP 요청
      * @param response HTTP 응답 (쿠키 설정용)
      * @return CartKey
      */
     private CartKey resolveCartKey(HttpServletRequest request, HttpServletResponse response) {
-        // TODO: 추후 JWT에서 사용자 ID 추출
-        // Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        // Long memberId = authentication != null ? (Long) authentication.getPrincipal() : null;
-        Long memberId = null; // 임시로 null (비회원 처리)
+        // SecurityContext에서 인증 정보 확인
+        org.springframework.security.core.Authentication authentication = 
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
         
-        if (memberId != null) {
-            // 회원
-            return CartKey.ofMember(memberId);
-        } else {
-            // 비회원: 쿠키에서 guestToken 읽기
-            String guestToken = cookieUtil.getGuestToken(request);
+        if (authentication != null && authentication.isAuthenticated() 
+                && authentication.getPrincipal() instanceof String) {
+            // JWT 인증된 회원: email에서 memberId 조회
+            String email = (String) authentication.getPrincipal();
+            var member = memberRepository.findByEmail(email)
+                    .orElse(null);
             
-            if (guestToken == null || guestToken.trim().isEmpty()) {
-                // 쿠키가 없으면 새로 생성
-                guestToken = cartService.generateGuestToken();
-                cookieUtil.setGuestToken(response, guestToken);
+            if (member != null && !member.isDeleted()) {
+                return CartKey.ofMember(member.getId());
             }
-            
-            return CartKey.ofGuest(guestToken);
         }
+        
+        // 비회원: 쿠키에서 guestToken 읽기
+        String guestToken = cookieUtil.getGuestToken(request);
+        
+        if (guestToken == null || guestToken.trim().isEmpty()) {
+            // 쿠키가 없으면 새로 생성
+            guestToken = cartService.generateGuestToken();
+            cookieUtil.setGuestToken(request, response, guestToken);
+        }
+        
+        return CartKey.ofGuest(guestToken);
     }
 }

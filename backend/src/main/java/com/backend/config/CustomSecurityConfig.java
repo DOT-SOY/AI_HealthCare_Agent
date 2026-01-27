@@ -85,7 +85,7 @@ public class CustomSecurityConfig {
                 .requestMatchers("/api/member/**").permitAll()
                 .requestMatchers("/api/files/view/**").permitAll()
                 .requestMatchers("/api/files/upload").permitAll()  // TODO: 추후 ADMIN 권한으로 제한
-                .requestMatchers("/api/v1/products/**").permitAll()  // TODO: 추후 ADMIN 권한으로 제한 (생성/수정/삭제)
+                .requestMatchers("/api/products/**").permitAll()  // TODO: 추후 ADMIN 권한으로 제한 (생성/수정/삭제)
                 // 나머지는 JWT 인증 필요
                 .anyRequest().authenticated()
         );
