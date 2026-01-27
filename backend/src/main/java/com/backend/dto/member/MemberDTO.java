@@ -2,6 +2,7 @@ package com.backend.dto.member;
 
 import com.fasterxml.jackson.annotation.JsonProperty; // 추가됨
 import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.NotBlank;
@@ -68,4 +69,22 @@ public class MemberDTO {
     @DecimalMin(value = "1.0", message = "몸무게는 1kg 이상이어야 합니다.")
     private Double weight;
     
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.DecimalMin;
+
+    // 6. 키(cm)
+    @NotNull(message = "키를 입력해주세요.")
+    @Min(value = 50, message = "키는 50cm 이상이어야 합니다.")
+    @Max(value = 300, message = "키는 300cm 이하여야 합니다.")
+    private Integer height;
+
+    // 7. 몸무게(kg)
+    // 프론트에서 name을 weigh로 보내는 케이스도 받아주기 위해 alias 허용
+    @JsonAlias({"weigh"})
+    @NotNull(message = "몸무게를 입력해주세요.")
+    @DecimalMin(value = "1.0", message = "몸무게는 1kg 이상이어야 합니다.")
+    private Double weight;
+
 }

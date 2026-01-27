@@ -12,7 +12,7 @@ import adminRouter from "./adminRouter";
 
 const Loading = <LoadingModal isOpen={true} message="로딩 중입니다" />;
 
-const Main= lazy(() => import("../pages/MainPage"));
+const Main = lazy(() => import("../pages/MainPage"));
 const ShopIndex = lazy(() => import("../pages/shop/ShopIndex"));
 const RoutineIndex = lazy(() => import("../pages/routine/RoutineIndex"));
 const RecordIndex = lazy(() => import("../pages/record/RecordIndex"));
@@ -86,18 +86,18 @@ const root = createBrowserRouter([
     children: profileRouter(),
   },
   {
-        path: "member",
-        children: memberRouter(),
-    },
- {
-        path: "admin",
-        element: (
-            <Suspense fallback={Loading}>
-                <AdminIndex />
-            </Suspense>
-        ),
-        children: adminRouter(),
-    },
+    path: "member",
+    children: memberRouter(),
+  },
+  {
+    path: "admin",
+    element: (
+      <Suspense fallback={Loading}>
+        <AdminIndex />
+      </Suspense>
+    ),
+    children: adminRouter(),
+  },
 ]);
 
 export default root;

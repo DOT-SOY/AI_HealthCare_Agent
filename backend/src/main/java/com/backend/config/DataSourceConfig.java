@@ -78,6 +78,7 @@ public class DataSourceConfig {
 
     // PostgreSQL 설정 (Secondary)
     // 현재는 PostgreSQL 관련 Bean은 비활성화합니다.
+    // 얼굴 인식(임베딩) 기능을 사용하지 않으므로, PostgreSQL 관련 Bean은 비활성화합니다.
     // 필요해지면 아래 Bean 들을 복원하고, pg.datasource.* 설정 및 PostgreSQL 드라이버 의존성을 추가하세요.
 //    @Bean
 //    @ConfigurationProperties("pg.datasource")
@@ -93,7 +94,7 @@ public class DataSourceConfig {
 //                .build();
 //    }
 //
-//    // PostgreSQL 전용 JdbcTemplate (필요 시 사용)
+//    // PostgreSQL 전용 JdbcTemplate (FaceService에서 사용)
 //    @Bean(name = "postgresJdbcTemplate")
 //    public JdbcTemplate postgresJdbcTemplate(@Qualifier("postgresDataSource") DataSource dataSource) {
 //        return new JdbcTemplate(dataSource);
