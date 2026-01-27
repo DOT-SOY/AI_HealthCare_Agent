@@ -44,8 +44,10 @@ public class GlobalExceptionHandler {
             BusinessException e, HttpServletRequest request) {
         log.warn("BusinessException: {} - {}", e.getErrorCode().getCode(), e.getMessage());
         
+        String code = e.getErrorCode().getCode();
         ErrorResponse errorResponse = ErrorResponse.builder()
-                .error(e.getErrorCode().getCode())
+                .code(code)
+                .error(code)
                 .message(e.getFormattedMessage()) // 포맷팅된 메시지 사용
                 .timestamp(Instant.now().toString())
                 .path(request.getRequestURI())
@@ -64,8 +66,10 @@ public class GlobalExceptionHandler {
             JWTException e, HttpServletRequest request) {
         log.warn("JWTException: {} - {}", e.getErrorCode().getCode(), e.getMessage());
         
+        String code = e.getErrorCode().getCode();
         ErrorResponse errorResponse = ErrorResponse.builder()
-                .error(e.getErrorCode().getCode())
+                .code(code)
+                .error(code)
                 .message(e.getFormattedMessage()) // 포맷팅된 메시지 사용
                 .timestamp(Instant.now().toString())
                 .path(request.getRequestURI())
@@ -124,8 +128,10 @@ public class GlobalExceptionHandler {
             IllegalArgumentException e, HttpServletRequest request) {
         log.warn("IllegalArgumentException: {}", e.getMessage());
 
+        String code = ErrorCode.INVALID_INPUT_VALUE.getCode();
         ErrorResponse errorResponse = ErrorResponse.builder()
-                .error(ErrorCode.INVALID_INPUT_VALUE.getCode())
+                .code(code)
+                .error(code)
                 .message(e.getMessage())
                 .timestamp(Instant.now().toString())
                 .path(request.getRequestURI())
@@ -144,8 +150,10 @@ public class GlobalExceptionHandler {
             Exception e, HttpServletRequest request) {
         log.error("Unexpected error: {}", e.getMessage(), e);
 
+        String code = ErrorCode.INTERNAL_SERVER_ERROR.getCode();
         ErrorResponse errorResponse = ErrorResponse.builder()
-                .error(ErrorCode.INTERNAL_SERVER_ERROR.getCode())
+                .code(code)
+                .error(code)
                 .message("서버 내부 오류가 발생했습니다.")
                 .timestamp(Instant.now().toString())
                 .path(request.getRequestURI())
@@ -171,8 +179,10 @@ public class GlobalExceptionHandler {
                         .build())
                 .collect(Collectors.toList());
 
+        String code = ErrorCode.INVALID_INPUT_VALUE.getCode();
         ErrorResponse errorResponse = ErrorResponse.builder()
-                .error(ErrorCode.INVALID_INPUT_VALUE.getCode())
+                .code(code)
+                .error(code)
                 .message("입력값 검증에 실패했습니다.")
                 .details(fieldErrors)
                 .timestamp(Instant.now().toString())

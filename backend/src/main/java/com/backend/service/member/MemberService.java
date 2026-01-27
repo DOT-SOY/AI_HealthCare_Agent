@@ -3,6 +3,7 @@ package com.backend.service.member;
 import com.backend.domain.member.Member;
 import com.backend.domain.member.MemberRole;
 import com.backend.dto.member.MemberDTO;
+import com.backend.dto.member.MemberModifyDTO;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDate;
@@ -15,6 +16,9 @@ public interface MemberService {
     // 회원 탈퇴 기능 (본인 탈퇴)
     void withdraw(String email);
 
+    // 회원 정보 수정 (본인)
+    void modify(String email, MemberModifyDTO memberModifyDTO);
+
     // [DTO -> Entity 변환] (회원가입 시 사용)
     // 비밀번호 암호화를 위해 PasswordEncoder를 파라미터로 받습니다.
     default Member dtoToEntity(MemberDTO dto, PasswordEncoder passwordEncoder) {
@@ -24,6 +28,8 @@ public interface MemberService {
                 .name(dto.getName())
                 .gender(Member.Gender.valueOf(dto.getGender()))
                 .birthDate(LocalDate.parse(dto.getBirthDate())) // String -> LocalDate 변환
+                .height(dto.getHeight())
+                .weight(dto.getWeight())
                 .build();
 
         // 기본 권한 부여: 모든 신규 회원에게 USER 역할 추가
