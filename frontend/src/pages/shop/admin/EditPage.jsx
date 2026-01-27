@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import { getProduct, updateProduct } from '../../../services/productApi';
 import { uploadFiles } from '../../../services/fileApi';
 import { CATEGORY_TYPES } from '../../../constants/categoryTypes';
@@ -7,6 +8,7 @@ import { CATEGORY_TYPES } from '../../../constants/categoryTypes';
 const ProductEditPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const loginState = useSelector((state) => state.loginSlice);
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
@@ -26,8 +28,19 @@ const ProductEditPage = () => {
   const [variants, setVariants] = useState([]);
 
   useEffect(() => {
-    loadProduct();
-  }, [id]);
+    if (!loginState?.roleNames?.includes('ADMIN')) {
+      alert('접근 권한이 없습니다 (관리자 전용)');
+      navigate('/shop/list', { replace: true });
+    }
+  }, [loginState, navigate]);
+
+  useEffect(() => {
+    if (loginState?.roleNames?.includes('ADMIN') && id) {
+      loadProduct();
+    }
+  // loadProduct는 id 기반으로 내부에서 사용하므로 id 변경 시만 재실행
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, loginState?.roleNames]);
 
   const toggleCategory = (value) => {
     setSelectedCategoryTypes((prev) =>

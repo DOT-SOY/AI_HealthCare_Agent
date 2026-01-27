@@ -1,11 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import { createProduct } from '../../../services/productApi';
 import { uploadFiles } from '../../../services/fileApi';
 import { CATEGORY_TYPES } from '../../../constants/categoryTypes';
 
 const ProductCreatePage = () => {
   const navigate = useNavigate();
+  const loginState = useSelector((state) => state.loginSlice);
+
+  useEffect(() => {
+    if (!loginState?.roleNames?.includes('ADMIN')) {
+      alert('접근 권한이 없습니다 (관리자 전용)');
+      navigate('/shop/list', { replace: true });
+    }
+  }, [loginState, navigate]);
   const [formData, setFormData] = useState({
     name: '',
     description: '',

@@ -13,9 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -79,15 +77,26 @@ public class CustomSecurityConfig {
             httpSecurityCorsConfigurer.configurationSource(corsConfigurationSource());
         });
 
-        // ✅ 인가 규칙: Preflight(OPTIONS)는 인증 없이 통과시켜야 브라우저가 실제 요청을 보낼 수 있음
+        /*
+         * 공개/보호 정책의 유일한 정의처. 신규 API 추가·권한 변경 시 이 블록만 수정한다.
+         * JWTCheckFilter는 "토큰이 있으면 검증해서 인증 세팅"만 담당하며, 경로별 예외를 두지 않는다.
+         */
         http.authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                /* 공개: 회원 로그인·가입·리프레시·소셜·이메일체크 등 (추후 member 일부만 공개로 좁힐 수 있음) */
                 .requestMatchers("/api/member/**").permitAll()
+                /* 공개: 파일 조회 */
                 .requestMatchers("/api/files/view/**").permitAll()
-                .requestMatchers("/api/files/upload").permitAll()  // TODO: 추후 ADMIN 권한으로 제한
-                .requestMatchers("/api/products/**").permitAll()  // TODO: 추후 ADMIN 권한으로 제한 (생성/수정/삭제)
-                .requestMatchers("/api/cart/**").permitAll()  // 카트 API는 인증 optional (게스트 허용)
-                // 나머지는 JWT 인증 필요
+                /* 공개(예정: ADMIN 전용으로 조정 가능) */
+                .requestMatchers("/api/files/upload").permitAll()
+                /* 상품: 조회만 공개, 등록/수정/삭제는 ADMIN */
+                .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/products").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PATCH, "/api/products/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasRole("ADMIN")
+                /* 카트: 게스트·로그인 모두 허용 */
+                .requestMatchers("/api/cart/**").permitAll()
+                /* 그 외: 인증 필수 */
                 .anyRequest().authenticated()
         );
 
@@ -98,9 +107,8 @@ public class CustomSecurityConfig {
             config.failureHandler(new APILoginFailHandler(loginLockService));
         });
 
-        // JWT 검증 필터 등록 (요청마다 실행)
-        // UsernamePasswordAuthenticationFilter 실행 시, 내부적으로 loadUserByUsername()이 호출.(로그인 시) - CustomUserDetailsService
-        http.addFilterBefore(new JWTCheckFilter(), UsernamePasswordAuthenticationFilter.class); //JWT 체크
+        // JWT 필터: 토큰이 있으면 검증 후 인증만 세팅. 공개/보호 판단은 authorizeHttpRequests에서만 수행.
+        http.addFilterBefore(new JWTCheckFilter(), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

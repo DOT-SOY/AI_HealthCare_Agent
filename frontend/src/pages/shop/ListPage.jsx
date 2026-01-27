@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import { getProductList } from '../../services/productApi';
 import { useCart } from '../../components/layout/ShopLayout';
 import QtyStepper from '../../components/cart/QtyStepper';
 
 const ProductList = () => {
   const navigate = useNavigate();
+  const loginState = useSelector((state) => state.loginSlice);
+  const isAdmin = !!loginState?.roleNames?.includes('ADMIN');
   const { addToCart } = useCart();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -188,13 +191,15 @@ const ProductList = () => {
       <div className="mb-8">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
           <h1 className="text-3xl font-bold">상품 목록</h1>
-          <button
-            type="button"
-            onClick={() => navigate('/shop/admin/create')}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium"
-          >
-            상품 등록
-          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => navigate('/shop/admin/create')}
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium"
+            >
+              상품 등록
+            </button>
+          )}
         </div>
         
         {/* 검색 폼 */}

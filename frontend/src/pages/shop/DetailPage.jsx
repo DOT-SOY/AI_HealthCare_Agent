@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import { getProduct } from '../../services/productApi';
 import { useCart } from '../../components/layout/ShopLayout';
 import QtyStepper from '../../components/cart/QtyStepper';
@@ -7,6 +8,8 @@ import QtyStepper from '../../components/cart/QtyStepper';
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const loginState = useSelector((state) => state.loginSlice);
+  const isAdmin = !!loginState?.roleNames?.includes('ADMIN');
   const { addToCart } = useCart();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -113,13 +116,15 @@ const ProductDetail = () => {
         >
           ← 목록으로 돌아가기
         </Link>
-        <button
-          type="button"
-          onClick={() => navigate(`/shop/admin/edit/${id}`)}
-          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium"
-        >
-          상품 수정
-        </button>
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => navigate(`/shop/admin/edit/${id}`)}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium"
+          >
+            상품 수정
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-lg shadow-lg overflow-hidden">
