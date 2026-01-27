@@ -98,19 +98,27 @@ const loginSlice = createSlice({
         return { ...initState, error: "로그인에 실패했습니다.", message: "로그인에 실패했습니다." };
       })
       .addCase(logoutPostAsync.fulfilled, (state, action) => {
+        // 1. 우리 서비스 쿠키 삭제
         removeCookie("member");
         removeCookie("refreshToken");
-        try {
-          localStorage.removeItem("accessToken");
-        } catch (_) {}
+
+        // 2. 로컬/세션 스토리지 정리 (혹시 모를 토큰/정보 제거)
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("member");
+        sessionStorage.clear();
+
         return { ...initState };
       })
       .addCase(logoutPostAsync.rejected, (state, action) => {
+        // 로그아웃 API 실패해도 프론트엔드 로그아웃은 진행
         removeCookie("member");
         removeCookie("refreshToken");
-        try {
-          localStorage.removeItem("accessToken");
-        } catch (_) {}
+
+        // 로컬/세션 스토리지 정리
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("member");
+        sessionStorage.clear();
+
         return { ...initState };
       });
   },

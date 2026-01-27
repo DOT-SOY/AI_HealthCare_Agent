@@ -11,8 +11,9 @@ const auth_code_path = `https://kauth.kakao.com/oauth/authorize`;
 const access_token_url = `https://kauth.kakao.com/oauth/token`;
 
 // 카카오 로그인 페이지로 이동할 URL 생성, 브라우저에서 해당 URL로 이동하면 카카오 로그인 후 redirect_uri로 인증 코드 전송
+// prompt=login: 카카오 세션이 남아있어도 항상 로그인 화면 표시 (자동 로그인 방지)
 export const getKakaoLoginLink = () => {
-  const kakaoURL = `${auth_code_path}?client_id=${rest_api_key}&redirect_uri=${redirect_uri}&response_type=code`;
+  const kakaoURL = `${auth_code_path}?client_id=${rest_api_key}&redirect_uri=${redirect_uri}&response_type=code&prompt=login`;
 
   return kakaoURL;
 };

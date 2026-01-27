@@ -1,5 +1,7 @@
 package com.backend.service.member;
 
+import com.backend.common.exception.BusinessException;
+import com.backend.common.exception.ErrorCode;
 import com.backend.domain.member.Member;
 import com.backend.dto.member.MemberDTO;
 import com.backend.dto.member.MemberModifyDTO;
@@ -38,12 +40,11 @@ public class MemberServiceImpl implements MemberService {
         return member.getId();
     }
 
-    // 중복 검사 로직
+    // 중복 검사 로직 (탈퇴 회원 제외, existsById 패턴처럼 존재 여부만 확인)
     private void validateDuplicateMember(String email) {
-        memberRepository.findByEmail(email)
-                .ifPresent(m -> {
-                    throw new IllegalStateException("이미 가입된 이메일입니다.");
-                });
+        if (memberRepository.existsByEmailAndIsDeletedFalse(email)) {
+            throw new BusinessException(ErrorCode.MEMBER_DUPLICATE_EMAIL);
+        }
     }
 
     @Override

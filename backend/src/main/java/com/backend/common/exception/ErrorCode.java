@@ -26,6 +26,8 @@ public enum ErrorCode {
     INTERNAL_SERVER_ERROR("COMMON_001", "서버 내부 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
     INVALID_INPUT_VALUE("COMMON_002", "입력값이 유효하지 않습니다.", HttpStatus.BAD_REQUEST),
     MEMBER_NOT_FOUND("COMMON_MEMBER_001", "멤버를 찾을 수 없습니다. (ID: %s)", HttpStatus.NOT_FOUND),
+    /** 중복 이메일 가입 시 사용 (프론트 code === "DELETED_ACCOUNT" 로 처리) */
+    MEMBER_DUPLICATE_EMAIL("DELETED_ACCOUNT", "이미 존재하는 이메일입니다.", HttpStatus.BAD_REQUEST),
     
     // ========== 쇼핑몰 ==========
     SHOP_PRODUCT_NOT_FOUND("SHOP_PRODUCT_001", "상품을 찾을 수 없습니다. (ID: %s)", HttpStatus.NOT_FOUND),

@@ -10,6 +10,9 @@
  *   - 특수문자 (!@#$%^&* 등)
  */
 
+const POLICY_ERROR_MESSAGE =
+  "비밀번호는 8자 이상, 영문 대소문자/숫자/특수문자 중 2종 이상 포함되어야합니다";
+
 /**
  * 비밀번호 정책 검증
  * @param {string} password - 검증할 비밀번호
@@ -18,12 +21,12 @@
 export const validatePassword = (password) => {
   // null 또는 undefined 체크
   if (!password || password.trim() === "") {
-    return { valid: false, message: "비밀번호를 입력해주세요." };
+    return { valid: false, message: POLICY_ERROR_MESSAGE };
   }
 
   // 최소 길이 검증
   if (password.length < 8) {
-    return { valid: false, message: "비밀번호는 8자 이상이어야 합니다." };
+    return { valid: false, message: POLICY_ERROR_MESSAGE };
   }
 
   // 문자 유형 검증
@@ -37,10 +40,7 @@ export const validatePassword = (password) => {
 
   // 2종 이상 포함 여부 검증
   if (typeCount < 2) {
-    return {
-      valid: false,
-      message: "영문 대소문자/숫자/특수문자 중 2종 이상 포함해야 합니다."
-    };
+    return { valid: false, message: POLICY_ERROR_MESSAGE };
   }
 
   return { valid: true, message: null };

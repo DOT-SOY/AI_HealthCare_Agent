@@ -84,3 +84,18 @@ export const getMemberInfo = async (email) => {
   const res = await jwtAxios.get(`${host}/info/${email}`);
   return res.data;
 };
+
+// 이메일 중복확인
+export const checkEmail = async (email) => {
+  try {
+    const res = await axios.get(`${host}/check-email`, {
+      params: { email },
+    });
+    return res.data;
+  } catch (err) {
+    if (err.response && err.response.data) {
+      return err.response.data;
+    }
+    throw err;
+  }
+};

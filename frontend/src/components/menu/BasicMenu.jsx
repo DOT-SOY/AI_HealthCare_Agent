@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { logout } from "../../slices/loginSlice";
 
 // 간단한 SVG 아이콘 컴포넌트들
 const HomeIcon = ({ className }) => (
@@ -47,9 +49,16 @@ const UserIcon = ({ className }) => (
 const BasicMenu = () => {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const dispatch = useDispatch();
+  const loginState = useSelector((state) => state.loginSlice);
+  const isLogin = !!loginState?.email;
 
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
+  const handleClickLogout = async () => {
+    await dispatch(logout());
+    closeMobileMenu();
+  };
 
   const menuItems = [
     { icon: HomeIcon, label: "메인", path: "/" },
@@ -107,6 +116,36 @@ const BasicMenu = () => {
             );
           })}
         </nav>
+
+        {/* 로그인/로그아웃 (좌측 하단 중앙쯤) */}
+        <div className="mt-auto p-4 border-t border-gray-200 flex flex-col items-center gap-3">
+          {!isLogin ? (
+            <Link
+              to="/member/login"
+              className="ui-btn-primary w-full text-center"
+              onClick={closeMobileMenu}
+            >
+              Login
+            </Link>
+          ) : (
+            <>
+              <div className="text-center">
+                <div className="text-xs text-gray-500">Welcome</div>
+                <div className="text-sm font-semibold text-gray-900">
+                  {(loginState?.name || loginState?.email)
+                    ? `${loginState?.name || loginState?.email}님`
+                    : ""}
+                </div>
+              </div>
+              <button
+                onClick={handleClickLogout}
+                className="ui-btn-ghost text-xs px-4 py-2"
+              >
+                Logout
+              </button>
+            </>
+          )}
+        </div>
       </aside>
 
       {/* 모바일 햄버거 버튼 */}
@@ -156,7 +195,7 @@ const BasicMenu = () => {
 
       {/* 모바일 사이드바 */}
       <aside
-        className={`lg:hidden fixed left-0 top-0 h-full w-64 bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out ${
+        className={`lg:hidden fixed left-0 top-0 h-full w-64 bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${
           isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -189,6 +228,36 @@ const BasicMenu = () => {
             );
           })}
         </nav>
+
+        {/* 로그인/로그아웃 (모바일: 하단 중앙) */}
+        <div className="mt-auto p-4 border-t border-gray-200 flex flex-col items-center gap-3">
+          {!isLogin ? (
+            <Link
+              to="/member/login"
+              className="ui-btn-primary w-full text-center"
+              onClick={closeMobileMenu}
+            >
+              Login
+            </Link>
+          ) : (
+            <>
+              <div className="text-center">
+                <div className="text-xs text-gray-500">Welcome</div>
+                <div className="text-sm font-semibold text-gray-900">
+                  {(loginState?.name || loginState?.email)
+                    ? `${loginState?.name || loginState?.email}님`
+                    : ""}
+                </div>
+              </div>
+              <button
+                onClick={handleClickLogout}
+                className="ui-btn-ghost text-xs px-4 py-2"
+              >
+                Logout
+              </button>
+            </>
+          )}
+        </div>
       </aside>
     </>
   );
