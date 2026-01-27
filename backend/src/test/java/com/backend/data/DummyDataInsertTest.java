@@ -4,6 +4,7 @@ import com.backend.domain.memberbodyinfo.ExercisePurpose;
 import com.backend.domain.memberbodyinfo.MemberBodyInfo;
 import com.backend.domain.member.Member;
 import com.backend.domain.member.Member.Gender;
+import com.backend.domain.member.MemberRole;
 import com.backend.repository.memberbodyinfo.MemberBodyInfoRepository;
 import com.backend.repository.member.MemberRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -16,11 +17,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
-import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
-@DisplayName("더미 데이터 삽입 테스트 (실제 DB에 저장)")
+@DisplayName("더미 데이터 삽입 테스트 (풀 데이터)")
 class DummyDataInsertTest {
 
     @Autowired
@@ -30,173 +31,53 @@ class DummyDataInsertTest {
     private MemberBodyInfoRepository memberBodyInfoRepository;
 
     @Test
-    @Rollback(false)
-    @DisplayName("회원 더미 데이터 삽입 테스트 (실제 DB에 저장)")
-    void testInsertMemberDummyData() {
-        // 기존 데이터 확인
-        long existingCount = memberRepository.count();
-        System.out.println(String.format("기존 회원 수: %d", existingCount));
-        
-        // given
-        List<Member> members = createMemberDummyData();
-        
-        // 중복 체크: 이미 존재하는 이메일은 제외
-        List<Member> newMembers = new ArrayList<>();
-        for (Member member : members) {
-            if (memberRepository.findByEmail(member.getEmail()).isEmpty()) {
-                newMembers.add(member);
-            } else {
-                System.out.println(String.format("회원 이메일 %s는 이미 존재합니다. 건너뜁니다.", member.getEmail()));
-            }
-        }
-        
-        if (newMembers.isEmpty()) {
-            System.out.println("삽입할 새로운 회원 데이터가 없습니다.");
-            return;
-        }
-
-        // when
-        List<Member> savedMembers = memberRepository.saveAll(newMembers);
-        memberRepository.flush();
-
-        // then
-        assertThat(savedMembers).hasSize(newMembers.size());
-        System.out.println(String.format("=== 회원 더미 데이터 삽입 완료: %d명 ===", savedMembers.size()));
-        savedMembers.forEach(member -> 
-            System.out.println(String.format("ID: %d, 이메일: %s, 이름: %s, 성별: %s, 생년월일: %s", 
-                member.getId(), member.getEmail(), member.getName(), member.getGender(), member.getBirthDate()))
-        );
-        System.out.println(String.format("총 회원 수: %d", memberRepository.count()));
-    }
-
-    @Test
-    @Rollback(false)
-    @DisplayName("신체 정보 더미 데이터 삽입 테스트 (실제 DB에 저장)")
-    void testInsertMemberBodyInfoDummyData() {
-        // given - 기존 회원 조회 또는 생성
-        List<Member> existingMembers = memberRepository.findAll();
-        
-        if (existingMembers.isEmpty()) {
-            // 회원이 없으면 먼저 생성
-            System.out.println("회원 데이터가 없습니다. 회원 데이터를 먼저 생성합니다.");
-            List<Member> members = createMemberDummyData();
-            existingMembers = memberRepository.saveAll(members);
-            memberRepository.flush();
-        }
-        
-        // 기존 신체 정보 개수 확인
-        long existingBodyInfoCount = memberBodyInfoRepository.count();
-        System.out.println(String.format("기존 신체 정보 수: %d", existingBodyInfoCount));
-
-        // when - 각 회원에 대한 신체 정보 생성
-        List<MemberBodyInfo> bodyInfos = createMemberBodyInfoDummyData(existingMembers);
-        
-        // 중복 체크: 이미 존재하는 신체 정보는 제외 (회원 + 측정 시간 기준)
-        List<MemberBodyInfo> newBodyInfos = new ArrayList<>();
-        for (MemberBodyInfo bodyInfo : bodyInfos) {
-            List<MemberBodyInfo> existing = memberBodyInfoRepository.findByMember(bodyInfo.getMember());
-            boolean isDuplicate = existing.stream()
-                .anyMatch(existingInfo -> existingInfo.getMeasuredTime().equals(bodyInfo.getMeasuredTime()));
-            
-            if (!isDuplicate) {
-                newBodyInfos.add(bodyInfo);
-            } else {
-                System.out.println(String.format("회원 %s의 %s 측정 기록은 이미 존재합니다. 건너뜁니다.", 
-                    bodyInfo.getMember().getEmail(), bodyInfo.getMeasuredTime()));
-            }
-        }
-        
-        if (newBodyInfos.isEmpty()) {
-            System.out.println("삽입할 새로운 신체 정보 데이터가 없습니다.");
-            return;
-        }
-        
-        List<MemberBodyInfo> savedBodyInfos = memberBodyInfoRepository.saveAll(newBodyInfos);
-        memberBodyInfoRepository.flush();
-
-        // then
-        assertThat(savedBodyInfos).hasSize(newBodyInfos.size());
-        System.out.println("=== 신체 정보 더미 데이터 삽입 완료 ===");
-        System.out.println(String.format("삽입된 신체 정보: %d개", savedBodyInfos.size()));
-        System.out.println(String.format("총 신체 정보 수: %d", memberBodyInfoRepository.count()));
-    }
-
-    @Test
-    @Rollback(false)
-    @DisplayName("전체 더미 데이터 삽입 테스트 (실제 DB에 저장)")
-    void testInsertAllDummyData() {
+    @Rollback(false) // DB에 커밋
+    @DisplayName("전체 더미 데이터 삽입 (회원 + 신체정보 모든 필드 포함)")
+    void insertFullDummyData() {
         System.out.println("=== 전체 더미 데이터 삽입 시작 ===");
-        
-        // 기존 데이터 확인
-        long existingMemberCount = memberRepository.count();
-        long existingBodyInfoCount = memberBodyInfoRepository.count();
-        System.out.println(String.format("기존 회원 수: %d, 기존 신체 정보 수: %d", 
-            existingMemberCount, existingBodyInfoCount));
-        
-        // given
+
+        // 1. 회원 데이터 생성 및 저장
         List<Member> members = createMemberDummyData();
-        
-        // 중복 체크: 이미 존재하는 이메일은 제외
-        List<Member> newMembers = new ArrayList<>();
+        List<Member> savedMembers = new ArrayList<>();
+
         for (Member member : members) {
+            // 이메일 중복 체크
             if (memberRepository.findByEmail(member.getEmail()).isEmpty()) {
-                newMembers.add(member);
+                savedMembers.add(memberRepository.save(member));
             } else {
-                System.out.println(String.format("회원 이메일 %s는 이미 존재합니다. 건너뜁니다.", member.getEmail()));
+                // 이미 존재하면 DB에서 가져옴
+                savedMembers.add(memberRepository.findByEmail(member.getEmail()).get());
             }
         }
-        
-        List<Member> savedMembers;
-        if (newMembers.isEmpty()) {
-            System.out.println("새로운 회원 데이터가 없습니다. 기존 회원을 사용합니다.");
-            savedMembers = memberRepository.findAll();
-        } else {
-            // when - 회원 데이터 삽입
-            savedMembers = memberRepository.saveAll(newMembers);
-            memberRepository.flush();
-            System.out.println(String.format("새로운 회원 %d명 삽입 완료", savedMembers.size()));
-        }
-        
-        // 신체 정보 데이터 삽입
-        List<MemberBodyInfo> bodyInfos = createMemberBodyInfoDummyData(savedMembers);
-        
-        // 중복 체크: 이미 존재하는 신체 정보는 제외 (회원 + 측정 시간 기준)
+        memberRepository.flush();
+        System.out.println(String.format(">>> 회원 데이터 준비 완료: %d명", savedMembers.size()));
+
+        // 2. 신체 정보 데이터 생성 및 저장 (모든 필드 포함)
+        List<MemberBodyInfo> bodyInfos = createFullMemberBodyInfoDummyData(savedMembers);
         List<MemberBodyInfo> newBodyInfos = new ArrayList<>();
+
         for (MemberBodyInfo bodyInfo : bodyInfos) {
-            List<MemberBodyInfo> existing = memberBodyInfoRepository.findByMember(bodyInfo.getMember());
+            // 중복 체크 (회원 + 측정시간)
+            List<MemberBodyInfo> existing = memberBodyInfoRepository.findByMemberIdOrderByMeasuredTimeDesc(bodyInfo.getMember().getId());
             boolean isDuplicate = existing.stream()
-                .anyMatch(existingInfo -> existingInfo.getMeasuredTime().equals(bodyInfo.getMeasuredTime()));
-            
+                    .anyMatch(info -> info.getMeasuredTime().isEqual(bodyInfo.getMeasuredTime()));
+
             if (!isDuplicate) {
                 newBodyInfos.add(bodyInfo);
             }
         }
-        
-        List<MemberBodyInfo> savedBodyInfos;
-        if (newBodyInfos.isEmpty()) {
-            System.out.println("새로운 신체 정보 데이터가 없습니다.");
-            savedBodyInfos = new ArrayList<>();
-        } else {
-            savedBodyInfos = memberBodyInfoRepository.saveAll(newBodyInfos);
+
+        if (!newBodyInfos.isEmpty()) {
+            memberBodyInfoRepository.saveAll(newBodyInfos);
             memberBodyInfoRepository.flush();
         }
 
-        // then
-        System.out.println("=== 전체 더미 데이터 삽입 완료 ===");
-        System.out.println(String.format("총 회원: %d명", memberRepository.count()));
-        System.out.println(String.format("총 신체 정보: %d개", memberBodyInfoRepository.count()));
-        System.out.println(String.format("이번에 삽입된 신체 정보: %d개", savedBodyInfos.size()));
-        
-        // 각 회원별 신체 정보 개수 확인
-        savedMembers.forEach(member -> {
-            List<MemberBodyInfo> memberBodyInfos = memberBodyInfoRepository.findByMemberId(member.getId());
-            System.out.println(String.format("회원 %s(ID: %d, 이메일: %s): 신체 정보 %d개", 
-                member.getName(), member.getId(), member.getEmail(), memberBodyInfos.size()));
-        });
+        System.out.println(String.format(">>> 신체 정보 데이터 삽입 완료: %d개", newBodyInfos.size()));
+        System.out.println("=== 전체 더미 데이터 삽입 종료 ===");
     }
 
     /**
-     * 회원 더미 데이터 생성
+     * 회원 더미 데이터 생성 (권한 포함)
      */
     private List<Member> createMemberDummyData() {
         List<Member> members = new ArrayList<>();
@@ -206,26 +87,27 @@ class DummyDataInsertTest {
         Gender[] genders = {Gender.MALE, Gender.FEMALE, Gender.MALE, Gender.MALE, Gender.FEMALE,
                            Gender.FEMALE, Gender.MALE, Gender.MALE, Gender.FEMALE, Gender.FEMALE};
         LocalDate[] birthDates = {
-            LocalDate.of(1990, 1, 15),
-            LocalDate.of(1992, 3, 20),
-            LocalDate.of(1988, 5, 10),
-            LocalDate.of(1995, 7, 25),
-            LocalDate.of(1993, 9, 5),
-            LocalDate.of(1991, 11, 12),
-            LocalDate.of(1987, 2, 18),
-            LocalDate.of(1989, 4, 30),
-            LocalDate.of(1994, 6, 8),
+            LocalDate.of(1990, 1, 15), LocalDate.of(1992, 3, 20), LocalDate.of(1988, 5, 10),
+            LocalDate.of(1995, 7, 25), LocalDate.of(1993, 9, 5), LocalDate.of(1991, 11, 12),
+            LocalDate.of(1987, 2, 18), LocalDate.of(1989, 4, 30), LocalDate.of(1994, 6, 8),
             LocalDate.of(1996, 8, 22)
         };
 
         for (int i = 0; i < 10; i++) {
             Member member = Member.builder()
                     .email("user" + String.format("%03d", i + 1) + "@example.com")
-                    .pw("password" + (i + 1))
+                    .pw("pass" + (i + 1)) // 실제 서비스에선 암호화 필요
                     .name(names[i])
                     .gender(genders[i])
                     .birthDate(birthDates[i])
+                    .isDeleted(false)
+                    .roleList(new ArrayList<>()) // 리스트 초기화
                     .build();
+            
+            // 권한 추가
+            member.addRole(MemberRole.USER);
+            if (i == 0) member.addRole(MemberRole.ADMIN); // 첫 번째 회원은 관리자 권한도 부여
+
             members.add(member);
         }
 
@@ -233,47 +115,88 @@ class DummyDataInsertTest {
     }
 
     /**
-     * 신체 정보 더미 데이터 생성
+     * 신체 정보 Full 데이터 생성
      */
-    private List<MemberBodyInfo> createMemberBodyInfoDummyData(List<Member> members) {
+    private List<MemberBodyInfo> createFullMemberBodyInfoDummyData(List<Member> members) {
         List<MemberBodyInfo> bodyInfos = new ArrayList<>();
-        LocalDateTime baseTime = LocalDateTime.of(2024, 1, 1, 10, 0);
+        LocalDateTime baseTime = LocalDateTime.of(2024, 1, 1, 9, 0); // 시작 시간
+        Random random = new Random();
 
         for (Member member : members) {
-            // 각 회원당 3개의 신체 정보 생성 (과거, 현재, 미래)
+            // 각 회원당 3개의 기록 생성 (2달 간격)
             for (int i = 0; i < 3; i++) {
                 LocalDateTime measuredTime = baseTime.plusMonths(i * 2);
                 
-                // 성별에 따라 다른 기본값 설정
-                double baseHeight = member.getGender() == Gender.MALE ? 175.0 : 165.0;
-                double baseWeight = member.getGender() == Gender.MALE ? 75.0 : 55.0;
-                double baseBodyFat = member.getGender() == Gender.MALE ? 15.0 : 22.0;
-                double baseMuscle = member.getGender() == Gender.MALE ? 55.0 : 35.0;
+                // 1. 기본 설정 (성별에 따른 평균값)
+                boolean isMale = member.getGender() == Gender.MALE;
+                double height = (isMale ? 175.0 : 163.0) + (random.nextDouble() * 10 - 5);
+                double weight = (isMale ? 75.0 : 55.0) + (random.nextDouble() * 10 - 5);
+                
+                // 2. 체성분 계산 (대략적인 비율로 계산하여 현실감 부여)
+                // 체지방률: 남성 15~20%, 여성 20~28%
+                double fatPercent = (isMale ? 18.0 : 25.0) + (random.nextDouble() * 6 - 3);
+                double fatMass = weight * (fatPercent / 100.0);
+                
+                // 골격근량: 체중 - 체지방 - (뼈+기타) 대략 계산
+                double muscleMass = weight * (isMale ? 0.45 : 0.36) + (random.nextDouble() * 2);
+                
+                // 체수분: 체중의 약 50~60%
+                double water = weight * 0.55 + (random.nextDouble() * 2 - 1);
+                
+                // 단백질: 체중의 약 15~20%
+                double protein = weight * 0.17 + (random.nextDouble() * 1);
+                
+                // 무기질: 체중의 약 5~6%
+                double minerals = weight * 0.055 + (random.nextDouble() * 0.5);
 
-                // 약간의 변동 추가
-                double height = baseHeight + (Math.random() * 5 - 2.5); // ±2.5cm
-                double weight = baseWeight + (Math.random() * 5 - 2.5); // ±2.5kg
-                double bodyFat = baseBodyFat + (Math.random() * 3 - 1.5); // ±1.5%
-                double muscle = baseMuscle + (Math.random() * 3 - 1.5); // ±1.5kg
+                // 3. 목표 및 조절 가이드
+                double targetWeight = weight - 3.0; // 현재보다 3kg 감량 목표
+                double weightControl = targetWeight - weight;
+                double fatControl = -2.5; // 지방 2.5kg 감량 권장
+                double muscleControl = 1.5; // 근육 1.5kg 증량 권장
 
-                // 운동 목적: 체중 감량, 근육 증가, 건강 유지, 체력 증진, 유연성 중 하나씩 순환 배정
-                ExercisePurpose[] purposes = ExercisePurpose.values();
-                ExercisePurpose purpose = purposes[i % purposes.length];
+                MemberBodyInfo info = MemberBodyInfo.builder()
+                        .member(member)
+                        .measuredTime(measuredTime)
+                        
+                        // [기본 정보]
+                        .height(round(height))
+                        .weight(round(weight))
+                        .skeletalMuscleMass(round(muscleMass))
+                        .bodyFatPercent(round(fatPercent))
+                        
+                        // [상세 정보]
+                        .bodyFatMass(round(fatMass))
+                        .bodyWater(round(water))
+                        .protein(round(protein))
+                        .minerals(round(minerals))
+                        
+                        // [조절 가이드]
+                        .targetWeight(round(targetWeight))
+                        .weightControl(round(weightControl))
+                        .fatControl(fatControl)
+                        .muscleControl(muscleControl)
+                        
+                        // [배송 정보]
+                        .shipToName(member.getName())
+                        .shipToPhone("010-" + (1000 + i) + "-" + (5678 + i))
+                        .shipZipcode("062" + i + "4")
+                        .shipAddress1("서울시 강남구 테헤란로 " + (100 + i) + "길")
+                        .shipAddress2((i + 1) + "0" + (i + 1) + "호")
+                        
+                        // [기타]
+                        .purpose(ExercisePurpose.values()[i % ExercisePurpose.values().length])
+                        .notes(i + 1 + "회차 정기 측정 결과입니다. 식단 조절 필요.")
+                        .build();
 
-                MemberBodyInfo bodyInfo = new MemberBodyInfo();
-                bodyInfo.setMember(member);
-                bodyInfo.setHeight(Math.round(height * 10.0) / 10.0); // 소수점 1자리
-                bodyInfo.setWeight(Math.round(weight * 10.0) / 10.0);
-                bodyInfo.setMeasuredTime(measuredTime);
-                bodyInfo.setBodyFatPercent(Math.round(bodyFat * 10.0) / 10.0);
-                bodyInfo.setSkeletalMuscleMass(Math.round(muscle * 10.0) / 10.0);
-                bodyInfo.setNotes(String.format("%s의 %d번째 측정 기록", member.getName(), i + 1));
-                bodyInfo.setPurpose(purpose);
-
-                bodyInfos.add(bodyInfo);
+                bodyInfos.add(info);
             }
         }
-
         return bodyInfos;
+    }
+
+    // 소수점 1자리 반올림 유틸 메서드
+    private double round(double value) {
+        return Math.round(value * 10.0) / 10.0;
     }
 }

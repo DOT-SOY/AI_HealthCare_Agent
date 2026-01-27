@@ -1,7 +1,7 @@
 package com.backend.controller.memberbodyinfo;
 
 import com.backend.domain.memberbodyinfo.MemberBodyInfo;
-import com.backend.dto.memberbodyinfo.MemberBodyInfoRequestDto;
+import com.backend.dto.memberbodyinfo.MemberBodyInfoDTO;
 import com.backend.service.memberbodyinfo.MemberBodyInfoService;
 
 import jakarta.validation.Valid;
@@ -23,7 +23,7 @@ public class MemberBodyInfoController {
      */
     @PostMapping
         public ResponseEntity<MemberBodyInfo> create(
-            @Valid @RequestBody MemberBodyInfoRequestDto requestDto) {
+            @Valid @RequestBody MemberBodyInfoDTO requestDto) {
         MemberBodyInfo memberBodyInfo = memberBodyInfoService.create(requestDto);
         return ResponseEntity.status(HttpStatus.CREATED).body(memberBodyInfo);
     }
@@ -34,7 +34,7 @@ public class MemberBodyInfoController {
     @PutMapping("/{id}")
     public ResponseEntity<MemberBodyInfo> update(
             @PathVariable Long id,
-            @Valid @RequestBody MemberBodyInfoRequestDto requestDto) {
+            @Valid @RequestBody MemberBodyInfoDTO requestDto) {
         MemberBodyInfo response = memberBodyInfoService.update(id, requestDto);
         return ResponseEntity.ok(response);
     }
