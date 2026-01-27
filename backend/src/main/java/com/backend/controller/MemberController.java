@@ -25,7 +25,7 @@ import java.util.Map;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/member") // API 버전 관리를 위해 /api/v1/member 권장하지만 일단 유지
+@RequestMapping("/api/member")
 @RequiredArgsConstructor
 public class MemberController {
 

@@ -1,8 +1,10 @@
-import fetchAPI from './api';
+import jwtAxios from './jwtAxios';
 
 /**
  * 상품 관련 API
  */
+
+const prefix = '/products';
 
 /**
  * 상품 리스트 조회 (페이징, 검색, 필터링)
@@ -18,6 +20,7 @@ export const getProductList = async (params = {}) => {
     status = null,
     sortBy = 'createdAt',
     direction = 'DESC',
+    signal, // AbortController signal
   } = params;
 
   const queryParams = new URLSearchParams({
@@ -33,42 +36,45 @@ export const getProductList = async (params = {}) => {
   if (maxPrice) queryParams.append('maxPrice', maxPrice.toString());
   if (status) queryParams.append('status', status);
 
-  return fetchAPI(`/v1/products?${queryParams.toString()}`);
+  const requestUrl = `${prefix}?${queryParams.toString()}`;
+  const res = await jwtAxios.get(requestUrl, {
+    signal, // AbortController signal 지원
+  });
+  return res.data;
 };
 
 /**
  * 상품 단건 조회
  */
-export const getProduct = async (id) => {
-  return fetchAPI(`/v1/products/${id}`);
+export const getProduct = async (id, signal) => {
+  const res = await jwtAxios.get(`${prefix}/${id}`, {
+    signal, // AbortController signal 지원
+  });
+  return res.data;
 };
 
 /**
  * 상품 생성 (관리자)
  */
 export const createProduct = async (productData) => {
-  return fetchAPI('/v1/products', {
-    method: 'POST',
-    body: JSON.stringify(productData),
-  });
+  const res = await jwtAxios.post(prefix, productData);
+  return res.data;
 };
 
 /**
  * 상품 수정 (관리자)
  */
 export const updateProduct = async (id, productData) => {
-  return fetchAPI(`/v1/products/${id}`, {
-    method: 'PATCH',
-    body: JSON.stringify(productData),
-  });
+  const res = await jwtAxios.patch(`${prefix}/${id}`, productData);
+  return res.data;
 };
 
 /**
  * 상품 삭제 (관리자)
  */
 export const deleteProduct = async (id) => {
-  return fetchAPI(`/v1/products/${id}`, {
-    method: 'DELETE',
-  });
+  const res = await jwtAxios.delete(`${prefix}/${id}`);
+  // 204 No Content 응답 처리
+  return res.status === 204 ? null : res.data;
 };
 

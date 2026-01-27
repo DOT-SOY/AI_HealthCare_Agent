@@ -26,6 +26,8 @@ async function fetchAPI(endpoint, options = {}) {
       ...defaultHeaders,
       ...options.headers,
     },
+    // 쿠키 전송을 위해 credentials 추가 (guest_token 쿠키 전송에 필요)
+    credentials: 'include',
   };
 
   try {
