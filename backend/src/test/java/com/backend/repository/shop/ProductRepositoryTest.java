@@ -76,8 +76,8 @@ class ProductRepositoryTest {
                         Member member = Member.builder()
                                 .email("test@example.com")
                                 .pw("password")
-                                .nickname("테스트유저")
-                                .social(false)
+                                .name("테스트유저")
+                                // .social(false)
                                 .build();
                         member.addRole(MemberRole.ADMIN);
                         return memberRepository.save(member);
@@ -120,8 +120,8 @@ class ProductRepositoryTest {
         Member member = Member.builder()
                 .email("test@example.com")
                 .pw("password")
-                .nickname("테스트유저")
-                .social(false)
+                .name("테스트유저")
+                // .social(false)
                 .build();
         member.addRole(MemberRole.ADMIN);
 
@@ -133,7 +133,7 @@ class ProductRepositoryTest {
         // then
         assertThat(saved.getId()).isNotNull();
         assertThat(saved.getEmail()).isEqualTo("test@example.com");
-        assertThat(saved.getNickname()).isEqualTo("테스트유저");
+        assertThat(saved.getName()).isEqualTo("테스트유저");
         assertThat(saved.getRoleList()).contains(MemberRole.ADMIN);
         
         // testMember에 저장하여 다른 테스트에서 사용할 수 있도록 함

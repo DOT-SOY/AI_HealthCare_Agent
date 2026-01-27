@@ -117,4 +117,12 @@ public class Meal {
     public void changeStatus(MealStatus status) {
         this.status = status;
     }
+
+    /**
+     * 계획(Original) 대비 수정된 식단임을 표시한다.
+     * - isAdditional=true 로 두면 프런트 "상세분석"에서 변경 기록을 구분할 수 있다.
+     */
+    public void markAsChangedFromPlan() {
+        this.isAdditional = true;
+    }
 }

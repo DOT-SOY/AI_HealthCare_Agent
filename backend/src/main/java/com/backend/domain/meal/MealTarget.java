@@ -5,7 +5,7 @@ import lombok.*;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "daily_target")
+@Table(name = "meal_target")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor

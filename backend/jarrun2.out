@@ -1,0 +1,122 @@
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::                (v3.2.5)
+
+2026-01-27T15:06:30.649+09:00  INFO 13368 --- [backend] [           main] com.backend.BackendApplication           : Starting BackendApplication v0.0.1-SNAPSHOT using Java 21.0.8 with PID 13368 (C:\Users\EZEN\Desktop\AI_HealthCare_Agent\backend\build\libs\backend-0.0.1-SNAPSHOT.jar started by EZEN in C:\Users\EZEN\Desktop\AI_HealthCare_Agent\backend)
+2026-01-27T15:06:30.656+09:00  INFO 13368 --- [backend] [           main] com.backend.BackendApplication           : No active profile set, falling back to 1 default profile: "default"
+2026-01-27T15:06:31.880+09:00  INFO 13368 --- [backend] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Multiple Spring Data modules found, entering strict repository configuration mode
+2026-01-27T15:06:31.883+09:00  INFO 13368 --- [backend] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-01-27T15:06:32.087+09:00  INFO 13368 --- [backend] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 198 ms. Found 9 JPA repository interfaces.
+2026-01-27T15:06:32.423+09:00  INFO 13368 --- [backend] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Multiple Spring Data modules found, entering strict repository configuration mode
+2026-01-27T15:06:32.429+09:00  INFO 13368 --- [backend] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2026-01-27T15:06:32.468+09:00  INFO 13368 --- [backend] [           main] .RepositoryConfigurationExtensionSupport : Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.backend.repository.meal.MealRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2026-01-27T15:06:32.468+09:00  INFO 13368 --- [backend] [           main] .RepositoryConfigurationExtensionSupport : Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.backend.repository.meal.MealTargetRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2026-01-27T15:06:32.468+09:00  INFO 13368 --- [backend] [           main] .RepositoryConfigurationExtensionSupport : Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.backend.repository.member.MemberRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2026-01-27T15:06:32.469+09:00  INFO 13368 --- [backend] [           main] .RepositoryConfigurationExtensionSupport : Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.backend.repository.member.RefreshTokenRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2026-01-27T15:06:32.471+09:00  INFO 13368 --- [backend] [           main] .RepositoryConfigurationExtensionSupport : Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.backend.repository.shop.CategoryRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2026-01-27T15:06:32.471+09:00  INFO 13368 --- [backend] [           main] .RepositoryConfigurationExtensionSupport : Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.backend.repository.shop.ProductCategoryRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2026-01-27T15:06:32.472+09:00  INFO 13368 --- [backend] [           main] .RepositoryConfigurationExtensionSupport : Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.backend.repository.shop.ProductImageRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2026-01-27T15:06:32.472+09:00  INFO 13368 --- [backend] [           main] .RepositoryConfigurationExtensionSupport : Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.backend.repository.shop.ProductRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2026-01-27T15:06:32.473+09:00  INFO 13368 --- [backend] [           main] .RepositoryConfigurationExtensionSupport : Spring Data Redis - Could not safely identify store assignment for repository candidate interface com.backend.repository.shop.ProductVariantRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2026-01-27T15:06:32.473+09:00  INFO 13368 --- [backend] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 34 ms. Found 0 Redis repository interfaces.
+2026-01-27T15:06:32.936+09:00  INFO 13368 --- [backend] [           main] o.s.cloud.context.scope.GenericScope     : BeanFactory id=0470f444-24c1-38d7-9944-f95d980e8dee
+2026-01-27T15:06:33.825+09:00  INFO 13368 --- [backend] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-01-27T15:06:33.855+09:00  INFO 13368 --- [backend] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-01-27T15:06:33.858+09:00  INFO 13368 --- [backend] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.20]
+2026-01-27T15:06:33.916+09:00  INFO 13368 --- [backend] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-01-27T15:06:33.919+09:00  INFO 13368 --- [backend] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 3152 ms
+2026-01-27T15:06:34.163+09:00  INFO 13368 --- [backend] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: main]
+2026-01-27T15:06:34.239+09:00  INFO 13368 --- [backend] [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.4.4.Final
+2026-01-27T15:06:34.282+09:00  INFO 13368 --- [backend] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-01-27T15:06:34.291+09:00 ERROR 13368 --- [backend] [           main] j.LocalContainerEntityManagerFactoryBean : Failed to initialize JPA EntityManagerFactory: Unable to resolve name [org.springframework.boot.model.naming.ImplicitNamingStrategyComponentPathImpl] as strategy [org.hibernate.boot.model.naming.ImplicitNamingStrategy]
+2026-01-27T15:06:34.292+09:00  WARN 13368 --- [backend] [           main] ConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'entityManagerFactory' defined in class path resource [com/backend/config/DataSourceConfig.class]: Unable to resolve name [org.springframework.boot.model.naming.ImplicitNamingStrategyComponentPathImpl] as strategy [org.hibernate.boot.model.naming.ImplicitNamingStrategy]
+2026-01-27T15:06:34.295+09:00  INFO 13368 --- [backend] [           main] o.apache.catalina.core.StandardService   : Stopping service [Tomcat]
+2026-01-27T15:06:34.310+09:00  INFO 13368 --- [backend] [           main] .s.b.a.l.ConditionEvaluationReportLogger : 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-01-27T15:06:34.331+09:00 ERROR 13368 --- [backend] [           main] o.s.boot.SpringApplication               : Application run failed
+
+org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'entityManagerFactory' defined in class path resource [com/backend/config/DataSourceConfig.class]: Unable to resolve name [org.springframework.boot.model.naming.ImplicitNamingStrategyComponentPathImpl] as strategy [org.hibernate.boot.model.naming.ImplicitNamingStrategy]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1786) ~[spring-beans-6.1.6.jar!/:6.1.6]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:600) ~[spring-beans-6.1.6.jar!/:6.1.6]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:522) ~[spring-beans-6.1.6.jar!/:6.1.6]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326) ~[spring-beans-6.1.6.jar!/:6.1.6]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234) ~[spring-beans-6.1.6.jar!/:6.1.6]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324) ~[spring-beans-6.1.6.jar!/:6.1.6]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200) ~[spring-beans-6.1.6.jar!/:6.1.6]
+	at org.springframework.context.support.AbstractApplicationContext.getBean(AbstractApplicationContext.java:1234) ~[spring-context-6.1.6.jar!/:6.1.6]
+	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:952) ~[spring-context-6.1.6.jar!/:6.1.6]
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:624) ~[spring-context-6.1.6.jar!/:6.1.6]
+	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:146) ~[spring-boot-3.2.5.jar!/:3.2.5]
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:754) ~[spring-boot-3.2.5.jar!/:3.2.5]
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:456) ~[spring-boot-3.2.5.jar!/:3.2.5]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:334) ~[spring-boot-3.2.5.jar!/:3.2.5]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1354) ~[spring-boot-3.2.5.jar!/:3.2.5]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1343) ~[spring-boot-3.2.5.jar!/:3.2.5]
+	at com.backend.BackendApplication.main(BackendApplication.java:12) ~[!/:0.0.1-SNAPSHOT]
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[na:na]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[na:na]
+	at org.springframework.boot.loader.launch.Launcher.launch(Launcher.java:91) ~[backend-0.0.1-SNAPSHOT.jar:0.0.1-SNAPSHOT]
+	at org.springframework.boot.loader.launch.Launcher.launch(Launcher.java:53) ~[backend-0.0.1-SNAPSHOT.jar:0.0.1-SNAPSHOT]
+	at org.springframework.boot.loader.launch.JarLauncher.main(JarLauncher.java:58) ~[backend-0.0.1-SNAPSHOT.jar:0.0.1-SNAPSHOT]
+Caused by: org.hibernate.boot.registry.selector.spi.StrategySelectionException: Unable to resolve name [org.springframework.boot.model.naming.ImplicitNamingStrategyComponentPathImpl] as strategy [org.hibernate.boot.model.naming.ImplicitNamingStrategy]
+	at org.hibernate.boot.registry.selector.internal.StrategySelectorImpl.selectStrategyImplementor(StrategySelectorImpl.java:154) ~[hibernate-core-6.4.4.Final.jar!/:6.4.4.Final]
+	at org.hibernate.boot.registry.selector.internal.StrategySelectorImpl.resolveStrategy(StrategySelectorImpl.java:236) ~[hibernate-core-6.4.4.Final.jar!/:6.4.4.Final]
+	at org.hibernate.boot.registry.selector.internal.StrategySelectorImpl.resolveDefaultableStrategy(StrategySelectorImpl.java:180) ~[hibernate-core-6.4.4.Final.jar!/:6.4.4.Final]
+	at org.hibernate.boot.internal.MetadataBuilderImpl$MetadataBuildingOptionsImpl.<init>(MetadataBuilderImpl.java:722) ~[hibernate-core-6.4.4.Final.jar!/:6.4.4.Final]
+	at org.hibernate.boot.internal.MetadataBuilderImpl.<init>(MetadataBuilderImpl.java:139) ~[hibernate-core-6.4.4.Final.jar!/:6.4.4.Final]
+	at org.hibernate.boot.MetadataSources.getMetadataBuilder(MetadataSources.java:164) ~[hibernate-core-6.4.4.Final.jar!/:6.4.4.Final]
+	at org.hibernate.jpa.boot.internal.EntityManagerFactoryBuilderImpl.<init>(EntityManagerFactoryBuilderImpl.java:277) ~[hibernate-core-6.4.4.Final.jar!/:6.4.4.Final]
+	at org.hibernate.jpa.boot.internal.EntityManagerFactoryBuilderImpl.<init>(EntityManagerFactoryBuilderImpl.java:198) ~[hibernate-core-6.4.4.Final.jar!/:6.4.4.Final]
+	at org.springframework.orm.jpa.vendor.SpringHibernateJpaPersistenceProvider.createContainerEntityManagerFactory(SpringHibernateJpaPersistenceProvider.java:63) ~[spring-orm-6.1.6.jar!/:6.1.6]
+	at org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean.createNativeEntityManagerFactory(LocalContainerEntityManagerFactoryBean.java:390) ~[spring-orm-6.1.6.jar!/:6.1.6]
+	at org.springframework.orm.jpa.AbstractEntityManagerFactoryBean.buildNativeEntityManagerFactory(AbstractEntityManagerFactoryBean.java:409) ~[spring-orm-6.1.6.jar!/:6.1.6]
+	at org.springframework.orm.jpa.AbstractEntityManagerFactoryBean.afterPropertiesSet(AbstractEntityManagerFactoryBean.java:396) ~[spring-orm-6.1.6.jar!/:6.1.6]
+	at org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean.afterPropertiesSet(LocalContainerEntityManagerFactoryBean.java:366) ~[spring-orm-6.1.6.jar!/:6.1.6]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.invokeInitMethods(AbstractAutowireCapableBeanFactory.java:1833) ~[spring-beans-6.1.6.jar!/:6.1.6]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1782) ~[spring-beans-6.1.6.jar!/:6.1.6]
+	... 21 common frames omitted
+Caused by: org.hibernate.boot.registry.classloading.spi.ClassLoadingException: Unable to load class [org.springframework.boot.model.naming.ImplicitNamingStrategyComponentPathImpl]
+	at org.hibernate.boot.registry.classloading.internal.ClassLoaderServiceImpl.classForName(ClassLoaderServiceImpl.java:126) ~[hibernate-core-6.4.4.Final.jar!/:6.4.4.Final]
+	at org.hibernate.boot.registry.selector.internal.StrategySelectorImpl.selectStrategyImplementor(StrategySelectorImpl.java:150) ~[hibernate-core-6.4.4.Final.jar!/:6.4.4.Final]
+	... 35 common frames omitted
+Caused by: java.lang.ClassNotFoundException: Could not load requested class : org.springframework.boot.model.naming.ImplicitNamingStrategyComponentPathImpl
+	at org.hibernate.boot.registry.classloading.internal.AggregatedClassLoader.findClass(AggregatedClassLoader.java:216) ~[hibernate-core-6.4.4.Final.jar!/:6.4.4.Final]
+	at java.base/java.lang.ClassLoader.loadClass(ClassLoader.java:593) ~[na:na]
+	at java.base/java.lang.ClassLoader.loadClass(ClassLoader.java:526) ~[na:na]
+	at java.base/java.lang.Class.forName0(Native Method) ~[na:na]
+	at java.base/java.lang.Class.forName(Class.java:534) ~[na:na]
+	at java.base/java.lang.Class.forName(Class.java:513) ~[na:na]
+	at org.hibernate.boot.registry.classloading.internal.ClassLoaderServiceImpl.classForName(ClassLoaderServiceImpl.java:123) ~[hibernate-core-6.4.4.Final.jar!/:6.4.4.Final]
+	... 36 common frames omitted
+Caused by: java.lang.Throwable: null
+	at org.hibernate.boot.registry.classloading.internal.AggregatedClassLoader.findClass(AggregatedClassLoader.java:209) ~[hibernate-core-6.4.4.Final.jar!/:6.4.4.Final]
+	... 42 common frames omitted
+	Suppressed: java.lang.ClassNotFoundException: org.springframework.boot.model.naming.ImplicitNamingStrategyComponentPathImpl
+		at java.base/java.net.URLClassLoader.findClass(URLClassLoader.java:445) ~[na:na]
+		at java.base/java.lang.ClassLoader.loadClass(ClassLoader.java:593) ~[na:na]
+		at org.springframework.boot.loader.net.protocol.jar.JarUrlClassLoader.loadClass(JarUrlClassLoader.java:104) ~[backend-0.0.1-SNAPSHOT.jar:0.0.1-SNAPSHOT]
+		at org.springframework.boot.loader.launch.LaunchedClassLoader.loadClass(LaunchedClassLoader.java:91) ~[backend-0.0.1-SNAPSHOT.jar:0.0.1-SNAPSHOT]
+		at java.base/java.lang.ClassLoader.loadClass(ClassLoader.java:526) ~[na:na]
+		at org.hibernate.boot.registry.classloading.internal.AggregatedClassLoader.findClass(AggregatedClassLoader.java:206) ~[hibernate-core-6.4.4.Final.jar!/:6.4.4.Final]
+		... 42 common frames omitted
+	Suppressed: java.lang.ClassNotFoundException: org.springframework.boot.model.naming.ImplicitNamingStrategyComponentPathImpl
+		at java.base/java.net.URLClassLoader.findClass(URLClassLoader.java:445) ~[na:na]
+		at java.base/java.lang.ClassLoader.loadClass(ClassLoader.java:593) ~[na:na]
+		at org.springframework.boot.loader.net.protocol.jar.JarUrlClassLoader.loadClass(JarUrlClassLoader.java:104) ~[backend-0.0.1-SNAPSHOT.jar:0.0.1-SNAPSHOT]
+		at org.springframework.boot.loader.launch.LaunchedClassLoader.loadClass(LaunchedClassLoader.java:91) ~[backend-0.0.1-SNAPSHOT.jar:0.0.1-SNAPSHOT]
+		at java.base/java.lang.ClassLoader.loadClass(ClassLoader.java:526) ~[na:na]
+		at org.hibernate.boot.registry.classloading.internal.AggregatedClassLoader.findClass(AggregatedClassLoader.java:206) ~[hibernate-core-6.4.4.Final.jar!/:6.4.4.Final]
+		... 42 common frames omitted
+	Suppressed: java.lang.ClassNotFoundException: org.springframework.boot.model.naming.ImplicitNamingStrategyComponentPathImpl
+		at java.base/jdk.internal.loader.BuiltinClassLoader.loadClass(BuiltinClassLoader.java:641) ~[na:na]
+		at java.base/jdk.internal.loader.ClassLoaders$AppClassLoader.loadClass(ClassLoaders.java:188) ~[na:na]
+		at java.base/java.lang.ClassLoader.loadClass(ClassLoader.java:526) ~[na:na]
+		at org.hibernate.boot.registry.classloading.internal.AggregatedClassLoader.findClass(AggregatedClassLoader.java:206) ~[hibernate-core-6.4.4.Final.jar!/:6.4.4.Final]
+		... 42 common frames omitted
+
