@@ -38,8 +38,8 @@ public class MemberDTO {
     // 2. 비밀번호
     // 중요: @JsonProperty 설정을 통해 클라이언트로 응답할 때는 비밀번호가 JSON에 포함되지 않도록 차단 (정보 유출 방지)
     @NotBlank(message = "비밀번호는 필수 입력값입니다.")
-    @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d)(?=.*[$@$!%*#?&])[A-Za-z\\d$@$!%*#?&]{8,20}$",
-            message = "비밀번호는 영문, 숫자, 특수문자를 포함하여 8~20자여야 합니다.")
+    @Pattern(regexp = "^(?:(?=.*[A-Za-z])(?=.*\\d)|(?=.*[A-Za-z])(?=.*[$@$!%*#?&])|(?=.*\\d)(?=.*[$@$!%*#?&]))[A-Za-z\\d$@$!%*#?&]{8,20}$",
+            message = "비밀번호는 8자 이상, 영문 대소문자/숫자/특수문자 중 2종 이상 포함되어야합니다")
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String pw;
 

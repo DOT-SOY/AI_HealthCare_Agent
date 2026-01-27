@@ -18,6 +18,10 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     // 이메일 중복 체크용
     Optional<Member> findByEmail(String email);
 
+    // 이메일 사용 여부 (탈퇴 회원 제외) - existsById 패턴처럼 boolean 반환
+    @Query("select count(m) > 0 from Member m where m.email = :email and m.isDeleted = false")
+    boolean existsByEmailAndIsDeletedFalse(@Param("email") String email);
+
     // 시큐리티에서 권한 정보를 함께 가져올 때 사용 (탈퇴 회원 제외)
     @EntityGraph(attributePaths = {"roleList"})
     @Query("select m from Member m where m.email = :email and m.isDeleted = false")

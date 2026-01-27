@@ -85,7 +85,8 @@ class ProductServiceTest {
                                 .email("test@example.com")
                                 .pw("password")
                                 .name("테스트유저")
-                                // .social(false)
+
+
                                 .build();
                         member.addRole(MemberRole.ADMIN);
                         return memberRepository.save(member);
@@ -124,7 +125,7 @@ class ProductServiceTest {
         ProductVariant variant1 = ProductVariant.builder()
                 .product(fitnessProduct1)
                 .sku("DUMBBELL-20KG-BLACK")
-                .optionJson("{\"weight\":\"20kg\",\"color\":\"black\"}")
+                .optionText("weight: 20kg, color: black")
                 .price(new BigDecimal("89000"))
                 .stockQty(10)
                 .active(true)
@@ -134,7 +135,7 @@ class ProductServiceTest {
         ProductVariant variant2 = ProductVariant.builder()
                 .product(fitnessProduct1)
                 .sku("DUMBBELL-20KG-RED")
-                .optionJson("{\"weight\":\"20kg\",\"color\":\"red\"}")
+                .optionText("weight: 20kg, color: red")
                 .price(new BigDecimal("95000"))
                 .stockQty(5)
                 .active(true)
@@ -169,7 +170,6 @@ class ProductServiceTest {
                 .email("test@example.com")
                 .pw("password")
                 .name("테스트유저")
-                // .social(false)
                 .build();
         member.addRole(MemberRole.ADMIN);
 
@@ -200,7 +200,6 @@ class ProductServiceTest {
                                 .email("test@example.com")
                                 .pw("password")
                                 .name("테스트유저")
-                                // .social(false)
                                 .build();
                         member.addRole(MemberRole.ADMIN);
                         return memberRepository.save(member);
@@ -486,7 +485,7 @@ class ProductServiceTest {
         ProductVariant variant = ProductVariant.builder()
                 .product(product)
                 .sku("DUMBBELL-20KG-NO-PRICE")
-                .optionJson("{\"weight\":\"20kg\"}")
+                .optionText("weight: 20kg")
                 .price(null) // variant 가격이 null
                 .stockQty(10)
                 .build();
@@ -510,7 +509,7 @@ class ProductServiceTest {
         ProductVariant variant = ProductVariant.builder()
                 .product(product)
                 .sku("DUMBBELL-20KG-WITH-PRICE")
-                .optionJson("{\"weight\":\"20kg\"}")
+                .optionText("weight: 20kg")
                 .price(new BigDecimal("95000")) // variant 가격이 있음
                 .stockQty(10)
                 .build();
@@ -535,7 +534,7 @@ class ProductServiceTest {
         ProductVariant inactiveVariant = ProductVariant.builder()
                 .product(product)
                 .sku("DUMBBELL-20KG-INACTIVE")
-                .optionJson("{\"weight\":\"20kg\",\"color\":\"blue\"}")
+                .optionText("weight: 20kg, color: blue")
                 .stockQty(0)
                 .active(false)
                 .build();

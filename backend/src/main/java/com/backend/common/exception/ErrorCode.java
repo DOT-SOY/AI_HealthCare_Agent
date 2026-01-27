@@ -26,6 +26,8 @@ public enum ErrorCode {
     INTERNAL_SERVER_ERROR("COMMON_001", "서버 내부 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
     INVALID_INPUT_VALUE("COMMON_002", "입력값이 유효하지 않습니다.", HttpStatus.BAD_REQUEST),
     MEMBER_NOT_FOUND("COMMON_MEMBER_001", "멤버를 찾을 수 없습니다. (ID: %s)", HttpStatus.NOT_FOUND),
+    /** 중복 이메일 가입 시 사용 (프론트 code === "DELETED_ACCOUNT" 로 처리) */
+    MEMBER_DUPLICATE_EMAIL("DELETED_ACCOUNT", "이미 존재하는 이메일입니다.", HttpStatus.BAD_REQUEST),
     
     // ========== 쇼핑몰 ==========
     SHOP_PRODUCT_NOT_FOUND("SHOP_PRODUCT_001", "상품을 찾을 수 없습니다. (ID: %s)", HttpStatus.NOT_FOUND),
@@ -34,6 +36,14 @@ public enum ErrorCode {
     SHOP_CATEGORY_NOT_FOUND("SHOP_CATEGORY_001", "카테고리를 찾을 수 없습니다. (ID: %s)", HttpStatus.NOT_FOUND),
     SHOP_STOCK_INVALID_QUANTITY("SHOP_STOCK_001", "재고 수량이 유효하지 않습니다.", HttpStatus.BAD_REQUEST),
     SHOP_STOCK_INSUFFICIENT("SHOP_STOCK_002", "재고가 부족합니다. (요청: %s, 현재: %s)", HttpStatus.BAD_REQUEST),
+    SHOP_VARIANT_NOT_FOUND("SHOP_VARIANT_001", "상품 변형을 찾을 수 없습니다. (ID: %s)", HttpStatus.NOT_FOUND),
+    SHOP_VARIANT_OUT_OF_STOCK("SHOP_VARIANT_002", "재고가 부족합니다. (요청: %s, 현재: %s)", HttpStatus.BAD_REQUEST),
+    SHOP_VARIANT_INACTIVE("SHOP_VARIANT_003", "판매 중지된 상품 변형입니다. (ID: %s)", HttpStatus.BAD_REQUEST),
+    SHOP_CART_NOT_FOUND("SHOP_CART_001", "장바구니를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    SHOP_CART_ITEM_NOT_FOUND("SHOP_CART_ITEM_001", "장바구니 아이템을 찾을 수 없습니다. (ID: %s)", HttpStatus.NOT_FOUND),
+    SHOP_CART_ACCESS_DENIED("SHOP_CART_002", "장바구니에 접근할 권한이 없습니다.", HttpStatus.FORBIDDEN),
+    SHOP_CART_ITEM_ACCESS_DENIED("SHOP_CART_ITEM_002", "장바구니 아이템에 접근할 권한이 없습니다.", HttpStatus.FORBIDDEN),
+    SHOP_CART_ITEM_INVALID_QUANTITY("SHOP_CART_ITEM_003", "수량은 1 이상이어야 합니다.", HttpStatus.BAD_REQUEST),
     
     // ========== 파일 업로드 ==========
     FILE_EMPTY("FILE_001", "업로드할 파일이 없습니다.", HttpStatus.BAD_REQUEST),

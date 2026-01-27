@@ -391,7 +391,7 @@ class ProductRepositoryTest {
         ProductVariant variant = ProductVariant.builder()
                 .product(product)
                 .sku("DUMBBELL-20KG-001")
-                .optionJson("{\"weight\":\"20kg\",\"color\":\"black\"}")
+                .optionText("weight: 20kg, color: black")
                 .price(new BigDecimal("89000"))
                 .stockQty(10)
                 .active(true)
@@ -422,7 +422,7 @@ class ProductRepositoryTest {
         ProductVariant variant = ProductVariant.builder()
                 .product(product)
                 .sku("DUMBBELL-20KG-002")
-                .optionJson("{\"weight\":\"20kg\"}")
+                .optionText("weight: 20kg")
                 .price(null) // 가격이 null
                 .stockQty(5)
                 .build();
@@ -450,7 +450,7 @@ class ProductRepositoryTest {
         ProductVariant variant = ProductVariant.builder()
                 .product(product)
                 .sku("DUMBBELL-20KG-003")
-                .optionJson("{\"weight\":\"20kg\"}")
+                .optionText("weight: 20kg")
                 .stockQty(10)
                 .build();
         variant = productVariantRepository.save(variant);
@@ -479,7 +479,7 @@ class ProductRepositoryTest {
         ProductVariant variant = ProductVariant.builder()
                 .product(product)
                 .sku("DUMBBELL-20KG-004")
-                .optionJson("{\"weight\":\"20kg\"}")
+                .optionText("weight: 20kg")
                 .stockQty(10)
                 .build();
         variant = productVariantRepository.save(variant);
@@ -508,7 +508,7 @@ class ProductRepositoryTest {
         ProductVariant variant = ProductVariant.builder()
                 .product(product)
                 .sku("DUMBBELL-20KG-005")
-                .optionJson("{\"weight\":\"20kg\"}")
+                .optionText("weight: 20kg")
                 .stockQty(10)
                 .build();
         variant = productVariantRepository.save(variant);
@@ -537,7 +537,7 @@ class ProductRepositoryTest {
         final ProductVariant variant = ProductVariant.builder()
                 .product(product)
                 .sku("DUMBBELL-20KG-006")
-                .optionJson("{\"weight\":\"20kg\"}")
+                .optionText("weight: 20kg")
                 .stockQty(5)
                 .build();
         productVariantRepository.save(variant);
@@ -559,13 +559,13 @@ class ProductRepositoryTest {
         ProductVariant variant1 = ProductVariant.builder()
                 .product(product)
                 .sku("DUMBBELL-20KG-007")
-                .optionJson("{\"weight\":\"20kg\",\"color\":\"black\"}")
+                .optionText("weight: 20kg, color: black")
                 .stockQty(10)
                 .build();
         ProductVariant variant2 = ProductVariant.builder()
                 .product(product)
                 .sku("DUMBBELL-20KG-008")
-                .optionJson("{\"weight\":\"20kg\",\"color\":\"red\"}")
+                .optionText("weight: 20kg, color: red")
                 .stockQty(5)
                 .build();
         productVariantRepository.save(variant1);
@@ -593,7 +593,7 @@ class ProductRepositoryTest {
         ProductVariant variant = ProductVariant.builder()
                 .product(product)
                 .sku("DUMBBELL-20KG-009")
-                .optionJson("{\"weight\":\"20kg\"}")
+                .optionText("weight: 20kg")
                 .stockQty(10)
                 .build();
         variant = productVariantRepository.save(variant);
@@ -635,7 +635,7 @@ class ProductRepositoryTest {
         entityManager.clear();
 
         // then
-        List<ProductCategory> productCategories = productCategoryRepository.findByProductId(product.getId());
+        List<ProductCategory> productCategories = productCategoryRepository.findById_ProductId(product.getId());
         assertThat(productCategories).hasSize(1);
         assertThat(productCategories.get(0).getCategory().getName()).isEqualTo("헬스용품");
         assertThat(productCategories.get(0).getCategory().getCategoryType()).isEqualTo(CategoryType.HEALTH_GOODS);

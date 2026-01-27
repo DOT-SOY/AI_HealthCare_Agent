@@ -3,6 +3,7 @@ import { useDispatch } from "react-redux";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getAccessToken, getMemberWithAccessToken } from "../../api/kakaoApi";
 import { login } from "../../slices/loginSlice";
+import { mergeCart } from "../../services/cartApi";
 
 const KakaoRedirectPage = () => {
   const dispatch = useDispatch();
@@ -38,11 +39,13 @@ const KakaoRedirectPage = () => {
         // 2) 백엔드에 카카오 access token 전달 → 우리 서비스 로그인 처리(AccessToken + RefreshCookie)
         const memberInfo = await getMemberWithAccessToken(kakaoAccessToken);
 
-        // 3) Redux 로그인 상태 저장(쿠키 member 저장 포함)
+        // 3) Redux 로그인 상태 저장(쿠키·localStorage 저장 포함)
         dispatch(login(memberInfo));
 
-        // 4) 홈으로 이동
-        navigate("/", { replace: true });
+        // 4) 로그인 직후 게스트 카트 → 회원 카트 병합 (서버에서 성공 시 guest_token 쿠키 삭제)
+        mergeCart()
+          .catch(() => {})
+          .finally(() => navigate("/", { replace: true }));
       } catch (e) {
         console.error("Kakao login redirect error:", e);
         const msg =

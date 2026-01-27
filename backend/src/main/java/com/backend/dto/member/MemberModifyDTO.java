@@ -23,8 +23,8 @@ public class MemberModifyDTO {
 
     // 새 비밀번호 (수정 시 필수)
     @NotBlank(message = "비밀번호는 필수 입력값입니다.")
-    @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d)(?=.*[$@$!%*#?&])[A-Za-z\\d$@$!%*#?&]{8,20}$",
-            message = "비밀번호는 영문, 숫자, 특수문자를 포함하여 8~20자여야 합니다.")
+    @Pattern(regexp = "^(?:(?=.*[A-Za-z])(?=.*\\d)|(?=.*[A-Za-z])(?=.*[$@$!%*#?&])|(?=.*\\d)(?=.*[$@$!%*#?&]))[A-Za-z\\d$@$!%*#?&]{8,20}$",
+            message = "비밀번호는 8자 이상, 영문 대소문자/숫자/특수문자 중 2종 이상 포함되어야합니다")
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String pw;
 
