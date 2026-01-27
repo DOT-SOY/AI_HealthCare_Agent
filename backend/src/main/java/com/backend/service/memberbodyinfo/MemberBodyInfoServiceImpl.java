@@ -4,6 +4,7 @@ import com.backend.domain.memberbodyinfo.ExercisePurpose;
 import com.backend.domain.memberbodyinfo.MemberBodyInfo;
 import com.backend.domain.member.Member;
 import com.backend.dto.memberbodyinfo.MemberBodyInfoDTO;
+import com.backend.dto.memberbodyinfo.MemberBodyInfoResponseDTO;
 import com.backend.exception.ResourceNotFoundException;
 import com.backend.repository.memberbodyinfo.MemberBodyInfoRepository;
 import com.backend.repository.member.MemberRepository;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -147,5 +149,24 @@ public class MemberBodyInfoServiceImpl implements MemberBodyInfoService {
             throw new ResourceNotFoundException("신체 정보를 찾을 수 없습니다. ID: " + id);
         }
         memberBodyInfoRepository.deleteById(id);
+    }
+    @Override
+    public List<MemberBodyInfoResponseDTO> getBodyInfoHistory(Long memberId) {
+        List<MemberBodyInfo> entities = memberBodyInfoRepository.findAllByMemberIdOrderByMeasuredTimeAsc(memberId);
+
+        // Entity -> DTO 변환
+        return entities.stream()
+                .map(e -> MemberBodyInfoResponseDTO.builder()
+                        .id(e.getId())
+                        .measuredTime(e.getMeasuredTime())
+                        .weight(e.getWeight())
+                        .skeletalMuscleMass(e.getSkeletalMuscleMass())
+                        .bodyFatPercent(e.getBodyFatPercent())
+                        .bodyWater(e.getBodyWater())
+                        .protein(e.getProtein())
+                        .minerals(e.getMinerals())
+                        .bodyFatMass(e.getBodyFatMass())
+                        .build())
+                .collect(Collectors.toList());
     }
 }

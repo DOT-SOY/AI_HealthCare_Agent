@@ -2,6 +2,7 @@ package com.backend.controller.memberbodyinfo;
 
 import com.backend.domain.memberbodyinfo.MemberBodyInfo;
 import com.backend.dto.memberbodyinfo.MemberBodyInfoDTO;
+import com.backend.dto.memberbodyinfo.MemberBodyInfoResponseDTO;
 import com.backend.service.memberbodyinfo.MemberBodyInfoService;
 
 import jakarta.validation.Valid;
@@ -9,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 
 @RestController
@@ -27,7 +30,15 @@ public class MemberBodyInfoController {
         MemberBodyInfo memberBodyInfo = memberBodyInfoService.create(requestDto);
         return ResponseEntity.status(HttpStatus.CREATED).body(memberBodyInfo);
     }
-    
+    /**
+     * 신체 정보 조회
+     */
+
+    @GetMapping("/history/{memberId}")
+    public ResponseEntity<List<MemberBodyInfoResponseDTO>> getBodyInfoHistory(@PathVariable Long memberId) {
+        List<MemberBodyInfoResponseDTO> history = memberBodyInfoService.getBodyInfoHistory(memberId);
+        return ResponseEntity.ok(history);
+    }
     /**
      * 신체 정보 수정
      */

@@ -9,7 +9,12 @@ import java.util.List;
 
 public interface MemberBodyInfoRepository extends JpaRepository<MemberBodyInfo, Long> {
 
-    // 특정 회원의 기록 조회 (차트 데이터용) - member.id로 조회
+
+    // 특정 회원의 기록을 날짜순으로 조회
+    List<MemberBodyInfo> findAllByMemberIdOrderByMeasuredTimeAsc(Long memberId);
+
+
+// 특정 회원의 기록 조회 (차트 데이터용) - member.id로 조회
     @Query("SELECT mbi FROM MemberBodyInfo mbi WHERE mbi.member.id = :memberId ORDER BY mbi.measuredTime DESC")
     List<MemberBodyInfo> findByMemberIdOrderByMeasuredTimeDesc(@Param("memberId") Long memberId);
 

@@ -2,6 +2,7 @@ package com.backend.service.memberbodyinfo;
 
 import com.backend.domain.memberbodyinfo.MemberBodyInfo;
 import com.backend.dto.memberbodyinfo.MemberBodyInfoDTO;
+import com.backend.dto.memberbodyinfo.MemberBodyInfoResponseDTO;
 
 import java.util.List;
 
@@ -36,4 +37,9 @@ public interface MemberBodyInfoService {
      * 신체 정보 삭제
      */
     void delete(Long id);
+
+    /**
+     * 회원 ID로 측정 기록 리스트를 가져오는 로직
+     */
+    public List<MemberBodyInfoResponseDTO> getBodyInfoHistory(Long memberId);
 }

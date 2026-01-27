@@ -1,7 +1,7 @@
-import React, { useState } from "react"; // useState import 추가
+import React, { useState, useEffect } from "react";
 import "../../styles/Profile.css";
 import BasicLayout from "../../components/layout/BasicLayout";
-import { Home, User, Moon, Sun } from "lucide-react"; // 아이콘 추가
+import { Home, User, Moon, Sun } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -12,23 +12,88 @@ import {
   Tooltip,
 } from "recharts";
 
-const chartData = [
-  { name: "1회차", fatRate: 4.5, muscle: 2.2, weight: 2.0 },
-  { name: "2회차", fatRate: 2.5, muscle: 4.5, weight: 2.0 },
-  { name: "3회차", fatRate: 3.5, muscle: 1.8, weight: 3.0 },
-  { name: "4회차", fatRate: 4.5, muscle: 2.8, weight: 5.0 },
-];
+// ✅ API 함수 import (경로 확인 필요)
+import { getBodyInfoHistory } from "../../services/bodyInfoApi";
 
 const ProfileIndex = () => {
-  // ✅ 다크 모드 상태 관리
   const [isDark, setIsDark] = useState(false);
 
-  // 토글 함수
+  // ✅ 서버에서 받아온 데이터를 저장할 State
+  const [historyData, setHistoryData] = useState([]); // 차트 데이터
+  const [latestInfo, setLatestInfo] = useState(null); // 최신 정보(텍스트 표시용)
+  const [isLoading, setIsLoading] = useState(true); // 로딩 상태
+  const [error, setError] = useState(null); // 에러 상태
+
+  // 임시 회원 ID (로그인 기능 연동 시 변경 필요)
+  const memberId = 1;
+
+  // ✅ 데이터 로딩 useEffect
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        console.log(
+          `[ProfileIndex] 체성분 정보 조회 시작 - memberId: ${memberId}`,
+        );
+        const response = await getBodyInfoHistory(memberId);
+        console.log(`[ProfileIndex] 응답 데이터:`, response);
+
+        if (response && Array.isArray(response) && response.length > 0) {
+          // 1. 차트용 데이터 가공 (날짜순 정렬 후)
+          const sortedResponse = [...response].sort((a, b) => {
+            const dateA = new Date(a.measuredTime);
+            const dateB = new Date(b.measuredTime);
+            return dateA - dateB;
+          });
+
+          const formattedChartData = sortedResponse.map((item, index) => ({
+            name: `${index + 1}회차`, // X축 라벨
+            fatRate: item.bodyFatPercent || 0,
+            muscle: item.skeletalMuscleMass || 0,
+            weight: item.weight || 0,
+            date: item.measuredTime, // 툴팁용 날짜
+          }));
+          setHistoryData(formattedChartData);
+
+          // 2. 가장 최신 데이터 (마지막 요소)
+          const recent = sortedResponse[sortedResponse.length - 1];
+          setLatestInfo(recent);
+        } else {
+          console.log("[ProfileIndex] 조회된 데이터가 없습니다.");
+          setHistoryData([]);
+          setLatestInfo(null);
+        }
+      } catch (error) {
+        console.error("[ProfileIndex] 데이터 로드 중 오류 발생:", error);
+        setError(error.message || "데이터를 불러오는데 실패했습니다.");
+        setHistoryData([]);
+        setLatestInfo(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [memberId]);
+
   const toggleDarkMode = () => setIsDark((prev) => !prev);
+
+  // 데이터가 없을 경우를 대비한 기본 객체 (백엔드 DTO 구조에 맞춤)
+  const info = latestInfo || {
+    id: null,
+    measuredTime: null,
+    weight: 0,
+    skeletalMuscleMass: 0,
+    bodyFatPercent: 0,
+    bodyWater: 0,
+    protein: 0,
+    minerals: 0,
+    bodyFatMass: 0,
+  };
 
   return (
     <BasicLayout>
-      {/* data-theme 속성을 통해 CSS 변수를 제어합니다 */}
       <div
         className="dashboard-container"
         data-theme={isDark ? "dark" : "light"}
@@ -38,7 +103,6 @@ const ProfileIndex = () => {
           <Home className="icon-home" size={24} />
 
           <div className="header-right">
-            {/* ✅ 다크 모드 토글 버튼 */}
             <button className="btn-toggle-theme" onClick={toggleDarkMode}>
               {isDark ? <Sun size={20} /> : <Moon size={20} />}
             </button>
@@ -48,6 +112,35 @@ const ProfileIndex = () => {
 
         {/* --- 메인 그리드 레이아웃 --- */}
         <div className="dashboard-main">
+          {/* 로딩 및 에러 메시지 표시 */}
+          {isLoading && (
+            <div
+              style={{
+                padding: "20px",
+                textAlign: "center",
+                gridColumn: "1 / -1",
+              }}
+            >
+              데이터를 불러오는 중...
+            </div>
+          )}
+          {error && (
+            <div
+              style={{
+                padding: "20px",
+                color: "red",
+                textAlign: "center",
+                gridColumn: "1 / -1",
+              }}
+            >
+              <strong>에러:</strong> {error}
+              <br />
+              <small>
+                백엔드 서버가 실행 중인지 확인해주세요. (http://localhost:8080)
+              </small>
+            </div>
+          )}
+
           {/* ============ 왼쪽 사이드바 ============ */}
           <aside className="left-sidebar">
             <div className="info-card">
@@ -62,9 +155,15 @@ const ProfileIndex = () => {
                   <span className="name">김길동</span>
                   <span className="gender-icon">♂ 남성</span>
                 </div>
-                <div className="row date">2004-01-23 (20세)</div>
+                {/* ✅ 날짜 표시 */}
+                <div className="row date">
+                  {info.measuredTime
+                    ? new Date(info.measuredTime).toLocaleDateString("ko-KR")
+                    : "측정 기록 없음"}
+                </div>
+                {/* ✅ 몸무게 표시 (height는 백엔드 DTO에 없음) */}
                 <div className="row stats">
-                  <span>176.5 cm</span> <span>/</span> <span>76.0 kg</span>
+                  <span>{info.weight || 0} kg</span>
                 </div>
               </div>
             </div>
@@ -72,20 +171,27 @@ const ProfileIndex = () => {
             <div className="info-card">
               <h3 className="section-title">체성분 분석</h3>
               <div className="data-list">
-                <DataRow label="체수분(L)" value="27.4 %" />
-                <DataRow label="단백질(kg)" value="7.1 %" />
-                <DataRow label="무기질(kg)" value="2.64 %" />
-                <DataRow label="체지방(kg)" value="22.0 %" />
-              </div>
-            </div>
-
-            <div className="info-card">
-              <h3 className="section-title">체중조절</h3>
-              <div className="data-list">
-                <DataRow label="적정체중" value="72.0 kg" />
-                <DataRow label="체중조절" value="- 7.4 kg" />
-                <DataRow label="지방조절" value="- 10.1 kg" />
-                <DataRow label="근육조절" value="+ 2.7 kg" />
+                {/* ✅ 백엔드 DTO 필드값 바인딩 */}
+                <DataRow
+                  label="체수분(L)"
+                  value={
+                    info.bodyWater ? `${info.bodyWater.toFixed(2)} L` : "-"
+                  }
+                />
+                <DataRow
+                  label="단백질(kg)"
+                  value={info.protein ? `${info.protein.toFixed(2)} kg` : "-"}
+                />
+                <DataRow
+                  label="무기질(kg)"
+                  value={info.minerals ? `${info.minerals.toFixed(2)} kg` : "-"}
+                />
+                <DataRow
+                  label="체지방(kg)"
+                  value={
+                    info.bodyFatMass ? `${info.bodyFatMass.toFixed(2)} kg` : "-"
+                  }
+                />
               </div>
             </div>
           </aside>
@@ -97,30 +203,41 @@ const ProfileIndex = () => {
             </div>
 
             <div className="charts-container">
-              {/* 차트 컴포넌트에 isDark props를 전달하여 스타일을 동적으로 변경합니다 */}
+              {/* ✅ historyData를 data prop으로 전달 */}
               <ChartRow
                 title="체지방률"
-                value="86.0%"
-                chartTitle="차트 제목"
+                value={
+                  info.bodyFatPercent
+                    ? `${info.bodyFatPercent.toFixed(1)}%`
+                    : "-"
+                }
+                chartTitle="체지방률 변화"
                 dataKey="fatRate"
                 strokeColor="#4A90E2"
                 isDark={isDark}
+                data={historyData}
               />
               <ChartRow
                 title="골격근량"
-                value="86.0%"
-                chartTitle="차트 제목"
+                value={
+                  info.skeletalMuscleMass
+                    ? `${info.skeletalMuscleMass.toFixed(1)}kg`
+                    : "-"
+                }
+                chartTitle="골격근량 변화"
                 dataKey="muscle"
                 strokeColor="#D0021B"
                 isDark={isDark}
+                data={historyData}
               />
               <ChartRow
                 title="체중"
-                value="86.0%"
-                chartTitle="차트 제목"
+                value={info.weight ? `${info.weight.toFixed(1)}kg` : "-"}
+                chartTitle="체중 변화"
                 dataKey="weight"
                 strokeColor="#7ED321"
                 isDark={isDark}
+                data={historyData}
               />
             </div>
           </main>
@@ -141,7 +258,16 @@ function DataRow({ label, value }) {
   );
 }
 
-function ChartRow({ title, value, chartTitle, dataKey, strokeColor, isDark }) {
+// ✅ [수정] data prop을 받아서 SimpleLineChart로 넘김
+function ChartRow({
+  title,
+  value,
+  chartTitle,
+  dataKey,
+  strokeColor,
+  isDark,
+  data,
+}) {
   return (
     <div className="chart-layout-row">
       <div className="grey-info-box">
@@ -152,11 +278,11 @@ function ChartRow({ title, value, chartTitle, dataKey, strokeColor, isDark }) {
       <div className="chart-area">
         <div className="chart-main-title">{chartTitle}</div>
         <div style={{ width: "100%", height: "160px" }}>
-          {/* Chart에도 다크모드 정보 전달 */}
           <SimpleLineChart
             dataKey={dataKey}
             stroke={strokeColor}
             isDark={isDark}
+            data={data} // 차트 데이터 전달
           />
         </div>
       </div>
@@ -164,15 +290,15 @@ function ChartRow({ title, value, chartTitle, dataKey, strokeColor, isDark }) {
   );
 }
 
-function SimpleLineChart({ dataKey, stroke, isDark }) {
-  // 다크 모드일 때 차트 축/격자 색상 변경
+// ✅ [수정] data를 받아서 Recharts에 연결
+function SimpleLineChart({ dataKey, stroke, isDark, data }) {
   const axisColor = isDark ? "#aaaaaa" : "#666";
   const gridColor = isDark ? "#444" : "#e0e0e0";
 
   return (
     <ResponsiveContainer width="100%" height="100%">
       <LineChart
-        data={chartData}
+        data={data} // 여기서 실제 데이터를 사용
         margin={{ top: 5, right: 20, left: -20, bottom: 5 }}
       >
         <CartesianGrid vertical={false} stroke={gridColor} />
@@ -188,7 +314,7 @@ function SimpleLineChart({ dataKey, stroke, isDark }) {
           tick={{ fontSize: 12, fill: axisColor }}
           axisLine={false}
           tickLine={false}
-          domain={[0, 5]}
+          domain={["auto", "auto"]} // 데이터 범위에 따라 축 자동 조정
           tickCount={6}
         />
         <Tooltip
@@ -197,6 +323,13 @@ function SimpleLineChart({ dataKey, stroke, isDark }) {
             borderColor: isDark ? "#555" : "#ccc",
             color: isDark ? "#fff" : "#000",
           }}
+          labelStyle={{ color: isDark ? "#fff" : "#000" }}
+          formatter={(value, name) => {
+            if (dataKey === "fatRate") return [`${value}%`, "체지방률"];
+            if (dataKey === "muscle") return [`${value}kg`, "골격근량"];
+            if (dataKey === "weight") return [`${value}kg`, "체중"];
+            return [value, name];
+          }}
         />
         <Line
           type="linear"
@@ -204,7 +337,13 @@ function SimpleLineChart({ dataKey, stroke, isDark }) {
           stroke={stroke}
           strokeWidth={2}
           dot={false}
-          name="계열 1"
+          name={
+            dataKey === "fatRate"
+              ? "체지방률"
+              : dataKey === "muscle"
+                ? "골격근량"
+                : "체중"
+          }
         />
       </LineChart>
     </ResponsiveContainer>
