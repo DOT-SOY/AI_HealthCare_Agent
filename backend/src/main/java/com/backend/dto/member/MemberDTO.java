@@ -33,8 +33,8 @@ public class MemberDTO {
     // 2. 비밀번호
     // 중요: @JsonProperty 설정을 통해 클라이언트로 응답할 때는 비밀번호가 JSON에 포함되지 않도록 차단 (정보 유출 방지)
     @NotBlank(message = "비밀번호는 필수 입력값입니다.")
-    @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d)(?=.*[$@$!%*#?&])[A-Za-z\\d$@$!%*#?&]{8,20}$",
-            message = "비밀번호는 영문, 숫자, 특수문자를 포함하여 8~20자여야 합니다.")
+    @Pattern(regexp = "^(?:(?=.*[A-Za-z])(?=.*\\d)|(?=.*[A-Za-z])(?=.*[$@$!%*#?&])|(?=.*\\d)(?=.*[$@$!%*#?&]))[A-Za-z\\d$@$!%*#?&]{8,20}$",
+            message = "비밀번호는 8자 이상, 영문 대소문자/숫자/특수문자 중 2종 이상 포함되어야합니다")
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String pw;
 
@@ -55,24 +55,6 @@ public class MemberDTO {
     @NotBlank(message = "생년월일을 입력해주세요.")
     @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$", message = "생년월일은 YYYY-MM-DD 형식이어야 합니다.")
     private String birthDate;
-
-    // 6. 키(cm)
-    @NotNull(message = "키를 입력해주세요.")
-    @Min(value = 50, message = "키는 50cm 이상이어야 합니다.")
-    @Max(value = 300, message = "키는 300cm 이하여야 합니다.")
-    private Integer height;
-
-    // 7. 몸무게(kg)
-    // 프론트에서 name을 weigh로 보내는 케이스도 받아주기 위해 alias 허용
-    @JsonAlias({"weigh"})
-    @NotNull(message = "몸무게를 입력해주세요.")
-    @DecimalMin(value = "1.0", message = "몸무게는 1kg 이상이어야 합니다.")
-    private Double weight;
-    
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.DecimalMin;
 
     // 6. 키(cm)
     @NotNull(message = "키를 입력해주세요.")

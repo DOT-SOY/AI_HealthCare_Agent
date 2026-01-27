@@ -10,6 +10,8 @@ import java.util.List;
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ErrorResponse {
+    /** 에러 코드 (프론트 code 키로 읽을 수 있도록 동일 값 보관) */
+    private final String code;
     private final String error;
     private final String message;
     private final List<FieldError> details;

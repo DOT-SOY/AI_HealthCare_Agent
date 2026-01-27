@@ -41,7 +41,7 @@ public class JWTCheckFilter extends OncePerRequestFilter{
                 path.equals("/api/member/refresh") ||
                 path.equals("/api/member/kakao")) {
                 path.equals("/api/member/kakao") ||
-                path.equals("/api/member/login/face")) {
+                path.equals("/api/member/check-email")) {
             return true;
         }
 

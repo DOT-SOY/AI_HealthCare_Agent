@@ -56,13 +56,6 @@ public class Member {
     @Column(name = "weight_kg")
     private Double weight;
 
-    // 5-1. 키(cm)
-    @Column(name = "height_cm")
-    private Integer height;
-
-    // 5-2. 몸무게(kg)
-    @Column(name = "weight_kg")
-    private Double weight;
     // 6. 탈퇴 여부 (논리 삭제)
     @Column(name = "is_deleted", nullable = false)
     @Builder.Default
