@@ -46,8 +46,9 @@ public class Payment extends BaseEntity {
     @Column(name = "approved_at")
     private Instant approvedAt;
 
+    /** 토스 API 전체 응답 JSON 저장용. MariaDB/MySQL에서 LONGTEXT로 생성 */
     @Lob
-    @Column(name = "raw_response")
+    @Column(name = "raw_response", columnDefinition = "LONGTEXT")
     private String rawResponse;
 
     @Builder
@@ -62,6 +63,24 @@ public class Payment extends BaseEntity {
         this.status = status;
         this.paymentKey = paymentKey;
         this.approvedAt = approvedAt;
+        this.rawResponse = rawResponse;
+    }
+
+    /** pay/ready 시 READY 상태 전이용 */
+    public void setStatus(PaymentStatus status) {
+        this.status = status;
+    }
+
+    /** confirm 시 Toss 실제 paymentKey로 갱신용 */
+    public void setPaymentKey(String paymentKey) {
+        this.paymentKey = paymentKey;
+    }
+
+    public void setApprovedAt(Instant approvedAt) {
+        this.approvedAt = approvedAt;
+    }
+
+    public void setRawResponse(String rawResponse) {
         this.rawResponse = rawResponse;
     }
 }

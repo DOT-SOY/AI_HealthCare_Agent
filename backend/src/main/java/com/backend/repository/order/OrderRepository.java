@@ -10,7 +10,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     Optional<Order> findByOrderNo(String orderNo);
 
-    @EntityGraph(attributePaths = {"items", "buyerSnapshot", "shipToSnapshot"})
+    @EntityGraph(attributePaths = {"items", "items.variant", "buyerSnapshot", "shipToSnapshot"})
     Optional<Order> findDetailByOrderNo(String orderNo);
 
     @EntityGraph(attributePaths = {"items", "buyerSnapshot", "shipToSnapshot"})

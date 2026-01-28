@@ -41,6 +41,7 @@ public enum ErrorCode {
     SHOP_VARIANT_INACTIVE("SHOP_VARIANT_003", "판매 중지된 상품 변형입니다. (ID: %s)", HttpStatus.BAD_REQUEST),
     SHOP_CART_NOT_FOUND("SHOP_CART_001", "장바구니를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     SHOP_CART_ITEM_NOT_FOUND("SHOP_CART_ITEM_001", "장바구니 아이템을 찾을 수 없습니다. (ID: %s)", HttpStatus.NOT_FOUND),
+    SHOP_CART_EMPTY("SHOP_CART_003", "장바구니가 비어 있습니다.", HttpStatus.BAD_REQUEST),
     SHOP_CART_ACCESS_DENIED("SHOP_CART_002", "장바구니에 접근할 권한이 없습니다.", HttpStatus.FORBIDDEN),
     SHOP_CART_ITEM_ACCESS_DENIED("SHOP_CART_ITEM_002", "장바구니 아이템에 접근할 권한이 없습니다.", HttpStatus.FORBIDDEN),
     SHOP_CART_ITEM_INVALID_QUANTITY("SHOP_CART_ITEM_003", "수량은 1 이상이어야 합니다.", HttpStatus.BAD_REQUEST),
@@ -50,6 +51,8 @@ public enum ErrorCode {
     SHOP_PAYMENT_INVALID_ORDER_STATE("SHOP_PAYMENT_001", "결제를 진행할 수 없는 주문 상태입니다. (주문번호: %s, 상태: %s)", HttpStatus.BAD_REQUEST),
     SHOP_PAYMENT_AMOUNT_MISMATCH("SHOP_PAYMENT_002", "결제 금액이 주문 금액과 일치하지 않습니다. (요청: %s, 주문: %s)", HttpStatus.BAD_REQUEST),
     SHOP_PAYMENT_CONFIRM_FAILED("SHOP_PAYMENT_003", "결제 승인에 실패했습니다. (상세: %s)", HttpStatus.BAD_REQUEST),
+    /** 토스 [S008] 기존 요청 처리 중 — 잠시 후 재시도 안내 */
+    SHOP_PAYMENT_PROCESSING_RETRY("SHOP_PAYMENT_005", "결제가 처리 중입니다. 잠시 후 다시 시도해 주세요. (토스: [S008])", HttpStatus.SERVICE_UNAVAILABLE),
     SHOP_PAYMENT_CONFIG_NOT_FOUND("SHOP_PAYMENT_004", "결제 설정을 찾을 수 없습니다. (toss.payments.secret-key)", HttpStatus.INTERNAL_SERVER_ERROR),
     
     // ========== 파일 업로드 ==========

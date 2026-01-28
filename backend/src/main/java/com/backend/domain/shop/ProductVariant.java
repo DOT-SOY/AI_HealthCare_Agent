@@ -25,10 +25,6 @@ public class ProductVariant extends BaseEntity {
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
-    // SKU 코드
-    @Column(nullable = false, length = 80)
-    private String sku;
-
     // 옵션 정보 (평문 텍스트, 예: "색상: 빨강, 사이즈: L")
     @Lob
     @Column(name = "option_text", nullable = false)
@@ -48,13 +44,11 @@ public class ProductVariant extends BaseEntity {
 
     @Builder
     public ProductVariant(Product product,
-                         String sku,
                          String optionText,
                          BigDecimal price,
                          Integer stockQty,
                          Boolean active) {
         this.product = product;
-        this.sku = sku;
         this.optionText = optionText;
         this.price = price;
         this.stockQty = (stockQty != null) ? stockQty : 0;

@@ -309,7 +309,6 @@ public class ProductServiceImpl implements ProductService {
         for (ProductVariantRequest req : requests) {
             product.getVariants().add(ProductVariant.builder()
                     .product(product)
-                    .sku(req.getSku())
                     .optionText(req.getOptionText())
                     .price(req.getPrice())
                     .stockQty(req.getStockQty() != null ? req.getStockQty() : 0)

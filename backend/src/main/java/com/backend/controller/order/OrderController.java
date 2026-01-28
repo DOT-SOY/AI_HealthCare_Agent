@@ -1,19 +1,17 @@
 package com.backend.controller.order;
 
-import com.backend.common.exception.BusinessException;
-import com.backend.common.exception.ErrorCode;
+import com.backend.dto.order.request.OrderCreateFromCartRequest;
 import com.backend.dto.order.request.OrderGuestLookupRequest;
+import com.backend.dto.order.response.OrderCreateFromCartResponse;
 import com.backend.dto.order.response.OrderDetailResponse;
-import com.backend.repository.member.MemberRepository;
 import com.backend.dto.payment.response.PaymentReadyResponse;
 import com.backend.service.payment.PaymentService;
 import com.backend.service.order.OrderService;
+import com.backend.service.member.CurrentMemberService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j
@@ -23,8 +21,20 @@ import org.springframework.web.bind.annotation.*;
 public class OrderController {
 
     private final OrderService orderService;
-    private final MemberRepository memberRepository;
+    private final CurrentMemberService currentMemberService;
     private final PaymentService paymentService;
+
+    /**
+     * 장바구니 기준 주문 생성 (from-cart)
+     * - 로그인 회원만 사용. 장바구니 조회 → 검증 → Order + OrderItem + 스냅샷 생성, OrderStatus = CREATED
+     */
+    @PostMapping("/from-cart")
+    public ResponseEntity<OrderCreateFromCartResponse> createOrderFromCart(
+            @Valid @RequestBody OrderCreateFromCartRequest request) {
+        var member = currentMemberService.getCurrentMemberOrThrow();
+        OrderCreateFromCartResponse response = orderService.createOrderFromCart(member.getId(), request);
+        return ResponseEntity.ok(response);
+    }
 
     /**
      * 회원 주문 상세 조회
@@ -32,21 +42,7 @@ public class OrderController {
      */
     @GetMapping("/{orderNo}")
     public ResponseEntity<OrderDetailResponse> getOrderDetail(@PathVariable String orderNo) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
-        if (authentication == null || !authentication.isAuthenticated()
-                || !(authentication.getPrincipal() instanceof String)) {
-            throw new BusinessException(ErrorCode.JWT_ERROR);
-        }
-
-        String email = (String) authentication.getPrincipal();
-        var member = memberRepository.findByEmail(email)
-                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, email));
-
-        if (member.isDeleted()) {
-            throw new BusinessException(ErrorCode.MEMBER_NOT_FOUND, email);
-        }
-
+        var member = currentMemberService.getCurrentMemberOrThrow();
         OrderDetailResponse response = orderService.getOrderDetailForMember(orderNo, member.getId());
         return ResponseEntity.ok(response);
     }
@@ -58,21 +54,7 @@ public class OrderController {
      */
     @PostMapping("/{orderNo}/pay/ready")
     public ResponseEntity<PaymentReadyResponse> preparePayment(@PathVariable String orderNo) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
-        if (authentication == null || !authentication.isAuthenticated()
-                || !(authentication.getPrincipal() instanceof String)) {
-            throw new BusinessException(ErrorCode.JWT_ERROR);
-        }
-
-        String email = (String) authentication.getPrincipal();
-        var member = memberRepository.findByEmail(email)
-                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, email));
-
-        if (member.isDeleted()) {
-            throw new BusinessException(ErrorCode.MEMBER_NOT_FOUND, email);
-        }
-
+        var member = currentMemberService.getCurrentMemberOrThrow();
         PaymentReadyResponse response = paymentService.prepareTossPayment(orderNo, member.getId());
         return ResponseEntity.ok(response);
     }
