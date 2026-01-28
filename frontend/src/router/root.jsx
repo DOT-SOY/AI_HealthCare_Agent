@@ -17,9 +17,7 @@ const ShopIndex = lazy(() => import("../pages/shop/ShopIndex"));
 const RoutineIndex = lazy(() => import("../pages/routine/RoutineIndex"));
 const RecordIndex = lazy(() => import("../pages/record/RecordIndex"));
 
-// [수정] 기존 MealIndex 대신, 방금 만든 MealDashboard를 연결했습니다.
-// const MealIndex = lazy(() => import("../pages/meal/MealIndex")); 
-const MealDashboard = lazy(() => import("../pages/meal/MealDashboard")); 
+const MealIndex = lazy(() => import("../pages/meal/MealIndex"));
 
 const RankingIndex = lazy(() => import("../pages/ranking/RankingIndex"));
 const ProfileIndex = lazy(() => import("../pages/profile/ProfileIndex"));
@@ -56,11 +54,9 @@ const root = createBrowserRouter([
     path: "/meal",
     element: (
       <Suspense fallback={Loading}>
-        {/* [수정] MealIndex -> MealDashboard로 교체 */}
-        <MealDashboard />
+        <MealIndex />
       </Suspense>
     ),
-    // 기존 자식 라우터(mealRouter)도 그대로 유지 (필요 시 사용)
     children: mealRouter(),
   },
   {

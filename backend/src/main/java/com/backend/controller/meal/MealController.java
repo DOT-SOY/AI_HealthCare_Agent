@@ -1,7 +1,8 @@
 package com.backend.controller.meal;
 
-import com.backend.dto.meal.MealDashboardDto;
 import com.backend.dto.meal.MealDto;
+import com.backend.domain.member.Member;
+import com.backend.repository.member.MemberRepository;
 import com.backend.service.meal.MealService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,7 @@ import java.util.Map;
 public class MealController {
 
     private final MealService mealService;
+    private final MemberRepository memberRepository;
 
     /**
      * [조회] 대시보드 통합 데이터 (식사 탭 & 캘린더 모달 공용)
@@ -33,7 +35,8 @@ public class MealController {
     @GetMapping("/dashboard")
     public ResponseEntity<?> getDashboard(
             @AuthenticationPrincipal String email, 
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+            @RequestParam(value = "date", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         
         LocalDate targetDate = (date != null) ? date : LocalDate.now();
         Long userId = resolveUserId(email); // 이메일을 통한 내부 ID 식별
@@ -72,7 +75,7 @@ public class MealController {
     @PatchMapping("/intake/{scheduleId}/status")
     public ResponseEntity<Void> toggleIntakeStatus(
             @PathVariable Long scheduleId,
-            @RequestParam String status) {
+            @RequestParam("status") String status) {
         
         mealService.toggleMealStatus(scheduleId, status);
         return ResponseEntity.noContent().build();
@@ -84,7 +87,7 @@ public class MealController {
     @DeleteMapping("/intake/{scheduleId}")
     public ResponseEntity<Void> removeIntake(
             @PathVariable Long scheduleId,
-            @RequestParam(defaultValue = "false") boolean isPermanent) {
+            @RequestParam(value = "isPermanent", defaultValue = "false") boolean isPermanent) {
         
         mealService.removeOrSkipMeal(scheduleId, isPermanent);
         return ResponseEntity.noContent().build();
@@ -153,7 +156,12 @@ public class MealController {
      * [인증 헬퍼] 이메일 기반 회원 번호 식별
      */
     private Long resolveUserId(String email) {
-        // 실제 운영 환경에서는 별도의 UserContext나 서비스에서 처리함
-        return 1L; 
+        if (email == null || email.isBlank()) {
+            throw new IllegalArgumentException("인증된 사용자 이메일이 없습니다.");
+        }
+        return memberRepository.findByEmail(email)
+                .filter(m -> !m.isDeleted())
+                .map(Member::getId)
+                .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
     }
 }

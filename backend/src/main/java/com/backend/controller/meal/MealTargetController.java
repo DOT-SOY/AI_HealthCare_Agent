@@ -2,6 +2,8 @@ package com.backend.controller.meal;
 
 import com.backend.dto.meal.MealCalendarDto;
 import com.backend.dto.meal.MealTargetDto;
+import com.backend.domain.member.Member;
+import com.backend.repository.member.MemberRepository;
 import com.backend.service.meal.MealTargetService;
 import jakarta.validation.Valid;
 import lombok.Builder;
@@ -23,6 +25,7 @@ import java.util.List;
 public class MealTargetController {
 
     private final MealTargetService mealTargetService;
+    private final MemberRepository memberRepository;
 
     /**
      * [조회] 일일 영양 목표 및 달성 피드백
@@ -30,7 +33,8 @@ public class MealTargetController {
     @GetMapping
     public ResponseEntity<ApiResponse<MealTargetDto>> getDailyTarget(
             @AuthenticationPrincipal String email,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+            @RequestParam("date")
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         
         log.info("[API GET] Target Info - User: {}, Date: {}", email, date);
         Long userId = resolveUserId(email);
@@ -61,7 +65,8 @@ public class MealTargetController {
     @GetMapping("/calendar")
     public ResponseEntity<ApiResponse<List<MealCalendarDto>>> getMonthlyCalendar(
             @AuthenticationPrincipal String email,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate yearMonth) {
+            @RequestParam("yearMonth")
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate yearMonth) {
         
         log.info("[API GET] Monthly Calendar Stats - User: {}, Month: {}", email, yearMonth);
         Long userId = resolveUserId(email);
@@ -88,7 +93,12 @@ public class MealTargetController {
     }
 
     private Long resolveUserId(String email) {
-        // 실제 운영 환경에서는 UserContextHolder나 UserService 연동
-        return 1L; 
+        if (email == null || email.isBlank()) {
+            throw new IllegalArgumentException("인증된 사용자 이메일이 없습니다.");
+        }
+        return memberRepository.findByEmail(email)
+                .filter(m -> !m.isDeleted())
+                .map(Member::getId)
+                .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
     }
 }

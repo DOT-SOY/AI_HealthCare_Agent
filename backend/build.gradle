@@ -24,6 +24,11 @@ repositories {
     mavenCentral()
 }
 
+// Spring MVC가 @RequestParam 등의 파라미터 이름을 리플렉션으로 추론할 수 있도록 컴파일 시 -parameters 옵션을 활성화
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs += ['-parameters']
+}
+
 // [핵심 추가: 이게 없어서 에러 났던 겁니다]
 ext {
     set('springCloudVersion', "2023.0.1")
