@@ -2,10 +2,6 @@
 /backend/build/
 /backend/.gradle/
 **/*.log
-*.out
-*.err
-/backend/.vscode/tasks.json
-/backend/.vscode/launch.json
 
 # frontend
 /frontend/node_modules/

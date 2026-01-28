@@ -16,11 +16,6 @@ import lombok.Setter;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.DecimalMin;
-
 
 @Getter
 @Setter
@@ -74,5 +69,4 @@ public class MemberDTO {
     @DecimalMin(value = "1.0", message = "몸무게는 1kg 이상이어야 합니다.")
     private Double weight;
 
-   
 }
