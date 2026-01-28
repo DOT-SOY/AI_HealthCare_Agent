@@ -1,5 +1,6 @@
 package com.backend.common.exception;
 
+import com.backend.exception.ResourceNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -23,6 +24,7 @@ import java.util.stream.Collectors;
  * <ul>
  *   <li>BusinessException: 비즈니스 로직 예외</li>
  *   <li>JWTException: JWT 인증/보안 예외</li>
+ *   <li>ResourceNotFoundException: 리소스를 찾을 수 없을 때</li>
  *   <li>MethodArgumentNotValidException: @Valid 검증 실패 (JSON 요청)</li>
  *   <li>BindException: @Valid 검증 실패 (폼 요청)</li>
  *   <li>IllegalArgumentException: 잘못된 인자 예외</li>
@@ -75,6 +77,26 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity
                 .status(e.getErrorCode().getStatus())
+                .body(errorResponse);
+    }
+
+    /**
+     * 리소스를 찾을 수 없을 때 예외 처리
+     */
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleResourceNotFoundException(
+            ResourceNotFoundException e, HttpServletRequest request) {
+        log.warn("ResourceNotFoundException: {}", e.getMessage());
+        
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .error(ErrorCode.MEMBER_NOT_FOUND.getCode())
+                .message(e.getMessage())
+                .timestamp(Instant.now().toString())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
                 .body(errorResponse);
     }
 
