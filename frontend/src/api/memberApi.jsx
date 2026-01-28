@@ -10,9 +10,6 @@ const host = `${API_SERVER_HOST}/api/member`;
 // /login API를 호출해서 로그인 처리, 성공 시 서버에서 보내주는 JWT 토큰, 사용자 정보를 받음
 // 서버에서는 컨트롤러 없이도 Spring Security Filter Chain이 요청을 가로챔(config.loginPage()루트와 동일) - loadUserByUsername 실행
 export const loginPost = async (loginParam) => {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/95aec53f-1cc8-4098-a3e8-d29a7d621e66',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'B',location:'src/api/memberApi.jsx:loginPost',message:'loginPost called',data:{apiServerHost:API_SERVER_HOST,host,hasEmail:!!loginParam?.email,hasPw:!!loginParam?.pw},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
   const header = { headers: { "Content-Type": "x-www-form-urlencoded" } };
 
   const form = new FormData();
@@ -41,21 +38,12 @@ export const modifyMember = async (member) => {
 
 export const joinPost = async (joinParam) => {
   const header = { headers: { "Content-Type": "application/json" } };
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/95aec53f-1cc8-4098-a3e8-d29a7d621e66',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'A',location:'src/api/memberApi.jsx:joinPost',message:'joinPost called',data:{apiServerHost:API_SERVER_HOST,host,keys:Object.keys(joinParam||{}),hasRequired:{email:!!joinParam?.email,pw:!!joinParam?.pw,name:!!joinParam?.name,gender:!!joinParam?.gender,birthDate:!!joinParam?.birthDate}},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
 
   // JSON 형태로 전송
   try {
     const res = await axios.post(`${host}/join`, joinParam, header);
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/95aec53f-1cc8-4098-a3e8-d29a7d621e66',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'A',location:'src/api/memberApi.jsx:joinPost',message:'joinPost success',data:{status:res?.status},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     return res.data;
   } catch (err) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/95aec53f-1cc8-4098-a3e8-d29a7d621e66',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'A',location:'src/api/memberApi.jsx:joinPost',message:'joinPost error',data:{code:err?.code,message:err?.message,hasResponse:!!err?.response,status:err?.response?.status},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     throw err;
   }
 };

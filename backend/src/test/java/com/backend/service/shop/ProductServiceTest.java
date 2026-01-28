@@ -86,6 +86,7 @@ class ProductServiceTest {
                                 .pw("password")
                                 .name("테스트유저")
 
+
                                 .build();
                         member.addRole(MemberRole.ADMIN);
                         return memberRepository.save(member);
@@ -169,7 +170,6 @@ class ProductServiceTest {
                 .email("test@example.com")
                 .pw("password")
                 .name("테스트유저")
-
                 .build();
         member.addRole(MemberRole.ADMIN);
 
@@ -200,7 +200,6 @@ class ProductServiceTest {
                                 .email("test@example.com")
                                 .pw("password")
                                 .name("테스트유저")
-
                                 .build();
                         member.addRole(MemberRole.ADMIN);
                         return memberRepository.save(member);

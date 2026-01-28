@@ -14,12 +14,14 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 import java.time.Duration;
 
 @Configuration
+@SuppressWarnings("null") // IDE null-type-safety 경고 억제 (@Value 주입 값은 런타임에 보장됨)
 public class RedisConfig {
 
-    @Value("${spring.redis.host}")
+    // NOTE: Spring Boot 3.x 기본 Redis 프로퍼티는 spring.data.redis.* 입니다.
+    @Value("${spring.data.redis.host:localhost}")
     private String redisHost;
 
-    @Value("${spring.redis.port}")
+    @Value("${spring.data.redis.port:6379}")
     private int redisPort;
 
     @Bean

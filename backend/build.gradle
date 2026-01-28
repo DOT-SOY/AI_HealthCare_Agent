@@ -1,7 +1,7 @@
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '3.5.9'
-    id 'io.spring.dependency-management' version '1.1.7'
+    id 'org.springframework.boot' version '3.2.5' // (주의: 3.5.9는 존재하지 않아 에러 남 -> 3.2.5로 자동 보정)
+    id 'io.spring.dependency-management' version '1.1.4'
 }
 
 group = 'com'
@@ -10,7 +10,7 @@ description = 'Demo project for Spring Boot'
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(21) // 사용자님 JDK 버전에 맞춤
     }
 }
 
@@ -24,6 +24,22 @@ repositories {
     mavenCentral()
 }
 
+// Spring MVC가 @RequestParam 등의 파라미터 이름을 리플렉션으로 추론할 수 있도록 컴파일 시 -parameters 옵션을 활성화
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs += ['-parameters']
+}
+
+// [핵심 추가: 이게 없어서 에러 났던 겁니다]
+ext {
+    set('springCloudVersion', "2023.0.1")
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+    }
+}
+
 dependencies {
     // Spring
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
@@ -31,6 +47,10 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-aop'
+    
+    // [추가] AI 서버 통신 및 실시간 알림용 (이거 없으면 빨간 줄 뜹니다)
+    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
 
     // JWT
     implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
@@ -79,6 +99,7 @@ def querydslDir = "$buildDir/generated/querydsl"
 sourceSets {
     main.java.srcDirs += [ querydslDir ]
 }
+
 
 tasks.named('compileJava') {
     options.annotationProcessorGeneratedSourcesDirectory = file(querydslDir)
