@@ -1,26 +1,28 @@
-package com.backend.domain.memberbodyinfo;
+package com.backend.domain.memberinfo;
 
+import com.backend.domain.member.Member;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
-import com.backend.domain.member.Member;
+
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "member_body_info")
+@Table(name = "member_info_body")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder(toBuilder = true)
-public class MemberBodyInfo {
+@Builder
+public class MemberInfoBody {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "body_id")
     private Long id;
 
-
-    @ManyToOne(fetch = FetchType.LAZY)
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "member_id", nullable = false)
     private Member member;
 
@@ -66,27 +68,8 @@ public class MemberBodyInfo {
     @Column(name = "muscle_control")
     private Double muscleControl;
 
-    // --- [배송 정보 (Shipping Info)] ---
-    @Column(name = "ship_to_name", length = 50)
-    private String shipToName;    // 받는 사람 이름
-
-    @Column(name = "ship_to_phone", length = 20)
-    private String shipToPhone;   // 연락처
-
-    @Column(name = "ship_zipcode", length = 10)
-    private String shipZipcode;   // 우편번호
-
-    @Column(name = "ship_address1", length = 200)
-    private String shipAddress1;  // 기본 주소
-
-    @Column(name = "ship_address2", length = 200)
-    private String shipAddress2;  // 상세 주소
-
-    // --- [기타 정보] ---
-    @Column(name = "notes", length = 1000)
-    private String notes;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "purpose")
     private ExercisePurpose purpose;
 }
+

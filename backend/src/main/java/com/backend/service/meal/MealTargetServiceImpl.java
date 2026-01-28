@@ -61,13 +61,30 @@ public class MealTargetServiceImpl implements MealTargetService {
     @Override
     public void getNutritionAchievement(Long userId, LocalDate date, MealDashboardDto dashboardDto) {
         MealTargetDto target = getTargetByDate(userId, date);
-        if (target == null) return;
+        
+        // 해당 날짜의 모든 식단 데이터 로드 (정렬됨)
+        List<Meal> dayMeals = mealSearch.findMealsByDateAndUser(userId, date);
+        if (dayMeals == null) {
+            dayMeals = new ArrayList<>();
+        }
+
+        if (target == null) {
+            // 목표가 없어도 식단 데이터는 표시해야 함 (빈 박스 방지)
+            dashboardDto.setCalories(calculateSummary(0, sum(dayMeals, "cal")));
+            dashboardDto.setCarbs(calculateSummary(0, sum(dayMeals, "carbs")));
+            dashboardDto.setProtein(calculateSummary(0, sum(dayMeals, "protein")));
+            dashboardDto.setFat(calculateSummary(0, sum(dayMeals, "fat")));
+            
+            // 끼니별 섹션은 기본값으로 채움
+            dashboardDto.setBreakfast(assembleSection(dayMeals, Meal.MealTime.BREAKFAST, null));
+            dashboardDto.setLunch(assembleSection(dayMeals, Meal.MealTime.LUNCH, null));
+            dashboardDto.setDinner(assembleSection(dayMeals, Meal.MealTime.DINNER, null));
+            dashboardDto.setSnack(assembleSection(dayMeals, Meal.MealTime.SNACK, null));
+            return;
+        }
 
         dashboardDto.setDayTarget(target);
         dashboardDto.setAiAnalysis(target.getAiFeedback());
-
-        // 해당 날짜의 모든 식단 데이터 로드 (정렬됨)
-        List<Meal> dayMeals = mealSearch.findMealsByDateAndUser(userId, date);
 
         // 상단 원형 그래프 데이터 계산 (±10% 로직 포함)
         dashboardDto.setCalories(calculateSummary(target.getGoalCal(), sum(dayMeals, "cal")));
@@ -86,9 +103,13 @@ public class MealTargetServiceImpl implements MealTargetService {
      * [비즈니스 로직] 하루 목표 대비 특정 끼니의 영양 기여도 계산 (UI Bar용)
      */
     private MealDashboardDto.MealTimeSection assembleSection(List<Meal> meals, Meal.MealTime time, MealTargetDto target) {
+        if (meals == null) {
+            meals = new ArrayList<>();
+        }
         List<MealDto> sectionMeals = meals.stream()
-                .filter(m -> m.getMealTime() == time)
+                .filter(m -> m != null && m.getMealTime() == time)
                 .map(MealDto::fromEntity)
+                .filter(dto -> dto != null)
                 .collect(Collectors.toList());
 
         int sCal = sectionMeals.stream().mapToInt(m -> m.getCalories() != null ? m.getCalories() : 0).sum();
@@ -99,10 +120,10 @@ public class MealTargetServiceImpl implements MealTargetService {
         return MealDashboardDto.MealTimeSection.builder()
                 .totalCalories(sCal)
                 .totalCarbs(sCarb).totalProtein(sProt).totalFat(sFat)
-                // 하루 전체 목표량 중 이 끼니가 차지하는 비중 계산
-                .percentCarbs(calcRatio(target.getGoalCarbs(), sCarb))
-                .percentProtein(calcRatio(target.getGoalProtein(), sProt))
-                .percentFat(calcRatio(target.getGoalFat(), sFat))
+                // 하루 전체 목표량 중 이 끼니가 차지하는 비중 계산 (target이 null이면 0)
+                .percentCarbs(target != null ? calcRatio(target.getGoalCarbs(), sCarb) : 0)
+                .percentProtein(target != null ? calcRatio(target.getGoalProtein(), sProt) : 0)
+                .percentFat(target != null ? calcRatio(target.getGoalFat(), sFat) : 0)
                 .meals(sectionMeals)
                 .build();
     }
@@ -111,16 +132,17 @@ public class MealTargetServiceImpl implements MealTargetService {
      * [핵심 로직] ±10% / ±2% 판정 알고리즘
      */
     private void applyAchievementLogic(MealCalendarDto dto, MealTarget target) {
-        int percent = (int) ((dto.getTotalEatenCalories() / (double) target.getGoalCal()) * 100);
-        double diff = Math.abs(100 - percent);
+        int goalCal = target.getGoalCal() != null ? target.getGoalCal() : 0;
+        int eatenCal = dto.getTotalEatenCalories() != null ? dto.getTotalEatenCalories() : 0;
+        int percent = (goalCal == 0) ? 0 : (int) ((eatenCal / (double) goalCal) * 100);
 
-        dto.setGoalCalories(target.getGoalCal());
+        dto.setGoalCalories(goalCal);
         dto.setAchievementRate(percent);
         
-        // 엔터프라이즈급 상태 판정
-        String status = (diff <= 2.0) ? "PERFECT" : (diff <= 10.0) ? "PASS" : "FAIL";
+        // 새 기준: GOOD/SAFE/LOW/LACK/FAIL
+        String status = resolveStatusByPercent(percent);
         dto.setDailyStatus(status);
-        dto.setIsSuccess(!status.equals("FAIL"));
+        dto.setIsSuccess(isSuccessStatus(status));
         
         // 탄단지 각각의 O/X 체크 로직도 여기서 수행 (UI 그림 반영)
         // ... (생략된 상세 탄단지 체크 로직)
@@ -128,12 +150,37 @@ public class MealTargetServiceImpl implements MealTargetService {
 
     private MealDashboardDto.NutritionSummary calculateSummary(Integer goal, int current) {
         int percent = (goal == null || goal == 0) ? 0 : (int)((current / (double)goal) * 100);
-        double diff = Math.abs(100 - percent);
-        String status = (diff <= 2.0) ? "PERFECT" : (diff <= 10.0) ? "PASS" : "FAIL";
+        String status = resolveStatusByPercent(percent);
         return MealDashboardDto.NutritionSummary.builder().goal(goal).current(current).percent(percent).status(status).build();
     }
 
+    private String resolveStatusByPercent(int percent) {
+        if (percent >= 113) {
+            return "FAIL";
+        }
+        if (percent >= 111) {
+            return "SAFE";
+        }
+        if (percent >= 80) {
+            return "GOOD";
+        }
+        if (percent >= 76) {
+            return "SAFE";
+        }
+        if (percent >= 51) {
+            return "LOW";
+        }
+        return "LACK";
+    }
+
+    private boolean isSuccessStatus(String status) {
+        return "GOOD".equals(status) || "SAFE".equals(status);
+    }
+
     private int sum(List<Meal> meals, String type) {
+        if (meals == null) {
+            return 0;
+        }
         return meals.stream().filter(m -> m.getStatus() == Meal.MealStatus.EATEN)
                 .mapToInt(m -> {
                     switch(type) {
@@ -151,14 +198,14 @@ public class MealTargetServiceImpl implements MealTargetService {
 
     @Override
     public MealTargetDto getTargetByDate(Long userId, LocalDate date) {
-        MealTarget target = targetRepository.findByUserIdAndTargetDate(userId, date)
+        MealTarget target = targetRepository.findTopByUserIdAndTargetDateOrderByTargetDateDesc(userId, date)
                 .orElseGet(() -> targetSearch.findLatestTargetBeforeDate(userId, date));
         return target != null ? MealTargetDto.fromEntity(target) : null;
     }
 
     @Override @Transactional
     public MealTargetDto updateTarget(Long userId, MealTargetDto dto) {
-        MealTarget target = targetRepository.findByUserIdAndTargetDate(userId, dto.getTargetDate())
+        MealTarget target = targetRepository.findTopByUserIdAndTargetDateOrderByTargetDateDesc(userId, dto.getTargetDate())
                 .orElseGet(() -> dto.toEntity(userId));
         target.updateTarget(MealTarget.GoalType.valueOf(dto.getGoalType()), dto.getGoalCal(), dto.getGoalCarbs(), dto.getGoalProtein(), dto.getGoalFat());
         return MealTargetDto.fromEntity(targetRepository.save(target));
@@ -166,7 +213,7 @@ public class MealTargetServiceImpl implements MealTargetService {
 
     @Override @Transactional
     public void updateAiFeedback(Long userId, LocalDate date, String feedback) {
-        targetRepository.findByUserIdAndTargetDate(userId, date).ifPresent(t -> t.updateFeedback(feedback));
+        targetRepository.findTopByUserIdAndTargetDateOrderByTargetDateDesc(userId, date).ifPresent(t -> t.updateFeedback(feedback));
     }
     
     @Override

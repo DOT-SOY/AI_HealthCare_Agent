@@ -23,8 +23,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Configuration
-@SuppressWarnings("null") // IDE null-type-safety 경고 억제 (Spring DI로 주입 값은 런타임에 보장됨)
-// ★ 중요: MariaDB용 Repository들이 있는 패키지 경로를 지정합니다.
 @EnableJpaRepositories(
         basePackages = "com.backend.repository",
         entityManagerFactoryRef = "entityManagerFactory",

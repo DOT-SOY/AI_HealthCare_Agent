@@ -1,6 +1,6 @@
 package com.backend.service.meal;
 
-import com.backend.client.meal.AiMealClient;
+import com.backend.client.meal.AiMealWebClient;
 import com.backend.domain.meal.Meal;
 import com.backend.dto.meal.*;
 import com.backend.repository.meal.MealRepository;
@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -33,7 +33,7 @@ public class MealServiceImpl implements MealService {
     private final MealRepository mealRepository;
     private final MealSearch mealSearch;
     private final MealTargetService mealTargetService;
-    private final AiMealClient aiMealClient;
+    private final AiMealWebClient aiMealWebClient;
     private final SimpMessagingTemplate messagingTemplate;
 
     /**
@@ -75,26 +75,33 @@ public class MealServiceImpl implements MealService {
         List<String> report = new ArrayList<>();
 
         for (Meal m : meals) {
+            if (m == null || m.getMealTime() == null) {
+                continue; // mealTime이 null이면 스킵
+            }
             String timeLabel = m.getMealTime().getLabel(); // 아침, 점심 등
 
             // [상황 1] 계획에 없던 추가 섭취 (Add-on)
-            if (m.getIsAdditional()) {
+            if (m.getIsAdditional() != null && m.getIsAdditional()) {
+                String foodName = m.getFoodName() != null ? m.getFoodName() : "식단";
                 report.add(String.format("▶ [%s] 계획에 없던 '%s'을(를) 추가로 섭취하셨습니다.", 
-                        timeLabel, m.getFoodName()));
+                        timeLabel, foodName));
                 continue;
             }
 
             // [상황 2] 예정된 식사 건너뛰기 (SKIPPED)
             if (m.getStatus() == Meal.MealStatus.SKIPPED) {
+                String originalFoodName = m.getOriginalFoodName() != null ? m.getOriginalFoodName() : "식단";
                 report.add(String.format("▷ [%s] 원래 드시기로 했던 '%s' 식사를 거르셨습니다.", 
-                        timeLabel, m.getOriginalFoodName()));
+                        timeLabel, originalFoodName));
                 continue;
             }
 
             // [상황 3] 메뉴 변경 및 영양소 오차 분석
-            if (m.getOriginalFoodName() != null && !m.getOriginalFoodName().equals(m.getFoodName())) {
+            String originalFoodName = m.getOriginalFoodName() != null ? m.getOriginalFoodName() : "";
+            String foodName = m.getFoodName() != null ? m.getFoodName() : "";
+            if (!originalFoodName.isEmpty() && !originalFoodName.equals(foodName)) {
                 report.add(String.format("● [%s] 식단이 변경되었습니다: [%s] → [%s]", 
-                        timeLabel, m.getOriginalFoodName(), m.getFoodName()));
+                        timeLabel, originalFoodName, foodName));
                 
                 // 영양소 차이 정밀 계산 (Calorie, Carbs, Protein, Fat)
                 analyzeNutrientDifference(report, m);
@@ -128,26 +135,30 @@ public class MealServiceImpl implements MealService {
     @Override
     @Transactional
     public MealDto registerAdditionalMeal(Long userId, MealDto mealDto) {
-        log.info("[Meal] 추가 식단 등록 - User: {}, Food: {}", userId, mealDto.getFoodName());
-        mealDto.setIsAdditional(true);
-        mealDto.setStatus(Meal.MealStatus.EATEN.name());
-        Meal saved = mealRepository.save(mealDto.toEntity(userId));
+        Long safeUserId = Objects.requireNonNull(userId, "userId는 필수입니다.");
+        MealDto safeMealDto = Objects.requireNonNull(mealDto, "mealDto는 필수입니다.");
+        log.info("[Meal] 추가 식단 등록 - User: {}, Food: {}", safeUserId, safeMealDto.getFoodName());
+        safeMealDto.setIsAdditional(true);
+        safeMealDto.setStatus(Meal.MealStatus.EATEN.name());
+        Meal saved = mealRepository.save(Objects.requireNonNull(safeMealDto.toEntity(safeUserId), "Meal 생성 실패"));
         return MealDto.fromEntity(saved);
     }
 
     @Override
     @Transactional
     public MealDto updateMeal(Long scheduleId, MealDto mealDto) {
-        log.info("[Meal] 식단 정보 수정 - ID: {}", scheduleId);
-        Meal meal = mealRepository.findById(scheduleId)
+        Long safeScheduleId = Objects.requireNonNull(scheduleId, "scheduleId는 필수입니다.");
+        MealDto safeMealDto = Objects.requireNonNull(mealDto, "mealDto는 필수입니다.");
+        log.info("[Meal] 식단 정보 수정 - ID: {}", safeScheduleId);
+        Meal meal = mealRepository.findById(safeScheduleId)
                 .orElseThrow(() -> new RuntimeException("해당 식단 데이터를 찾을 수 없습니다."));
 
         // Original은 보존, 실측값만 업데이트하여 분석 근거 유지
         meal.updateMealInfo(
-                mealDto.getFoodName(), mealDto.getServingSize(),
-                mealDto.getCalories(), mealDto.getCarbs(),
-                mealDto.getProtein(), mealDto.getFat(),
-                Meal.MealStatus.valueOf(mealDto.getStatus())
+                safeMealDto.getFoodName(), safeMealDto.getServingSize(),
+                safeMealDto.getCalories(), safeMealDto.getCarbs(),
+                safeMealDto.getProtein(), safeMealDto.getFat(),
+                Meal.MealStatus.valueOf(Objects.requireNonNull(safeMealDto.getStatus(), "status는 필수입니다."))
         );
         return MealDto.fromEntity(meal);
     }
@@ -155,8 +166,9 @@ public class MealServiceImpl implements MealService {
     @Override
     @Transactional
     public void toggleMealStatus(Long scheduleId, String status) {
-        mealRepository.findById(scheduleId).ifPresent(m -> {
-            log.info("[Meal] 상태 변경 - ID: {}, Status: {}", scheduleId, status);
+        Long safeScheduleId = Objects.requireNonNull(scheduleId, "scheduleId는 필수입니다.");
+        mealRepository.findById(safeScheduleId).ifPresent(m -> {
+            log.info("[Meal] 상태 변경 - ID: {}, Status: {}", safeScheduleId, status);
             m.changeStatus(Meal.MealStatus.valueOf(status));
         });
     }
@@ -164,12 +176,13 @@ public class MealServiceImpl implements MealService {
     @Override
     @Transactional
     public void removeOrSkipMeal(Long scheduleId, boolean isPermanentDelete) {
-        mealRepository.findById(scheduleId).ifPresent(m -> {
+        Long safeScheduleId = Objects.requireNonNull(scheduleId, "scheduleId는 필수입니다.");
+        mealRepository.findById(safeScheduleId).ifPresent(m -> {
             if (isPermanentDelete || m.getIsAdditional()) {
-                log.info("[Meal] 데이터 영구 삭제 - ID: {}", scheduleId);
-                mealRepository.delete(m);
+                log.info("[Meal] 데이터 영구 삭제 - ID: {}", safeScheduleId);
+                mealRepository.delete(Objects.requireNonNull(m, "Meal이 null입니다."));
             } else {
-                log.info("[Meal] 계획 식단 건너뛰기 처리 - ID: {}", scheduleId);
+                log.info("[Meal] 계획 식단 건너뛰기 처리 - ID: {}", safeScheduleId);
                 m.changeStatus(Meal.MealStatus.SKIPPED);
             }
         });
@@ -190,10 +203,15 @@ public class MealServiceImpl implements MealService {
                     .foodImageBase64(base64Image)
                     .build();
 
-            AiMealResponseDto response = aiMealClient.sendRequest(request);
+            AiMealResponseDto response = aiMealWebClient.sendRequest(request);
+            AiMealResponseDto.AnalyzedFood analyzedFood = Objects.requireNonNullElse(
+                    response.getAnalyzedFood(),
+                    AiMealResponseDto.AnalyzedFood.builder().build()
+            );
 
             // WebSocket 전역 경로 푸시: /topic/meal/vision/{userId}
-            messagingTemplate.convertAndSend("/topic/meal/vision/" + userId, response.getAnalyzedFood());
+            messagingTemplate.convertAndSend("/topic/meal/vision/" + userId,
+                    Objects.requireNonNull(analyzedFood, "분석 결과가 없습니다."));
             log.info("[Async] Vision 분석 결과 전송 완료");
 
         } catch (Exception e) {
@@ -214,13 +232,15 @@ public class MealServiceImpl implements MealService {
                     .currentMeals(currentMeals.stream().map(MealDto::fromEntity).toList())
                     .build();
 
-            AiMealResponseDto response = aiMealClient.sendRequest(request);
+            AiMealResponseDto response = aiMealWebClient.sendRequest(request);
+            String adviceComment = Objects.requireNonNullElse(response.getAdviceComment(), "");
 
             // 분석 결과를 DB에 저장하여 탭 전환 시에도 유지되게 함
-            mealTargetService.updateAiFeedback(userId, date, response.getAdviceComment());
+            mealTargetService.updateAiFeedback(userId, date, adviceComment);
 
             // 실시간 결과 전송
-            messagingTemplate.convertAndSend("/topic/meal/advice/" + userId, response.getAdviceComment());
+            messagingTemplate.convertAndSend("/topic/meal/advice/" + userId,
+                    Objects.requireNonNull(adviceComment, "상담 결과가 없습니다."));
             log.info("[Async] 심층 상담 완료 및 DB 저장 완료");
 
         } catch (Exception e) {
@@ -247,10 +267,11 @@ public class MealServiceImpl implements MealService {
                             .build())
                     .build();
 
-            AiMealResponseDto response = aiMealClient.sendRequest(request);
+            AiMealResponseDto response = aiMealWebClient.sendRequest(request);
+            List<MealDto> suggestedMeals = Objects.requireNonNullElse(response.getSuggestedMeals(), List.of());
 
             // PLANNED 상태의 계획만 교체
-            updatePlannedMeals(userId, date, response.getSuggestedMeals());
+            updatePlannedMeals(userId, date, suggestedMeals);
 
             messagingTemplate.convertAndSend("/topic/meal/replan/" + userId, "남은 일정이 최적으로 재구성되었습니다.");
             log.info("[Async] 식단 재구성 완료");
@@ -266,11 +287,12 @@ public class MealServiceImpl implements MealService {
                 .filter(m -> m.getStatus() == Meal.MealStatus.PLANNED)
                 .collect(Collectors.toList());
         
-        mealRepository.deleteAll(toDelete);
+        mealRepository.deleteAll(Objects.requireNonNull(toDelete, "삭제 대상 리스트가 null입니다."));
         
         // AI가 제안한 새로운 계획들을 저장
-        for (MealDto dto : newPlans) {
-            mealRepository.save(dto.toEntity(userId));
+        List<MealDto> safePlans = Objects.requireNonNullElse(newPlans, List.of());
+        for (MealDto dto : safePlans) {
+            mealRepository.save(Objects.requireNonNull(dto.toEntity(userId), "Meal 생성 실패"));
         }
     }
 

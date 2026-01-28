@@ -6,6 +6,13 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip,
 } from "recharts";
 import { getMyBodyInfoHistory, updateBodyInfo } from "../../services/bodyInfoApi";
+import {
+  createMemberInfoAddr,
+  updateMemberInfoAddr,
+  getMemberInfoAddrList,
+  setDefaultMemberInfoAddr,
+  deleteMemberInfoAddr,
+} from "../../services/memberInfoAddrApi";
 
 const ProfileIndex = () => {
   const [isDark, setIsDark] = useState(false);
@@ -13,6 +20,7 @@ const ProfileIndex = () => {
 
   const [historyData, setHistoryData] = useState([]);
   const [latestInfo, setLatestInfo] = useState(null);
+  const [addrList, setAddrList] = useState([]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editData, setEditData] = useState({});
@@ -29,9 +37,26 @@ const ProfileIndex = () => {
     }
   };
 
+  const fetchAddrList = async (memberId) => {
+    try {
+      if (!memberId) {
+        setAddrList([]);
+        return;
+      }
+      const list = await getMemberInfoAddrList(memberId);
+      setAddrList(Array.isArray(list) ? list : []);
+    } catch (error) {
+      console.error("배송지 목록 로딩 실패:", error);
+    }
+  };
+
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    fetchAddrList(latestInfo?.memberId);
+  }, [latestInfo?.memberId]);
 
   const handleEditClick = () => {
     if (!latestInfo) {
@@ -41,65 +66,109 @@ const ProfileIndex = () => {
     // 객체 깊은 복사 혹은 펼침 연산자로 새로운 객체 생성하여 전달
     setEditData({ ...latestInfo });
     setIsModalOpen(true);
+    fetchAddrList(latestInfo?.memberId);
   };
 
-  // ✅ [수정 핵심] 안전한 숫자 변환 함수
-  const safeParseFloat = (val) => {
-    if (val === "" || val === null || val === undefined) return 0;
+  const handleSaveBodyInfo = async (updatedData, targetId) => {
+    try {
+      const bodyId = targetId ?? latestInfo?.id;
+      if (!bodyId) {
+        alert("수정할 데이터가 없습니다.");
+        return;
+      }
+
+      const toNumberOrNull = (val) => {
+        if (val === "" || val === null || val === undefined) return null;
     const num = Number(val);
-    return isNaN(num) ? 0 : num;
+        return Number.isNaN(num) ? null : num;
   };
 
- const handleSave = async (updatedData) => {
-     try {
-       // 1. 기존 데이터와 합치기
-       const payload = {
-         ...latestInfo,
-         ...updatedData
-       };
+      const bodyPayload = {
+        height: toNumberOrNull(updatedData.height),
+        weight: toNumberOrNull(updatedData.weight),
+        purpose: updatedData.purpose || null,
+      };
 
-//      if (payload.measuredTime && typeof payload.measuredTime === 'string') {
-//                payload.measuredTime = payload.measuredTime.replace('T', ' ').substring(0, 19);
-//            }
+      await updateBodyInfo(bodyId, bodyPayload);
+      alert("신체 정보가 수정되었습니다.");
+      await fetchData();
+    } catch (error) {
+      console.error("신체 정보 수정 실패:", error);
+      alert(error.message || "신체 정보 수정 중 오류가 발생했습니다.");
+    }
+  };
 
+  const handleSaveAddress = async (addrData, editingAddrId) => {
+    try {
+      const memberId = latestInfo?.memberId;
+      if (!memberId) {
+        throw new Error("memberId가 없어 배송지 정보를 저장할 수 없습니다.");
+      }
 
-       // 불필요한 BaseEntity 필드 제거 (안전책)
-       delete payload.regDate;
-       delete payload.modDate;
+      const addrPayload = {
+        memberId,
+        recipientName: addrData.recipientName?.trim() || "",
+        recipientPhone: addrData.recipientPhone?.trim() || "",
+        zipcode: addrData.zipcode?.trim() || "",
+        address1: addrData.address1?.trim() || "",
+        address2: addrData.address2?.trim() || "",
+      };
 
-       // 2. 숫자로 변환 (문자열 전송 방지)
-       payload.height = Number(payload.height);
-       payload.weight = Number(payload.weight);
-       payload.skeletalMuscleMass = Number(payload.skeletalMuscleMass);
-       payload.bodyFatPercent = Number(payload.bodyFatPercent);
-       payload.bodyWater = Number(payload.bodyWater);
-       payload.protein = Number(payload.protein);
-       payload.minerals = Number(payload.minerals);
-       payload.bodyFatMass = Number(payload.bodyFatMass);
+      if (!addrPayload.recipientName || !addrPayload.recipientPhone || !addrPayload.zipcode || !addrPayload.address1) {
+        alert("배송지 필수 정보를 모두 입력해주세요.");
+        return false;
+      }
 
-       payload.targetWeight = Number(payload.targetWeight);
-       payload.weightControl = Number(payload.weightControl);
-       payload.fatControl = Number(payload.fatControl);
-       payload.muscleControl = Number(payload.muscleControl);
+      if (editingAddrId) {
+        await updateMemberInfoAddr(editingAddrId, addrPayload);
+      } else {
+        await createMemberInfoAddr(addrPayload);
+      }
 
-       console.log("🚀 최종 전송 Payload:", payload);
+      await fetchAddrList(memberId);
+      alert(editingAddrId ? "배송지가 수정되었습니다." : "배송지가 추가되었습니다.");
+      return true;
+    } catch (error) {
+      console.error("배송지 저장 실패:", error);
+      alert(error.message || "배송지 저장 중 오류가 발생했습니다.");
+      return false;
+    }
+  };
 
-       // 3. 전송
-       await updateBodyInfo(payload.id, payload);
+  const handleSetDefaultAddress = async (addrId) => {
+    try {
+      await setDefaultMemberInfoAddr(addrId);
+      await fetchAddrList(latestInfo?.memberId);
+      alert("기본 배송지가 변경되었습니다.");
+    } catch (error) {
+      console.error("기본 배송지 설정 실패:", error);
+      alert(error.message || "기본 배송지 설정 중 오류가 발생했습니다.");
+    }
+  };
 
-       alert("성공적으로 수정되었습니다.");
-       setIsModalOpen(false);
-       fetchData();
+  const handleDeleteAddress = async (addrId) => {
+    if (!window.confirm("정말로 이 배송지를 삭제하시겠습니까?")) {
+      return;
+    }
+    try {
+      await deleteMemberInfoAddr(addrId);
+      await fetchAddrList(latestInfo?.memberId);
+      alert("배송지가 삭제되었습니다.");
      } catch (error) {
-       // api.js가 출력한 상세 에러를 콘솔에서 확인 가능
-       console.error("수정 실패:", error);
-       alert(error.message || "수정 중 오류가 발생했습니다.");
+      console.error("배송지 삭제 실패:", error);
+      alert(error.message || "배송지 삭제 중 오류가 발생했습니다.");
      }
+  };
+
+  const formatMeasuredDate = (value) => {
+    if (!value) return "";
+    const text = String(value);
+    return text.length >= 10 ? text.substring(5, 10) : text;
    };
 
   // 차트 데이터 가공
   const chartData = historyData.map((item) => ({
-//     name: item.measuredTime ? item.measuredTime.substring(5, 10) : "",
+    name: formatMeasuredDate(item.measuredTime),
     fatRate: item.bodyFatPercent,
     muscle: item.skeletalMuscleMass,
     weight: item.weight,
@@ -162,15 +231,10 @@ const ProfileIndex = () => {
                 <div className="row stats">
                   <span>{val(latestInfo?.height, "cm")}</span> &nbsp;/&nbsp; <span>{val(latestInfo?.weight, "kg")}</span>
                 </div>
-
-                {latestInfo?.shipAddress1 && (
-                  <div style={{ marginTop: '15px', paddingTop: '12px', borderTop: '1px solid rgba(0,0,0,0.1)' }}>
-                    <div style={{ fontSize: '13px', lineHeight: '1.5', color: '#666' }}>
-                      <span style={{ fontWeight: '600', color: '#333' }}>{latestInfo.shipToName}</span> <br/>
-                      [{latestInfo.shipZipcode}] {latestInfo.shipAddress1} {latestInfo.shipAddress2}
+                <div className="row stats" style={{ marginTop: '4px', color: '#666' }}>
+                  운동목적: {latestInfo?.purpose === "DIET" ? "다이어트" : latestInfo?.purpose === "MAINTENANCE" ? "유지" : latestInfo?.purpose === "BULK_UP" ? "벌크업" : "-"}
                     </div>
-                  </div>
-                )}
+
               </div>
             </div>
 
@@ -215,8 +279,12 @@ const ProfileIndex = () => {
         {isModalOpen && (
           <BodyInfoModifyModal
             data={editData}
+            addrList={addrList}
             onClose={() => setIsModalOpen(false)}
-            onSave={handleSave}
+            onSaveBody={handleSaveBodyInfo}
+            onSaveAddr={handleSaveAddress}
+            onSetDefaultAddr={handleSetDefaultAddress}
+            onDeleteAddr={handleDeleteAddress}
           />
         )}
 
@@ -282,27 +350,94 @@ function SimpleLineChart({ data, dataKey, stroke, isDark }) {
 }
 
 // ✅ 모달 컴포넌트 수정
-const BodyInfoModifyModal = ({ data, onClose, onSave }) => {
-  // 초기값을 data로 설정하되, null 방지 처리
-  const [formData, setFormData] = useState({
-    height: '', weight: '', skeletalMuscleMass: '', bodyFatPercent: '',
-    bodyWater: '', protein: '', minerals: '', bodyFatMass: '',
-    shipToName: '', shipToPhone: '', shipZipcode: '', shipAddress1: '', shipAddress2: '',
-    ...data // data가 있으면 덮어씌움
+const BodyInfoModifyModal = ({ data, addrList, onClose, onSaveBody, onSaveAddr, onSetDefaultAddr, onDeleteAddr }) => {
+  const [bodyForm, setBodyForm] = useState({
+    height: '',
+    weight: '',
+    purpose: '',
   });
+  const emptyAddrForm = {
+    recipientName: '',
+    recipientPhone: '',
+    zipcode: '',
+    address1: '',
+    address2: '',
+  };
+  const [addrForm, setAddrForm] = useState({ ...emptyAddrForm });
+  const [editingAddrId, setEditingAddrId] = useState(null);
+  const [isAddrModalOpen, setIsAddrModalOpen] = useState(false);
 
-  const handleChange = (e) => {
+  useEffect(() => {
+    setBodyForm({
+      height: data?.height ?? '',
+      weight: data?.weight ?? '',
+      purpose: data?.purpose ?? '',
+    });
+  }, [data?.height, data?.weight, data?.purpose]);
+
+  const openAddrModalForCreate = () => {
+    setEditingAddrId(null);
+    setAddrForm({ ...emptyAddrForm });
+    setIsAddrModalOpen(true);
+  };
+
+  const openAddrModalForEdit = (addr) => {
+    setEditingAddrId(addr.id);
+    setAddrForm({
+      recipientName: addr.recipientName ?? '',
+      recipientPhone: addr.recipientPhone ?? '',
+      zipcode: addr.zipcode ?? '',
+      address1: addr.address1 ?? '',
+      address2: addr.address2 ?? '',
+    });
+    setIsAddrModalOpen(true);
+  };
+
+  const closeAddrModal = () => {
+    setIsAddrModalOpen(false);
+    setEditingAddrId(null);
+    setAddrForm({ ...emptyAddrForm });
+  };
+
+  const handleBodyChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
+    setBodyForm((prev) => ({
       ...prev,
-      [name]: value // 입력값을 그대로 저장 (문자열 상태 유지)
+      [name]: value,
     }));
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSave(formData);
+  const handleAddrChange = (e) => {
+    const { name, value } = e.target;
+    setAddrForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
+
+  const handleBodySubmit = async (e) => {
+    e.preventDefault();
+    await onSaveBody(bodyForm, data?.id);
+  };
+
+  const handleAddrSubmit = async (e) => {
+    e.preventDefault();
+    const saved = await onSaveAddr(addrForm, editingAddrId);
+    if (saved) {
+      closeAddrModal();
+    }
+  };
+
+  const handleEditAddr = (addr) => {
+    openAddrModalForEdit(addr);
+  };
+
+  const safeAddrList = Array.isArray(addrList) ? addrList : [];
+  const sortedAddrList = [...safeAddrList].sort((a, b) => {
+    const defaultDiff = Number(b.isDefault) - Number(a.isDefault);
+    if (defaultDiff !== 0) return defaultDiff;
+    return (b.id || 0) - (a.id || 0);
+  });
 
   return (
     <div className="modal-overlay" style={{
@@ -310,65 +445,177 @@ const BodyInfoModifyModal = ({ data, onClose, onSave }) => {
       backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999
     }}>
       <div className="modal-content" style={{
-        backgroundColor: 'white', padding: '30px', borderRadius: '10px', width: '500px',
+        backgroundColor: 'white', padding: '30px', borderRadius: '10px', width: '560px',
         maxHeight: '90vh', overflowY: 'auto', position: 'relative', boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
       }}>
         <button onClick={onClose} style={{ position: 'absolute', top: '15px', right: '15px', border: 'none', background: 'none', cursor: 'pointer' }}>
           <X size={24} />
         </button>
 
-        <h2 style={{ marginBottom: '20px', textAlign: 'center', color: '#333' }}>신체 정보 수정</h2>
+        <h2 style={{ marginBottom: '20px', textAlign: 'center', color: '#333' }}>회원정보 수정</h2>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-
+        <form onSubmit={handleBodySubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           <div className="form-section">
-            <h4 style={{borderBottom:'1px solid #ddd', paddingBottom:'5px', marginBottom:'10px', color: '#666'}}>기본 정보</h4>
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px'}}>
-                <InputGroup label="키 (cm)" name="height" value={formData.height} onChange={handleChange} />
-                <InputGroup label="몸무게 (kg)" name="weight" value={formData.weight} onChange={handleChange} />
-                <InputGroup label="골격근량 (kg)" name="skeletalMuscleMass" value={formData.skeletalMuscleMass} onChange={handleChange} />
-                <InputGroup label="체지방률 (%)" name="bodyFatPercent" value={formData.bodyFatPercent} onChange={handleChange} />
+            <h4 style={{ borderBottom: '1px solid #ddd', paddingBottom: '5px', marginBottom: '10px', color: '#666' }}>기본 정보</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <InputGroup label="키 (cm)" name="height" value={bodyForm.height} onChange={handleBodyChange} />
+              <InputGroup label="몸무게 (kg)" name="weight" value={bodyForm.weight} onChange={handleBodyChange} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <label style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>운동 목적</label>
+                <select
+                  name="purpose"
+                  value={bodyForm.purpose || ""}
+                  onChange={handleBodyChange}
+                  style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px' }}
+                >
+                  <option value="">선택 안 함</option>
+                  <option value="DIET">다이어트</option>
+                  <option value="MAINTENANCE">유지</option>
+                  <option value="BULK_UP">벌크업</option>
+                </select>
+              </div>
             </div>
-          </div>
-
-          <div className="form-section">
-            <h4 style={{borderBottom:'1px solid #ddd', paddingBottom:'5px', marginBottom:'10px', color: '#666'}}>상세 정보</h4>
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px'}}>
-                <InputGroup label="체수분 (L)" name="bodyWater" value={formData.bodyWater} onChange={handleChange} />
-                <InputGroup label="단백질 (kg)" name="protein" value={formData.protein} onChange={handleChange} />
-                <InputGroup label="무기질 (kg)" name="minerals" value={formData.minerals} onChange={handleChange} />
-                <InputGroup label="체지방량 (kg)" name="bodyFatMass" value={formData.bodyFatMass} onChange={handleChange} />
-            </div>
-          </div>
-
-          <div className="form-section">
-            <h4 style={{borderBottom:'1px solid #ddd', paddingBottom:'5px', marginBottom:'10px', color: '#666'}}>배송지 정보</h4>
-            <InputGroup label="받는 분" name="shipToName" value={formData.shipToName} onChange={handleChange} />
-            <InputGroup label="연락처" name="shipToPhone" value={formData.shipToPhone} onChange={handleChange} />
-            <InputGroup label="우편번호" name="shipZipcode" value={formData.shipZipcode} onChange={handleChange} />
-            <InputGroup label="주소" name="shipAddress1" value={formData.shipAddress1} onChange={handleChange} />
-            <InputGroup label="상세주소" name="shipAddress2" value={formData.shipAddress2} onChange={handleChange} />
           </div>
 
           <button type="submit" style={{
-            marginTop: '10px', padding: '12px', backgroundColor: '#ccff00',
-            border: 'none', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px', color:'#000'
+            marginTop: '4px', padding: '10px', backgroundColor: '#ccff00',
+            border: 'none', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px', color: '#000'
           }}>
-            저장하기
+            신체 정보 저장
           </button>
+        </form>
+
+        <div className="form-section" style={{ marginTop: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+            <h4 style={{ margin: 0, color: '#666' }}>배송지 목록</h4>
+            <button
+              type="button"
+              onClick={openAddrModalForCreate}
+              style={{ fontSize: '12px', padding: '4px 8px', backgroundColor: '#e0e0e0', border: '1px solid #ccc', borderRadius: '4px', cursor: 'pointer' }}
+            >
+              + 배송지 추가
+            </button>
+          </div>
+
+          {sortedAddrList.length === 0 ? (
+            <div style={{ fontSize: '13px', color: '#888' }}>등록된 배송지가 없습니다.</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {sortedAddrList.map((addr) => (
+                <div key={addr.id} style={{ padding: '8px 10px', border: '1px solid #eee', borderRadius: '6px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 600 }}>
+                      {addr.recipientName}
+                      {addr.isDefault && (
+                        <span style={{ marginLeft: '6px', fontSize: '11px', color: '#2E7D32', background: '#E8F5E9', padding: '2px 6px', borderRadius: '4px' }}>
+                          기본배송지
+                        </span>
+                      )}
+                    </span>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      {!addr.isDefault && (
+                        <button
+                          type="button"
+                          onClick={() => onSetDefaultAddr(addr.id)}
+                          style={{ fontSize: '11px', padding: '3px 6px', backgroundColor: '#f0f0f0', border: '1px solid #ccc', borderRadius: '3px', cursor: 'pointer' }}
+                        >
+                          기본 설정
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleEditAddr(addr)}
+                        style={{ fontSize: '11px', padding: '3px 6px', backgroundColor: '#f0f0f0', border: '1px solid #ccc', borderRadius: '3px', cursor: 'pointer' }}
+                      >
+                        수정
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDeleteAddr(addr.id)}
+                        style={{ fontSize: '11px', padding: '3px 6px', backgroundColor: '#f0f0f0', border: '1px solid #ccc', borderRadius: '3px', cursor: 'pointer', color: 'red' }}
+                      >
+                        삭제
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                    [{addr.zipcode}] {addr.address1} {addr.address2}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>
+                    {addr.recipientPhone}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <AddressEditModal
+          isOpen={isAddrModalOpen}
+          isEditing={Boolean(editingAddrId)}
+          formData={addrForm}
+          onChange={handleAddrChange}
+          onClose={closeAddrModal}
+          onSubmit={handleAddrSubmit}
+        />
+            </div>
+          </div>
+  );
+};
+
+const AddressEditModal = ({ isOpen, isEditing, formData, onChange, onClose, onSubmit }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+      backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10001
+    }}>
+      <div style={{
+        backgroundColor: '#fff', padding: '20px', borderRadius: '8px', width: '420px',
+        boxShadow: '0 4px 10px rgba(0,0,0,0.15)', position: 'relative'
+      }}>
+        <button onClick={onClose} style={{ position: 'absolute', top: '10px', right: '10px', border: 'none', background: 'none', cursor: 'pointer' }}>
+          <X size={20} />
+        </button>
+        <h3 style={{ marginTop: 0, marginBottom: '15px', textAlign: 'center', color: '#333' }}>
+          {isEditing ? "배송지 수정" : "배송지 추가"}
+        </h3>
+        <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <InputGroup label="받는 분" name="recipientName" value={formData.recipientName} onChange={onChange} />
+          <InputGroup label="연락처" name="recipientPhone" value={formData.recipientPhone} onChange={onChange} />
+          <InputGroup label="우편번호" name="zipcode" value={formData.zipcode} onChange={onChange} />
+          <InputGroup label="주소" name="address1" value={formData.address1} onChange={onChange} />
+          <InputGroup label="상세주소" name="address2" value={formData.address2} onChange={onChange} />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
+          <button type="submit" style={{
+              padding: '8px 12px', backgroundColor: '#e0e0e0',
+              border: '1px solid #ccc', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px', color: '#000'
+            }}>
+              {isEditing ? "수정" : "추가"}
+            </button>
+            <button type="button" onClick={onClose} style={{
+              padding: '8px 12px', backgroundColor: '#fafafa',
+              border: '1px solid #ccc', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px', color: '#333'
+          }}>
+              취소
+          </button>
+          </div>
         </form>
       </div>
     </div>
   );
 };
 
-const InputGroup = ({ label, name, value, onChange }) => (
+const InputGroup = ({ label, name, value, onChange }) => {
+  const isTextField = /name|address|phone|zipcode/i.test(name);
+  const inputType = isTextField ? "text" : "number";
+
+  return (
   <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
     <label style={{ fontSize: '12px', color: '#666', fontWeight:'bold' }}>{label}</label>
     <input
-      // 텍스트 필드인지 숫자 필드인지 판별
-      type={name.includes('Name') || name.includes('Address') || name.includes('Phone') || name.includes('Zipcode') ? "text" : "number"}
-      step="0.1"
+        type={inputType}
+        step={inputType === "number" ? "0.1" : undefined}
       name={name}
       // 값이 null/undefined일 때 빈 문자열로 처리 (수정 불가 버그 방지)
       value={value !== null && value !== undefined ? value : ''}
@@ -377,5 +624,6 @@ const InputGroup = ({ label, name, value, onChange }) => (
     />
   </div>
 );
+};
 
 export default ProfileIndex;

@@ -1,49 +1,47 @@
-package com.backend.dto.memberbodyinfo;
+package com.backend.dto.memberinfo;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import com.backend.domain.member.Member;
+import lombok.*;
+
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-@Data
-@Builder
-@AllArgsConstructor
+@Getter
+@Setter
 @NoArgsConstructor
-public class MemberBodyInfoDTO {
+@AllArgsConstructor
+@Builder
+public class MemberInfoBodyResponseDTO {
     private Long id;
-    private Long memberId; // 사용자 아이디 (이메일 등)
-
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime measuredTime;
+
+    // 회원 정보
+    private Long memberId;
+    private String memberName;
+    private Member.Gender gender;
+    private LocalDate birthDate;
 
     // 신체 정보
     private Double height;
     private Double weight;
     private Double skeletalMuscleMass;
     private Double bodyFatPercent;
-
-    // 체성분
     private Double bodyWater;
     private Double protein;
     private Double minerals;
     private Double bodyFatMass;
-
-    // 조절
     private Double targetWeight;
     private Double weightControl;
     private Double fatControl;
     private Double muscleControl;
+    private String purpose;
 
-    // --- [배송 정보 추가] ---
+    // 기본 배송지 정보
+    private Long defaultAddrId;
     private String shipToName;
     private String shipToPhone;
     private String shipZipcode;
     private String shipAddress1;
     private String shipAddress2;
-
-    // 기타
-    private String notes;
-    private String purpose; // Enum 값을 문자열로 전달
 }
+

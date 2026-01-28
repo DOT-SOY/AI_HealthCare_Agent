@@ -20,4 +20,6 @@ public interface MealRepository extends JpaRepository<Meal, Long> {
 
     // 3. 회원 탈퇴 시 전체 삭제 (기존 유지)
     void deleteByUserId(Long userId);
+
+    boolean existsByUserIdAndMealDateBetween(Long userId, LocalDate start, LocalDate end);
 }

@@ -35,7 +35,7 @@ public class MealCalendarDto {
 
     // (기타 필요 시 사용)
     private Integer goalCalories;        
-    private String dailyStatus; // "PERFECT", "PASS", "FAIL"
+    private String dailyStatus; // "GOOD", "SAFE", "LOW", "LACK", "FAIL"
     private Boolean isSuccess;  // 종합 성공 여부
 
 
