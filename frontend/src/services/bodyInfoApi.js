@@ -15,22 +15,21 @@ const getAuthHeaders = () => {
 };
 
 /**
- * 1. 신체 정보 조회 (History)
+ * [수정] 내 신체 정보 이력 조회 (토큰 사용)
  */
-export const getBodyInfoHistory = async (memberId) => {
+export const getMyBodyInfoHistory = async () => {
   try {
-    // headers 옵션 추가
-    const response = await fetchAPI(`${BASE_URL}/history/${memberId}`, {
+    // memberId 없이 호출 (서버가 토큰에서 알아냄)
+    const response = await fetchAPI(`${BASE_URL}/history/me`, {
       method: 'GET',
-      headers: getAuthHeaders(), // ✅ 토큰 포함
+      headers: getAuthHeaders(),
     });
     return response || [];
   } catch (error) {
-    console.error(`신체 정보 이력 조회 실패 (ID: ${memberId}):`, error);
+    console.error("내 신체 정보 조회 실패:", error);
     throw error;
   }
 };
-
 /**
  * 2. 신체 정보 생성
  */
@@ -51,20 +50,34 @@ export const createBodyInfo = async (data) => {
 /**
  * 3. 신체 정보 수정
  */
+//export const updateBodyInfo = async (id, data) => {
+//  try {
+//    const response = await fetchAPI(`${BASE_URL}/${id}`, {
+//      method: "PUT",
+//      headers: getAuthHeaders(), // ✅ 토큰 포함
+//      body: JSON.stringify(data),
+//    });
+//    return response;
+//  } catch (error) {
+//    console.error(`신체 정보 수정 실패 (ID: ${id}):`, error);
+//    throw error;
+//  }
+//};
+/**
+ * 3. 신체 정보 수정 (디버깅 강화 버전)
+ */
 export const updateBodyInfo = async (id, data) => {
   try {
     const response = await fetchAPI(`${BASE_URL}/${id}`, {
       method: "PUT",
-      headers: getAuthHeaders(), // ✅ 토큰 포함
       body: JSON.stringify(data),
     });
     return response;
   } catch (error) {
-    console.error(`신체 정보 수정 실패 (ID: ${id}):`, error);
+    // api.js에서 이미 에러 로그를 찍어주므로 여기선 던지기만 하면 됩니다.
     throw error;
   }
 };
-
 /**
  * 4. 신체 정보 삭제
  */

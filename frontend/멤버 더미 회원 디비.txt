@@ -1,0 +1,8 @@
+USE healthcare;
+
+UPDATE member
+SET pw = '$2a$10$8VbDo6teugVwSYvuvdtAKut4ftzh/W9fICjJS21QkFS5qQiDV9nha'
+WHERE member_email = 'yskim@local';
+
+SELECT member_email, pw FROM member WHERE member_email='yskim@local';
+

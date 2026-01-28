@@ -1,9 +1,3 @@
 {
-    "java.compile.nullAnalysis.mode": "automatic",
-    "java.configuration.updateBuildConfiguration": "interactive",
-    "files.encoding": "utf8",
-    "files.autoGuessEncoding": true,
-    "terminal.integrated.encoding": "utf8",
-    "git.commitEncoding": "utf8",
-    "git.logOutputEncoding": "utf8"
+  "java.configuration.updateBuildConfiguration": "automatic"
 }
