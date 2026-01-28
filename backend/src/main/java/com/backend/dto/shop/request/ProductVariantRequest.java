@@ -3,7 +3,6 @@ package com.backend.dto.shop.request;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -16,11 +15,7 @@ import java.math.BigDecimal;
 @Getter
 @Setter
 public class ProductVariantRequest {
-    
-    @NotBlank(message = "SKU 코드는 필수입니다")
-    @Size(max = 80, message = "SKU 코드는 80자 이하여야 합니다")
-    private String sku;
-    
+
     @NotBlank(message = "옵션 정보는 필수입니다")
     private String optionText; // 옵션 평문 (예: "색상: 빨강, 사이즈: L")
     
