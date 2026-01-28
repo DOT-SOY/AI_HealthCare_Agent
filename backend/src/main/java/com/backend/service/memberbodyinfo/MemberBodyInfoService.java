@@ -42,4 +42,6 @@ public interface MemberBodyInfoService {
      * 회원 ID로 측정 기록 리스트를 가져오는 로직
      */
     public List<MemberBodyInfoResponseDTO> getBodyInfoHistory(Long memberId);
+
+    public List<MemberBodyInfoResponseDTO> getBodyInfoHistoryByEmail(String email);
 }

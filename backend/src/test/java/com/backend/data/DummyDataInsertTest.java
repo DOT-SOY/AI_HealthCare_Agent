@@ -11,7 +11,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.crypto.password.PasswordEncoder; // 필수 임포트
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,181 +22,154 @@ import java.util.List;
 import java.util.Random;
 
 @SpringBootTest
-@DisplayName("더미 데이터 삽입 테스트 (user1~9@desk.com)")
+@DisplayName("그래프용 추세 데이터 삽입 (1년치 변화)")
 class DummyDataInsertTest {
 
-    @Autowired
-    private MemberRepository memberRepository;
-
-    @Autowired
-    private MemberBodyInfoRepository memberBodyInfoRepository;
-
-    @Autowired
-    private PasswordEncoder passwordEncoder; // ✅ 비밀번호 암호화를 위해 주입
+    @Autowired private MemberRepository memberRepository;
+    @Autowired private MemberBodyInfoRepository memberBodyInfoRepository;
+    @Autowired private PasswordEncoder passwordEncoder;
 
     @Test
     @Transactional
-    @Rollback(false) // 테스트 끝나도 DB에 데이터 남김
-    @DisplayName("회원(user1~9) 및 신체정보 풀 데이터 삽입")
-    void insertFullDummyData() {
-        System.out.println("=== 더미 데이터 삽입 시작 ===");
-
-        // 1. 회원 데이터 생성 (user1@desk.com ~ user9@desk.com)
+    @Rollback(false)
+    @DisplayName("회원(user1~9) 및 12개월치 신체 변화 데이터 삽입")
+    void insertTrendDummyData() {
+        // 1. 회원 생성
         List<Member> members = createMemberDummyData();
         List<Member> savedMembers = new ArrayList<>();
 
         for (Member member : members) {
-            // 이메일 중복 체크 (이미 있으면 skip 혹은 가져오기)
             if (memberRepository.findByEmail(member.getEmail()).isEmpty()) {
                 savedMembers.add(memberRepository.save(member));
-                System.out.println("JOIN: " + member.getEmail());
             } else {
-                Member exist = memberRepository.findByEmail(member.getEmail()).get();
-                savedMembers.add(exist);
-                System.out.println("SKIP(Exist): " + member.getEmail());
+                savedMembers.add(memberRepository.findByEmail(member.getEmail()).get());
             }
         }
         memberRepository.flush();
 
-        // 2. 신체 정보 데이터 생성 (각 회원당 3개씩)
-        List<MemberBodyInfo> bodyInfos = createFullMemberBodyInfoDummyData(savedMembers);
-        List<MemberBodyInfo> newBodyInfos = new ArrayList<>();
+        // 2. 신체 데이터 생성 (추세 반영)
+        List<MemberBodyInfo> bodyInfos = createTrendBodyInfoData(savedMembers);
 
-        for (MemberBodyInfo bodyInfo : bodyInfos) {
-            // 중복 체크 (같은 회원의 같은 측정 시간 데이터 방지)
-            List<MemberBodyInfo> existing = memberBodyInfoRepository.findByMemberIdOrderByMeasuredTimeDesc(bodyInfo.getMember().getId());
-            boolean isDuplicate = existing.stream()
-                    .anyMatch(info -> info.getMeasuredTime().isEqual(bodyInfo.getMeasuredTime()));
-
-            if (!isDuplicate) {
-                newBodyInfos.add(bodyInfo);
-            }
+        // 기존 데이터와 중복 방지 (날짜 기준)
+        List<MemberBodyInfo> finalInfos = new ArrayList<>();
+        for (MemberBodyInfo info : bodyInfos) {
+            boolean exists = memberBodyInfoRepository.findByMemberIdOrderByMeasuredTimeDesc(info.getMember().getId())
+                    .stream().anyMatch(e -> e.getMeasuredTime().isEqual(info.getMeasuredTime()));
+            if (!exists) finalInfos.add(info);
         }
 
-        if (!newBodyInfos.isEmpty()) {
-            memberBodyInfoRepository.saveAll(newBodyInfos);
-            memberBodyInfoRepository.flush();
+        if (!finalInfos.isEmpty()) {
+            memberBodyInfoRepository.saveAll(finalInfos);
         }
 
-        System.out.println("=== 더미 데이터 삽입 완료 ===");
-        System.out.println("총 회원 수: " + savedMembers.size());
-        System.out.println("총 신체기록 수: " + newBodyInfos.size());
+        System.out.println("=== 데이터 삽입 완료 ===");
+        System.out.println("생성된 신체 기록 수: " + finalInfos.size());
     }
 
-    /**
-     * 회원 더미 데이터 생성 (user1 ~ user9)
-     */
     private List<Member> createMemberDummyData() {
+        // ... (기존 회원 생성 로직과 동일, 생략 가능하지만 전체 코드 위해 유지)
         List<Member> members = new ArrayList<>();
-
-        // 이름, 성별 등 매핑 데이터 (9명)
         String[] names = {"홍길동", "김영희", "이철수", "박민수", "최지영", "정수진", "강호동", "유재석", "송지은"};
-        Gender[] genders = {Gender.MALE, Gender.FEMALE, Gender.MALE, Gender.MALE, Gender.FEMALE,
-                Gender.FEMALE, Gender.MALE, Gender.MALE, Gender.FEMALE};
+        Gender[] genders = {Gender.MALE, Gender.FEMALE, Gender.MALE, Gender.MALE, Gender.FEMALE, Gender.FEMALE, Gender.MALE, Gender.MALE, Gender.FEMALE};
+        String pw = passwordEncoder.encode("1111");
 
-        // 생년월일 데이터
-        LocalDate[] birthDates = {
-                LocalDate.of(1990, 1, 15), LocalDate.of(1992, 3, 20), LocalDate.of(1988, 5, 10),
-                LocalDate.of(1995, 7, 25), LocalDate.of(1993, 9, 5), LocalDate.of(1991, 11, 12),
-                LocalDate.of(1987, 2, 18), LocalDate.of(1989, 4, 30), LocalDate.of(1994, 6, 8)
-        };
-
-        // ✅ 비밀번호 "1111" 암호화
-        String encodedPassword = passwordEncoder.encode("1111");
-
-        // 1부터 9까지 루프
         for (int i = 0; i < 9; i++) {
-            int userNum = i + 1; // user1, user2...
-            String email = "user" + userNum + "@desk.com"; // ✅ 요청하신 이메일 포맷
-
-            Member member = Member.builder()
-                    .email(email)
-                    .pw(encodedPassword) // ✅ 암호화된 비밀번호 사용
+            Member m = Member.builder()
+                    .email("user" + (i + 1) + "@desk.com")
+                    .pw(pw)
                     .name(names[i])
                     .gender(genders[i])
-                    .birthDate(birthDates[i])
-                    .isDeleted(false)
-                    .roleList(new ArrayList<>())
+                    .birthDate(LocalDate.of(1990 + i, 1, 1))
                     .build();
-
-            // 권한 추가
-            member.addRole(MemberRole.USER);
-            if (i == 0) { // user1은 관리자 권한 추가 부여
-                member.addRole(MemberRole.ADMIN);
-            }
-
-            members.add(member);
+            m.addRole(MemberRole.USER);
+            if (i == 0) m.addRole(MemberRole.ADMIN);
+            members.add(m);
         }
-
         return members;
     }
 
-    /**
-     * 신체 정보 Full 데이터 생성 로직
-     */
-    private List<MemberBodyInfo> createFullMemberBodyInfoDummyData(List<Member> members) {
-        List<MemberBodyInfo> bodyInfos = new ArrayList<>();
-        LocalDateTime baseTime = LocalDateTime.of(2024, 1, 1, 9, 0);
+    // 🔥 [핵심] 추세가 있는 데이터 생성 로직
+    private List<MemberBodyInfo> createTrendBodyInfoData(List<Member> members) {
+        List<MemberBodyInfo> list = new ArrayList<>();
+        // 2023년 1월부터 시작
+        LocalDateTime startDate = LocalDateTime.of(2023, 1, 1, 9, 0, 0);
         Random random = new Random();
 
         for (Member member : members) {
-            // 각 회원당 3개의 기록 생성 (1월, 3월, 5월...)
-            for (int i = 0; i < 3; i++) {
-                LocalDateTime measuredTime = baseTime.plusMonths(i * 2);
+            boolean isMale = member.getGender() == Gender.MALE;
 
-                boolean isMale = member.getGender() == Gender.MALE;
+            // 초기값 설정 (시작 시점)
+            double currentHeight = isMale ? 175.0 : 162.0;
+            double currentWeight = isMale ? 85.0 : 65.0; // 다이어트 전
+            double currentMuscle = isMale ? 32.0 : 22.0; // 근육량
+            double targetWeight = currentWeight - 10.0;  // 목표: -10kg 감량
 
-                // 1. 기본값 (변동폭을 주어 현실감 있게)
-                double height = (isMale ? 175.0 : 163.0) + (random.nextDouble() * 4 - 2);
-                // 회차별 체중 변화 (조금씩 감량하는 시나리오)
-                double weightBase = (isMale ? 80.0 : 60.0);
-                double weight = weightBase - (i * 1.5) + (random.nextDouble() * 2 - 1);
+            // 12개월치 데이터 생성 (매월 변화)
+            for (int i = 0; i < 12; i++) {
+                LocalDateTime date = startDate.plusMonths(i);
 
-                // 2. 체성분 계산
-                double fatPercent = (isMale ? 20.0 : 28.0) - (i * 0.5); // 체지방률 조금씩 감소
-                double fatMass = weight * (fatPercent / 100.0);
-                double muscleMass = weight * (isMale ? 0.45 : 0.36) + (i * 0.2); // 근육량 조금씩 증가
+                // [변화 로직]
+                // 1. 몸무게: 매달 0.5 ~ 0.8kg 감량 (가끔 정체기)
+                double weightLoss = (random.nextDouble() * 0.5) + 0.3;
+                if (i % 4 == 0) weightLoss = -0.2; // 4개월마다 요요 살짝 옴
+                currentWeight -= weightLoss;
 
-                double water = weight * 0.55;
-                double protein = weight * 0.17;
-                double minerals = weight * 0.055;
+                // 2. 근육량: 매달 0.1 ~ 0.2kg 증가 (운동 효과)
+                double muscleGain = (random.nextDouble() * 0.2);
+                currentMuscle += muscleGain;
 
-                // 3. 목표치
-                double targetWeight = weightBase - 5.0;
-                double weightControl = targetWeight - weight;
+                // 3. 체지방률 계산 (몸무게에서 근육, 뼈 등 제외하고 역산)
+                // 체지방량 = 체중 - (근육량 + 제지방기타)
+                // 단순화: 체지방률 = (체중 - 근육량 * 1.8) / 체중 * 100 (대략적 공식 활용)
+                double fatRate = ((currentWeight - (currentMuscle * 1.5)) / currentWeight) * 100;
+                if (fatRate < 5) fatRate = 5.0; // 최소치 방어
+
+                // 상세 데이터 유도 계산
+                double bodyWater = currentWeight * 0.55; // 체수분
+                double protein = currentWeight * 0.18;   // 단백질
+                double minerals = currentWeight * 0.05;  // 무기질
+                double bodyFatMass = currentWeight * (fatRate / 100.0); // 체지방량(kg)
+
+                // 조절 가이드
+                double weightControl = targetWeight - currentWeight;
+                double muscleControl = (isMale ? 38.0 : 26.0) - currentMuscle; // 목표 근육량 대비
 
                 MemberBodyInfo info = MemberBodyInfo.builder()
                         .member(member)
-                        .measuredTime(measuredTime)
-                        // 기본
-                        .height(round(height))
-                        .weight(round(weight))
-                        .skeletalMuscleMass(round(muscleMass))
-                        .bodyFatPercent(round(fatPercent))
-                        // 상세
-                        .bodyFatMass(round(fatMass))
-                        .bodyWater(round(water))
+                        .measuredTime(date)
+
+                        // 그래프용 핵심 데이터
+                        .height(round(currentHeight))
+                        .weight(round(currentWeight))
+                        .skeletalMuscleMass(round(currentMuscle))
+                        .bodyFatPercent(round(fatRate))
+
+                        // 상세 분석 데이터
+                        .bodyWater(round(bodyWater))
                         .protein(round(protein))
                         .minerals(round(minerals))
-                        // 조절
+                        .bodyFatMass(round(bodyFatMass))
+
+                        // 조절 가이드
                         .targetWeight(round(targetWeight))
                         .weightControl(round(weightControl))
-                        .fatControl(round(-2.0))
-                        .muscleControl(round(1.5))
-                        // 배송 및 기타 (Frontend 요구사항 반영)
+                        .fatControl(round(weightControl * 0.8)) // 감량의 80%는 지방으로
+                        .muscleControl(round(muscleControl))
+
+                        // 배송 정보 (빈 값 채우기)
                         .shipToName(member.getName())
-                        .shipToPhone("010-1234-" + (5000 + members.indexOf(member)))
-                        .shipZipcode("062" + i + "3")
-                        .shipAddress1("서울시 강남구 테헤란로 " + (members.indexOf(member) + 1) + "길")
-                        .shipAddress2((i + 1) + "01호")
-                        .purpose(ExercisePurpose.values()[random.nextInt(ExercisePurpose.values().length)])
-                        .notes(member.getName() + "님 " + (i + 1) + "회차 측정. 상태 양호.")
+                        .shipToPhone("010-1234-5678")
+                        .shipAddress1("서울시 강남구")
+                        .shipZipcode("12345")
+
+                        .purpose(ExercisePurpose.DIET)
+                        .notes(i + 1 + "개월차 측정. 꾸준히 변화 중.")
                         .build();
 
-                bodyInfos.add(info);
+                list.add(info);
             }
         }
-        return bodyInfos;
+        return list;
     }
 
     private double round(double value) {

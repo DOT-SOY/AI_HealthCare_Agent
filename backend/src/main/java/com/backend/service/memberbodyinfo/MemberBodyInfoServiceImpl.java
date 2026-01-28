@@ -154,7 +154,6 @@ public class MemberBodyInfoServiceImpl implements MemberBodyInfoService {
     public List<MemberBodyInfoResponseDTO> getBodyInfoHistory(Long memberId) {
         List<MemberBodyInfo> entities = memberBodyInfoRepository.findAllByMemberIdOrderByMeasuredTimeAsc(memberId);
 
-        // Entity -> DTO 변환
         return entities.stream()
                 .map(e -> MemberBodyInfoResponseDTO.builder()
                         .id(e.getId())
@@ -166,6 +165,46 @@ public class MemberBodyInfoServiceImpl implements MemberBodyInfoService {
                         .protein(e.getProtein())
                         .minerals(e.getMinerals())
                         .bodyFatMass(e.getBodyFatMass())
+                        // ✅ [추가] 조절 데이터 매핑
+                        .targetWeight(e.getTargetWeight())
+                        .weightControl(e.getWeightControl())
+                        .fatControl(e.getFatControl())
+                        .muscleControl(e.getMuscleControl())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<MemberBodyInfoResponseDTO> getBodyInfoHistoryByEmail(String email) {
+        // 이메일로 조회
+        List<MemberBodyInfo> entities = memberBodyInfoRepository.findAllByMemberEmailOrderByMeasuredTimeAsc(email);
+
+        return entities.stream()
+                .map(e -> MemberBodyInfoResponseDTO.builder()
+                        .id(e.getId())
+                        .measuredTime(e.getMeasuredTime())
+                        // ✅ 회원 정보 매핑
+                        .memberName(e.getMember().getName())
+                        .gender(e.getMember().getGender())
+                        .birthDate(e.getMember().getBirthDate())
+                        // ✅ 신체 정보 매핑
+                        .height(e.getHeight()) // 키는 매번 잴 수 있으니 이력 데이터 사용
+                        .weight(e.getWeight())
+                        .skeletalMuscleMass(e.getSkeletalMuscleMass())
+                        .bodyFatPercent(e.getBodyFatPercent())
+                        .bodyWater(e.getBodyWater())
+                        .protein(e.getProtein())
+                        .minerals(e.getMinerals())
+                        .bodyFatMass(e.getBodyFatMass())
+                        .targetWeight(e.getTargetWeight())
+                        .weightControl(e.getWeightControl())
+                        .fatControl(e.getFatControl())
+                        .muscleControl(e.getMuscleControl())
+                        .shipToName(e.getShipToName())
+                        .shipToPhone(e.getShipToPhone())
+                        .shipZipcode(e.getShipZipcode())
+                        .shipAddress1(e.getShipAddress1())
+                        .shipAddress2(e.getShipAddress2())
                         .build())
                 .collect(Collectors.toList());
     }

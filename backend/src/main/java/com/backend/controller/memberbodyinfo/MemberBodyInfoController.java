@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
 import java.util.List;
 
 
@@ -57,5 +58,13 @@ public class MemberBodyInfoController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         memberBodyInfoService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/history/me")
+    public ResponseEntity<List<MemberBodyInfoResponseDTO>> getMyBodyInfoHistory(Principal principal) {
+        // 토큰에서 추출한 이메일 사용
+        String email = principal.getName();
+        List<MemberBodyInfoResponseDTO> history = memberBodyInfoService.getBodyInfoHistoryByEmail(email);
+        return ResponseEntity.ok(history);
     }
 }

@@ -27,4 +27,7 @@ public interface MemberBodyInfoRepository extends JpaRepository<MemberBodyInfo, 
 
     // 회원 객체로 신체 정보 조회
     List<MemberBodyInfo> findByMember(Member member);
+
+    // ✅ [추가] 이메일로 회원의 기록 조회 (날짜 오름차순)
+    List<MemberBodyInfo> findAllByMemberEmailOrderByMeasuredTimeAsc(String email);
 }
