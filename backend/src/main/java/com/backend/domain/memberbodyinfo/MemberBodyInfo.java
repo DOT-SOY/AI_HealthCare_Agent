@@ -1,5 +1,6 @@
 package com.backend.domain.memberbodyinfo;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import com.backend.domain.member.Member;
@@ -17,6 +18,7 @@ public class MemberBodyInfo {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "member_id", nullable = false)
