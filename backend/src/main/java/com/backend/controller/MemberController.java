@@ -39,7 +39,7 @@ public class MemberController {
      * - 탈퇴한 회원(isDeleted=true)은 제외하고 체크
      */
     @GetMapping("/check-email")
-    public ResponseEntity<?> checkEmail(@RequestParam String email) {
+    public ResponseEntity<?> checkEmail(@RequestParam("email") String email) {
         if (email == null || email.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "이메일을 입력해주세요."));
         }
