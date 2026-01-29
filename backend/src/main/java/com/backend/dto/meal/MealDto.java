@@ -74,15 +74,12 @@ public class MealDto {
      * Entity -> DTO 변환 (조회용)
      */
     public static MealDto fromEntity(Meal meal) {
-        if (meal == null) {
-            return null;
-        }
         return MealDto.builder()
                 .scheduleId(meal.getScheduleId())
                 .userId(meal.getUserId())
                 .mealDate(meal.getMealDate())
-                .mealTime(meal.getMealTime() != null ? meal.getMealTime().name() : null)
-                .status(meal.getStatus() != null ? meal.getStatus().name() : null)
+                .mealTime(meal.getMealTime().name())
+                .status(meal.getStatus().name())
                 .isAdditional(meal.getIsAdditional())
                 
                 .foodName(meal.getFoodName())

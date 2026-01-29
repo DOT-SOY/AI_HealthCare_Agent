@@ -1,48 +1,57 @@
 package com.backend.domain.memberinfo;
 
-import com.backend.domain.member.Member;
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.backend.domain.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
-
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "member_info_body")
 @Getter
-@Setter
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
-public class MemberInfoBody {
+public class MemberInfoBody extends BaseEntity {
+
+    /**
+     * 운동 목적 Enum
+     * - DIET: 다이어트
+     * - MAINTAIN: 유지
+     * - BULK_UP: 벌크업
+     *
+     * MealTarget의 목표 타입과 의미적으로 동일하게 맞춥니다.
+     */
+    @Getter
+    @AllArgsConstructor
+    public enum ExercisePurpose {
+        DIET("다이어트"),
+        MAINTAIN("유지"),
+        BULK_UP("벌크업");
+
+        private final String description;
+    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "body_id")
+    @Column(name = "body_info_id")
     private Long id;
 
-    @JsonIgnore
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "member_id", nullable = false)
-    private Member member;
+    @Column(name = "member_id", nullable = false)
+    private Long memberId;
 
-    @Column(name = "measured_time", nullable = false)
-    private LocalDateTime measuredTime;
-
-    // --- [기본 신체 정보] ---
-    @Column(name = "height")
+    // 기본 정보
+    @Column(name = "height_cm")
     private Double height;
 
-    @Column(name = "weight")
+    @Column(name = "weight_kg")
     private Double weight;
 
+    // 인바디 상세 정보
     @Column(name = "skeletal_muscle_mass")
     private Double skeletalMuscleMass;
 
     @Column(name = "body_fat_percent")
     private Double bodyFatPercent;
 
-    // --- [체성분 분석 상세] ---
     @Column(name = "body_water")
     private Double bodyWater;
 
@@ -55,7 +64,7 @@ public class MemberInfoBody {
     @Column(name = "body_fat_mass")
     private Double bodyFatMass;
 
-    // --- [체중 조절] ---
+    // 목표 및 제어값
     @Column(name = "target_weight")
     private Double targetWeight;
 
@@ -68,8 +77,36 @@ public class MemberInfoBody {
     @Column(name = "muscle_control")
     private Double muscleControl;
 
+    // 운동 목적 (goal_type 컬럼으로 통일)
     @Enumerated(EnumType.STRING)
-    @Column(name = "purpose")
-    private ExercisePurpose purpose;
+    @Column(name = "goal_type", length = 20)
+    private ExercisePurpose exercisePurpose;
+
+    // 측정 시간
+    @Column(name = "measured_time")
+    private java.time.Instant measuredTime;
+
+    // 업데이트 메서드
+    public void update(
+            Double height, Double weight,
+            Double skeletalMuscleMass, Double bodyFatPercent,
+            Double bodyWater, Double protein, Double minerals, Double bodyFatMass,
+            Double targetWeight, Double weightControl, Double fatControl, Double muscleControl,
+            ExercisePurpose exercisePurpose) {
+        this.height = height;
+        this.weight = weight;
+        this.skeletalMuscleMass = skeletalMuscleMass;
+        this.bodyFatPercent = bodyFatPercent;
+        this.bodyWater = bodyWater;
+        this.protein = protein;
+        this.minerals = minerals;
+        this.bodyFatMass = bodyFatMass;
+        this.targetWeight = targetWeight;
+        this.weightControl = weightControl;
+        this.fatControl = fatControl;
+        this.muscleControl = muscleControl;
+        this.exercisePurpose = exercisePurpose;
+        this.measuredTime = java.time.Instant.now();
+    }
 }
 

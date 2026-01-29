@@ -12,20 +12,6 @@ import java.time.LocalDate;
 @Builder
 public class MealTarget {
 
-    // =================================================================
-    // [Inner Enum Definition]
-    // =================================================================
-    @Getter
-    @AllArgsConstructor
-    public enum GoalType {
-        DIET("다이어트"),
-        MAINTAIN("유지"),
-        BULK_UP("벌크업");
-
-        private final String description;
-    }
-    // =================================================================
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "target_id")
@@ -37,10 +23,10 @@ public class MealTarget {
     @Column(name = "target_date", nullable = false)
     private LocalDate targetDate;
 
-    // [Enum 적용]
+    // [운동/목표 타입] MemberInfoBody와 의미 공유 (DIET, MAINTAIN, BULK_UP)
     @Enumerated(EnumType.STRING)
     @Column(name = "goal_type", length = 20)
-    private GoalType goalType;
+    private com.backend.domain.memberinfo.MemberInfoBody.ExercisePurpose goalType;
 
     @Column(name = "goal_cal")
     private Integer goalCal;
@@ -54,7 +40,7 @@ public class MealTarget {
     @Column(name = "goal_fat")
     private Integer goalFat;
 
-   // [추가] AI 심층 상담 내용 저장 (길 수 있으니 TEXT 타입)
+    // [추가] AI 심층 상담 피드백 저장용 (긴 텍스트이므로 TEXT 타입)
     @Column(name = "ai_feedback", columnDefinition = "TEXT")
     private String aiFeedback;
 
@@ -65,7 +51,8 @@ public class MealTarget {
     /**
      * 목표 수치 변경
      */
-    public void updateTarget(GoalType goalType, Integer goalCal, Integer goalCarbs, Integer goalProtein, Integer goalFat) {
+    public void updateTarget(com.backend.domain.memberinfo.MemberInfoBody.ExercisePurpose goalType,
+                             Integer goalCal, Integer goalCarbs, Integer goalProtein, Integer goalFat) {
         this.goalType = goalType;
         this.goalCal = goalCal;
         this.goalCarbs = goalCarbs;
@@ -73,3 +60,4 @@ public class MealTarget {
         this.goalFat = goalFat;
     }
 }
+

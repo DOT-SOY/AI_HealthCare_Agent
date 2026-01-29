@@ -1,6 +1,6 @@
 import fetchAPI from "./api.js";
 
-const BASE_URL = "/member-info-body";
+const BASE_URL = "/member-body-info";
 
 // ✅ 로컬 스토리지에서 토큰을 가져오는 헬퍼 함수
 const getAuthHeaders = () => {
@@ -50,11 +50,26 @@ export const createBodyInfo = async (data) => {
 /**
  * 3. 신체 정보 수정
  */
+//export const updateBodyInfo = async (id, data) => {
+//  try {
+//    const response = await fetchAPI(`${BASE_URL}/${id}`, {
+//      method: "PUT",
+//      headers: getAuthHeaders(), // ✅ 토큰 포함
+//      body: JSON.stringify(data),
+//    });
+//    return response;
+//  } catch (error) {
+//    console.error(`신체 정보 수정 실패 (ID: ${id}):`, error);
+//    throw error;
+//  }
+//};
+/**
+ * 3. 신체 정보 수정 (디버깅 강화 버전)
+ */
 export const updateBodyInfo = async (id, data) => {
   try {
     const response = await fetchAPI(`${BASE_URL}/${id}`, {
       method: "PUT",
-      headers: getAuthHeaders(),
       body: JSON.stringify(data),
     });
     return response;

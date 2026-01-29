@@ -1,46 +1,64 @@
 package com.backend.domain.memberinfo;
 
-import com.backend.domain.member.Member;
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.backend.domain.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
 @Table(name = "member_info_addr")
 @Getter
-@Setter
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
-public class MemberInfoAddr {
+public class MemberInfoAddr extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "addr_id")
     private Long id;
 
-    @JsonIgnore
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "member_id", nullable = false)
-    private Member member;
+    @Column(name = "member_id", nullable = false)
+    private Long memberId;
 
-    @Column(name = "recipient_name", length = 50, nullable = false)
-    private String recipientName;
+    // 배송지 정보
+    @Column(name = "ship_to_name", nullable = false)
+    private String shipToName;
 
-    @Column(name = "recipient_phone", length = 20, nullable = false)
-    private String recipientPhone;
+    @Column(name = "ship_to_phone", nullable = false)
+    private String shipToPhone;
 
-    @Column(name = "zipcode", length = 10, nullable = false)
-    private String zipcode;
+    @Column(name = "ship_zipcode", nullable = false)
+    private String shipZipcode;
 
-    @Column(name = "address1", length = 200, nullable = false)
-    private String address1;
+    @Column(name = "ship_address1", nullable = false)
+    private String shipAddress1;
 
-    @Column(name = "address2", length = 200)
-    private String address2;
+    @Column(name = "ship_address2")
+    private String shipAddress2;
 
+    // 기본 배송지 여부
     @Column(name = "is_default", nullable = false)
     @Builder.Default
-    private boolean isDefault = false;
+    private Boolean isDefault = false;
+
+    // 업데이트 메서드
+    public void update(String shipToName, String shipToPhone, String shipZipcode,
+                      String shipAddress1, String shipAddress2) {
+        this.shipToName = shipToName;
+        this.shipToPhone = shipToPhone;
+        this.shipZipcode = shipZipcode;
+        this.shipAddress1 = shipAddress1;
+        this.shipAddress2 = shipAddress2;
+    }
+
+    // 기본 배송지 설정
+    public void setDefault() {
+        this.isDefault = true;
+    }
+
+    // 기본 배송지 해제
+    public void unsetDefault() {
+        this.isDefault = false;
+    }
 }
 

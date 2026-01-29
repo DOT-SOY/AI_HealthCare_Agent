@@ -1,115 +1,129 @@
 package com.backend.service.memberinfo;
 
-import com.backend.domain.member.Member;
+import com.backend.common.exception.BusinessException;
+import com.backend.common.exception.ErrorCode;
 import com.backend.domain.memberinfo.MemberInfoAddr;
 import com.backend.dto.memberinfo.MemberInfoAddrDTO;
-import com.backend.exception.ResourceNotFoundException;
-import com.backend.repository.member.MemberRepository;
 import com.backend.repository.memberinfo.MemberInfoAddrRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
+@Transactional
+@Log4j2
 public class MemberInfoAddrServiceImpl implements MemberInfoAddrService {
 
     private final MemberInfoAddrRepository memberInfoAddrRepository;
-    private final MemberRepository memberRepository;
 
     @Override
-    @Transactional
-    public MemberInfoAddr create(MemberInfoAddrDTO dto) {
-        Long memberId = Objects.requireNonNull(dto.getMemberId(), "memberId는 필수입니다.");
-        Member member = memberRepository.findById(memberId)
-                .orElseThrow(() -> new ResourceNotFoundException("회원을 찾을 수 없습니다. ID: " + memberId));
+    @Transactional(readOnly = true)
+    public List<MemberInfoAddrDTO> getList(Long memberId) {
+        log.info("배송지 목록 조회 요청: memberId={}", memberId);
 
-        boolean requestedDefault = Boolean.TRUE.equals(dto.getIsDefault());
-        boolean hasDefault = memberInfoAddrRepository.findByMemberIdAndIsDefaultTrue(memberId).isPresent();
+        List<MemberInfoAddr> entities = memberInfoAddrRepository
+                .findByMemberIdOrderByDefaultDesc(memberId);
 
-        MemberInfoAddr addr = new MemberInfoAddr();
-        addr.setMember(member);
-        addr.setRecipientName(dto.getRecipientName());
-        addr.setRecipientPhone(dto.getRecipientPhone());
-        addr.setZipcode(dto.getZipcode());
-        addr.setAddress1(dto.getAddress1());
-        addr.setAddress2(dto.getAddress2());
+        return entities.stream()
+                .map(MemberInfoAddrDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
 
-        if (requestedDefault || !hasDefault) {
-            clearDefault(memberId);
-            addr.setDefault(true);
-        } else {
-            addr.setDefault(false);
+    @Override
+    public Long create(Long memberId, MemberInfoAddrDTO dto) {
+        log.info("배송지 생성 요청: memberId={}", memberId);
+
+        // 기본 배송지로 설정하는 경우, 기존 기본 배송지 해제
+        if (dto.getIsDefault() != null && dto.getIsDefault()) {
+            memberInfoAddrRepository.findDefaultByMemberId(memberId)
+                    .ifPresent(addr -> {
+                        addr.unsetDefault();
+                        memberInfoAddrRepository.save(addr);
+                    });
         }
 
-        return memberInfoAddrRepository.save(addr);
+        MemberInfoAddr entity = dto.toEntity(memberId);
+        MemberInfoAddr saved = memberInfoAddrRepository.save(entity);
+
+        log.info("배송지 생성 완료: id={}", saved.getId());
+        return saved.getId();
     }
 
     @Override
-    @Transactional
-    public MemberInfoAddr update(Long id, MemberInfoAddrDTO dto) {
-        Long safeId = Objects.requireNonNull(id, "id는 필수입니다.");
-        MemberInfoAddr addr = memberInfoAddrRepository.findById(safeId)
-                .orElseThrow(() -> new ResourceNotFoundException("배송지 정보를 찾을 수 없습니다. ID: " + safeId));
+    public MemberInfoAddrDTO update(Long id, MemberInfoAddrDTO dto) {
+        log.info("배송지 수정 요청: id={}", id);
 
-        if (dto.getRecipientName() != null) addr.setRecipientName(dto.getRecipientName());
-        if (dto.getRecipientPhone() != null) addr.setRecipientPhone(dto.getRecipientPhone());
-        if (dto.getZipcode() != null) addr.setZipcode(dto.getZipcode());
-        if (dto.getAddress1() != null) addr.setAddress1(dto.getAddress1());
-        if (dto.getAddress2() != null) addr.setAddress2(dto.getAddress2());
+        MemberInfoAddr entity = memberInfoAddrRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, id));
 
-        if (Boolean.TRUE.equals(dto.getIsDefault())) {
-            clearDefault(Objects.requireNonNull(addr.getMember().getId(), "memberId를 찾을 수 없습니다."));
-            addr.setDefault(true);
+        // 기본 배송지로 설정하는 경우, 기존 기본 배송지 해제
+        if (dto.getIsDefault() != null && dto.getIsDefault() && !entity.getIsDefault()) {
+            memberInfoAddrRepository.findDefaultByMemberId(entity.getMemberId())
+                    .ifPresent(addr -> {
+                        if (!addr.getId().equals(id)) {
+                            addr.unsetDefault();
+                            memberInfoAddrRepository.save(addr);
+                        }
+                    });
         }
 
-        return addr;
-    }
+        entity.update(
+                dto.getShipToName(), dto.getShipToPhone(), dto.getShipZipcode(),
+                dto.getShipAddress1(), dto.getShipAddress2()
+        );
 
-    @Override
-    @Transactional
-    public MemberInfoAddr setDefault(Long id) {
-        Long safeId = Objects.requireNonNull(id, "id는 필수입니다.");
-        MemberInfoAddr addr = memberInfoAddrRepository.findById(safeId)
-                .orElseThrow(() -> new ResourceNotFoundException("배송지 정보를 찾을 수 없습니다. ID: " + safeId));
-
-        clearDefault(Objects.requireNonNull(addr.getMember().getId(), "memberId를 찾을 수 없습니다."));
-        addr.setDefault(true);
-        return addr;
-    }
-
-    @Override
-    @Transactional
-    public void delete(Long id) {
-        Long safeId = Objects.requireNonNull(id, "id는 필수입니다.");
-        MemberInfoAddr addr = memberInfoAddrRepository.findById(safeId)
-                .orElseThrow(() -> new ResourceNotFoundException("배송지 정보를 찾을 수 없습니다. ID: " + safeId));
-
-        Long memberId = Objects.requireNonNull(addr.getMember().getId(), "memberId를 찾을 수 없습니다.");
-        boolean wasDefault = addr.isDefault();
-        memberInfoAddrRepository.delete(addr);
-
-        if (wasDefault) {
-            List<MemberInfoAddr> remaining = memberInfoAddrRepository.findAllByMemberIdOrderByIdDesc(memberId);
-            if (!remaining.isEmpty()) {
-                remaining.get(0).setDefault(true);
+        if (dto.getIsDefault() != null) {
+            if (dto.getIsDefault()) {
+                entity.setDefault();
+            } else {
+                entity.unsetDefault();
             }
         }
+
+        MemberInfoAddr saved = memberInfoAddrRepository.save(entity);
+        log.info("배송지 수정 완료: id={}", id);
+
+        return MemberInfoAddrDTO.fromEntity(saved);
     }
 
     @Override
-    public List<MemberInfoAddr> getList(Long memberId) {
-        return memberInfoAddrRepository.findAllByMemberIdOrderByIdDesc(memberId);
+    public MemberInfoAddrDTO setDefault(Long id) {
+        log.info("기본 배송지 설정 요청: id={}", id);
+
+        MemberInfoAddr entity = memberInfoAddrRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, id));
+
+        // 기존 기본 배송지 해제
+        memberInfoAddrRepository.findDefaultByMemberId(entity.getMemberId())
+                .ifPresent(addr -> {
+                    if (!addr.getId().equals(id)) {
+                        addr.unsetDefault();
+                        memberInfoAddrRepository.save(addr);
+                    }
+                });
+
+        entity.setDefault();
+        MemberInfoAddr saved = memberInfoAddrRepository.save(entity);
+
+        log.info("기본 배송지 설정 완료: id={}", id);
+        return MemberInfoAddrDTO.fromEntity(saved);
     }
 
-    private void clearDefault(Long memberId) {
-        memberInfoAddrRepository.findByMemberIdAndIsDefaultTrue(memberId)
-                .ifPresent(addr -> addr.setDefault(false));
-    }
+    @Override
+    public void delete(Long id) {
+        log.info("배송지 삭제 요청: id={}", id);
 
+        MemberInfoAddr entity = memberInfoAddrRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, id));
+
+        memberInfoAddrRepository.delete(entity);
+
+        log.info("배송지 삭제 완료: id={}", id);
+    }
 }
 

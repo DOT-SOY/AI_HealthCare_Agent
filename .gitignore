@@ -1,3 +1,5 @@
+
+
 # backend
 /backend/build/
 /backend/.gradle/
@@ -7,17 +9,29 @@
 /backend/.vscode/tasks.json
 /backend/.vscode/launch.json
 
+
+/backend/node_modules/
+temp_meal_check.txt
+
 # frontend
 /frontend/node_modules/
 /frontend/dist/
 
-# env
+# env & Secret (보안)
 .env
 application-local.properties
 
-# IntelliJ IDEA
+# IntelliJ IDEA & Editors
 .idea/
 *.iml
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
 
 # Upload files (runtime data)
 uploads/
+
+node_modules/
+**/node_modules/
+node_modules/

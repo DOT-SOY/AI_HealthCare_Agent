@@ -1,6 +1,7 @@
 package com.backend.dto.meal;
 
 import com.backend.domain.meal.MealTarget;
+import com.backend.domain.memberinfo.MemberInfoBody;
 import lombok.*;
 
 import java.time.LocalDate;
@@ -24,6 +25,7 @@ public class MealTargetDto {
     private Integer goalProtein;
     private Integer goalFat;
     private String aiFeedback;
+
     /**
      * DTO -> Entity 변환
      */
@@ -32,11 +34,12 @@ public class MealTargetDto {
                 .targetId(this.targetId)
                 .userId(userId)
                 .targetDate(this.targetDate)
-                .goalType(this.goalType != null ? MealTarget.GoalType.valueOf(this.goalType) : null)
+                .goalType(this.goalType != null ? MemberInfoBody.ExercisePurpose.valueOf(this.goalType) : null)
                 .goalCal(this.goalCal)
                 .goalCarbs(this.goalCarbs)
                 .goalProtein(this.goalProtein)
                 .goalFat(this.goalFat)
+                .aiFeedback(this.aiFeedback)
                 .build();
     }
 
@@ -44,6 +47,9 @@ public class MealTargetDto {
      * Entity -> DTO 변환
      */
     public static MealTargetDto fromEntity(MealTarget target) {
+        if (target == null) {
+            return null;
+        }
         return MealTargetDto.builder()
                 .targetId(target.getTargetId())
                 .userId(target.getUserId())
@@ -53,7 +59,8 @@ public class MealTargetDto {
                 .goalCarbs(target.getGoalCarbs())
                 .goalProtein(target.getGoalProtein())
                 .goalFat(target.getGoalFat())
-                
+                .aiFeedback(target.getAiFeedback())
                 .build();
     }
 }
+ 

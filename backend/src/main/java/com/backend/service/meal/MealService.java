@@ -49,20 +49,37 @@ public interface MealService {
     /**
      * [비동기 AI 호출: 사진 분석]
      * 이미지 업로드 시 호출되며, 결과는 WebSocket으로 전송됩니다.
+     * 
+     * 변경: CompletableFuture 반환으로 진정한 비동기 처리
      */
-    void asyncVisionAnalysis(Long userId, String base64Image);
+    java.util.concurrent.CompletableFuture<Void> asyncVisionAnalysis(Long userId, String base64Image);
 
     /**
      * [비동기 AI 호출: 심층 상담]
      * 하루 식단 전체를 분석하여 영양 조언을 요청합니다.
+     * 
+     * 변경: CompletableFuture 반환으로 진정한 비동기 처리
      */
-    void asyncDeepAdvice(Long userId, LocalDate date);
+    java.util.concurrent.CompletableFuture<Void> asyncDeepAdvice(Long userId, LocalDate date);
 
     /**
      * [비동기 AI 호출: 식단 재구성]
      * 초과 섭취나 스킵 발생 시 남은 끼니를 다시 짭니다.
+     * 
+     * 변경: CompletableFuture 반환으로 진정한 비동기 처리
      */
-    void asyncMealReplan(Long userId, LocalDate date);
+    java.util.concurrent.CompletableFuture<Void> asyncMealReplan(Long userId, LocalDate date);
 
-     void generateInitialPlan(Long userId, LocalDate date);
+    /**
+     * [식단 계획 업데이트]
+     * PLANNED 상태의 기존 식단을 삭제하고 새로운 계획으로 교체합니다.
+     * 
+     * 변경 이유:
+     * - private 메서드를 Service 메서드로 분리하여 트랜잭션 경계 명확화
+     * - @Transactional 적용으로 DB 저장 보장
+     * - 재사용성 향상
+     */
+    void updatePlannedMeals(Long userId, LocalDate date, List<MealDto> newPlans);
+
+    void generateInitialPlan(Long userId, LocalDate date);
 }

@@ -1,174 +1,105 @@
 package com.backend.service.memberinfo;
 
+import com.backend.common.exception.BusinessException;
+import com.backend.common.exception.ErrorCode;
 import com.backend.domain.member.Member;
-import com.backend.domain.memberinfo.ExercisePurpose;
-import com.backend.domain.memberinfo.MemberInfoAddr;
 import com.backend.domain.memberinfo.MemberInfoBody;
 import com.backend.dto.memberinfo.MemberInfoBodyDTO;
 import com.backend.dto.memberinfo.MemberInfoBodyResponseDTO;
-import com.backend.exception.ResourceNotFoundException;
 import com.backend.repository.member.MemberRepository;
-import com.backend.repository.memberinfo.MemberInfoAddrRepository;
 import com.backend.repository.memberinfo.MemberInfoBodyRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
+@Transactional
+@Log4j2
 public class MemberInfoBodyServiceImpl implements MemberInfoBodyService {
 
     private final MemberInfoBodyRepository memberInfoBodyRepository;
-    private final MemberInfoAddrRepository memberInfoAddrRepository;
     private final MemberRepository memberRepository;
 
     @Override
-    @Transactional
-    public MemberInfoBody create(MemberInfoBodyDTO dto) {
-        Long memberId = Objects.requireNonNull(dto.getMemberId(), "memberId는 필수입니다.");
-        Member member = memberRepository.findById(memberId)
-                .orElseThrow(() -> new ResourceNotFoundException("회원을 찾을 수 없습니다. ID: " + memberId));
+    public Long create(Long memberId, MemberInfoBodyDTO dto) {
+        log.info("신체 정보 생성 요청: memberId={}", memberId);
 
-        MemberInfoBody info = new MemberInfoBody();
-        info.setMember(member);
-        info.setMeasuredTime(dto.getMeasuredTime() != null ? dto.getMeasuredTime() : LocalDateTime.now());
+        MemberInfoBody entity = dto.toEntity(memberId);
+        MemberInfoBody saved = memberInfoBodyRepository.save(entity);
 
-        info.setHeight(dto.getHeight());
-        info.setWeight(dto.getWeight());
-        info.setSkeletalMuscleMass(dto.getSkeletalMuscleMass());
-        info.setBodyFatPercent(dto.getBodyFatPercent());
-        info.setBodyWater(dto.getBodyWater());
-        info.setProtein(dto.getProtein());
-        info.setMinerals(dto.getMinerals());
-        info.setBodyFatMass(dto.getBodyFatMass());
-        info.setTargetWeight(dto.getTargetWeight());
-        info.setWeightControl(dto.getWeightControl());
-        info.setFatControl(dto.getFatControl());
-        info.setMuscleControl(dto.getMuscleControl());
-
-        if (dto.getPurpose() != null) {
-            try {
-                info.setPurpose(ExercisePurpose.valueOf(dto.getPurpose()));
-            } catch (IllegalArgumentException e) {
-                info.setPurpose(null);
-            }
-        }
-
-        syncMemberHeightWeight(member, dto.getHeight(), dto.getWeight());
-
-        return memberInfoBodyRepository.save(info);
+        log.info("신체 정보 생성 완료: id={}", saved.getId());
+        return saved.getId();
     }
 
     @Override
-    @Transactional
-    public MemberInfoBody updateHeightWeight(Long id, MemberInfoBodyDTO dto) {
-        Long safeId = Objects.requireNonNull(id, "id는 필수입니다.");
-        MemberInfoBody info = memberInfoBodyRepository.findById(safeId)
-                .orElseThrow(() -> new ResourceNotFoundException("신체 정보를 찾을 수 없습니다. ID: " + safeId));
+    public MemberInfoBodyResponseDTO update(Long id, MemberInfoBodyDTO dto) {
+        log.info("신체 정보 수정 요청: id={}", id);
 
-        if (dto.getHeight() != null) {
-            info.setHeight(dto.getHeight());
-        }
-        if (dto.getWeight() != null) {
-            info.setWeight(dto.getWeight());
-        }
-        if (dto.getPurpose() != null) {
-            try {
-                info.setPurpose(ExercisePurpose.valueOf(dto.getPurpose()));
-            } catch (IllegalArgumentException e) {
-                info.setPurpose(null);
-            }
-        }
+        MemberInfoBody entity = memberInfoBodyRepository.findByIdAndNotDeleted(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, id));
 
-        if (dto.getHeight() != null || dto.getWeight() != null) {
-            syncMemberHeightWeight(info.getMember(), dto.getHeight(), dto.getWeight());
-        }
+        entity.update(
+                dto.getHeight(), dto.getWeight(),
+                dto.getSkeletalMuscleMass(), dto.getBodyFatPercent(),
+                dto.getBodyWater(), dto.getProtein(), dto.getMinerals(), dto.getBodyFatMass(),
+                dto.getTargetWeight(), dto.getWeightControl(), dto.getFatControl(), dto.getMuscleControl(),
+                dto.getExercisePurpose()
+        );
 
-        return info;
+        MemberInfoBody saved = memberInfoBodyRepository.save(entity);
+        log.info("신체 정보 수정 완료: id={}", id);
+
+        return MemberInfoBodyResponseDTO.fromEntity(saved);
     }
 
     @Override
-    @Transactional
     public void delete(Long id) {
-        Long safeId = Objects.requireNonNull(id, "id는 필수입니다.");
-        if (!memberInfoBodyRepository.existsById(safeId)) {
-            throw new ResourceNotFoundException("신체 정보를 찾을 수 없습니다. ID: " + safeId);
-        }
-        memberInfoBodyRepository.deleteById(safeId);
+        log.info("신체 정보 삭제 요청: id={}", id);
+
+        MemberInfoBody entity = memberInfoBodyRepository.findByIdAndNotDeleted(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, id));
+
+        entity.softDelete();
+        memberInfoBodyRepository.save(entity);
+
+        log.info("신체 정보 삭제 완료: id={}", id);
     }
 
     @Override
-    public List<MemberInfoBodyResponseDTO> getBodyInfoHistory(Long memberId) {
-        Long safeMemberId = Objects.requireNonNull(memberId, "memberId는 필수입니다.");
-        List<MemberInfoBody> entities = memberInfoBodyRepository.findAllByMemberIdOrderByMeasuredTimeAsc(safeMemberId);
-        if (entities.isEmpty()) {
-            return Collections.emptyList();
-        }
-        MemberInfoAddr defaultAddr = memberInfoAddrRepository.findByMemberIdAndIsDefaultTrue(safeMemberId).orElse(null);
+    @Transactional(readOnly = true)
+    public List<MemberInfoBodyResponseDTO> getHistory(Long memberId) {
+        log.info("신체 정보 이력 조회 요청: memberId={}", memberId);
+
+        List<MemberInfoBody> entities = memberInfoBodyRepository
+                .findByMemberIdAndNotDeletedOrderByMeasuredTimeDesc(memberId);
+
+        // Member 정보 조회 (한 번만 조회)
+        Member member = memberRepository.findById(memberId).orElse(null);
 
         return entities.stream()
-                .map(entity -> toResponse(entity, defaultAddr))
+                .map(entity -> MemberInfoBodyResponseDTO.fromEntityWithMember(entity, member))
                 .collect(Collectors.toList());
     }
 
     @Override
-    public List<MemberInfoBodyResponseDTO> getBodyInfoHistoryByEmail(String email) {
-        List<MemberInfoBody> entities = memberInfoBodyRepository.findAllByMemberEmailOrderByMeasuredTimeAsc(email);
-        if (entities.isEmpty()) {
-            return Collections.emptyList();
-        }
-        Long memberId = Objects.requireNonNull(entities.get(0).getMember().getId(), "memberId를 찾을 수 없습니다.");
-        MemberInfoAddr defaultAddr = memberInfoAddrRepository.findByMemberIdAndIsDefaultTrue(memberId).orElse(null);
+    @Transactional(readOnly = true)
+    public MemberInfoBodyResponseDTO getLatest(Long memberId) {
+        log.info("최신 신체 정보 조회 요청: memberId={}", memberId);
 
-        return entities.stream()
-                .map(entity -> toResponse(entity, defaultAddr))
-                .collect(Collectors.toList());
-    }
+        MemberInfoBody entity = memberInfoBodyRepository
+                .findTopByMemberIdAndNotDeletedOrderByMeasuredTimeDesc(memberId)
+                .orElse(null);
 
-    private void syncMemberHeightWeight(Member member, Double height, Double weight) {
-        if (height != null) {
-            member.setHeight((int) Math.round(height));
-        }
-        if (weight != null) {
-            member.setWeight(weight);
-        }
-    }
+        // Member 정보 조회
+        Member member = memberRepository.findById(memberId).orElse(null);
 
-    private MemberInfoBodyResponseDTO toResponse(MemberInfoBody entity, MemberInfoAddr defaultAddr) {
-        return MemberInfoBodyResponseDTO.builder()
-                .id(entity.getId())
-                .measuredTime(entity.getMeasuredTime())
-                .memberId(entity.getMember().getId())
-                .memberName(entity.getMember().getName())
-                .gender(entity.getMember().getGender())
-                .birthDate(entity.getMember().getBirthDate())
-                .height(entity.getHeight())
-                .weight(entity.getWeight())
-                .skeletalMuscleMass(entity.getSkeletalMuscleMass())
-                .bodyFatPercent(entity.getBodyFatPercent())
-                .bodyWater(entity.getBodyWater())
-                .protein(entity.getProtein())
-                .minerals(entity.getMinerals())
-                .bodyFatMass(entity.getBodyFatMass())
-                .targetWeight(entity.getTargetWeight())
-                .weightControl(entity.getWeightControl())
-                .fatControl(entity.getFatControl())
-                .muscleControl(entity.getMuscleControl())
-                .purpose(entity.getPurpose() != null ? entity.getPurpose().name() : null)
-                .defaultAddrId(defaultAddr != null ? defaultAddr.getId() : null)
-                .shipToName(defaultAddr != null ? defaultAddr.getRecipientName() : null)
-                .shipToPhone(defaultAddr != null ? defaultAddr.getRecipientPhone() : null)
-                .shipZipcode(defaultAddr != null ? defaultAddr.getZipcode() : null)
-                .shipAddress1(defaultAddr != null ? defaultAddr.getAddress1() : null)
-                .shipAddress2(defaultAddr != null ? defaultAddr.getAddress2() : null)
-                .build();
+        return MemberInfoBodyResponseDTO.fromEntityWithMember(entity, member);
     }
 }
 
