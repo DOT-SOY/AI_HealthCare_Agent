@@ -25,3 +25,4 @@ public interface MemberInfoBodyRepository extends JpaRepository<MemberInfoBody, 
     Optional<MemberInfoBody> findByIdAndNotDeleted(@Param("id") Long id);
 }
 
+

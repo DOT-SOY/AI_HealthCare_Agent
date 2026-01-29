@@ -23,3 +23,4 @@ public interface MemberInfoBodyService {
     MemberInfoBodyResponseDTO getLatest(Long memberId);
 }
 
+

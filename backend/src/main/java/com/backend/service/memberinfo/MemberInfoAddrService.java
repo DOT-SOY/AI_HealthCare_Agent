@@ -22,3 +22,4 @@ public interface MemberInfoAddrService {
     void delete(Long id);
 }
 
+
