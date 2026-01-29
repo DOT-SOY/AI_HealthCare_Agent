@@ -11,13 +11,18 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.lang.NonNull;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Log4j2 // OncePerRequestFilter 상속 → 모든 HTTP 요청마다 한 번 실행되는 필터
 public class JWTCheckFilter extends OncePerRequestFilter{
@@ -33,9 +38,17 @@ public class JWTCheckFilter extends OncePerRequestFilter{
 
         String path = request.getRequestURI();
 
+        // WebSocket 핸드셰이크는 JWT 필터를 우회 (STOMP CONNECT 단계에서 인증 처리)
+        // WebSocket 핸드셰이크는 HTTP 요청이지만, STOMP.js는 CONNECT 프레임에서 헤더를 전달하므로
+        // 핸드셰이크 단계에서는 필터를 우회하고, 실제 인증은 WebSocket 메시지 핸들러에서 처리
+        if (path.startsWith("/ws")) {
+            log.debug("WebSocket 핸드셰이크 요청 - JWT 필터 우회: {}", path);
+            return true;
+        }
+
         log.info("check uri......................."+path);
 
-        // “로그인 안 한 사용자도 접근 가능한 API”만 JWT 체크 안 함 (최소 예외)
+        // "로그인 안 한 사용자도 접근 가능한 API"만 JWT 체크 안 함 (최소 예외)
         if (path.equals("/api/member/login") ||
                 path.equals("/api/member/join") ||
                 path.equals("/api/member/refresh") ||
@@ -54,9 +67,11 @@ public class JWTCheckFilter extends OncePerRequestFilter{
             return true;
         }
 
-        // 상품 관련 API는 모두 public 접근 허용 (TODO: 추후 ADMIN 권한으로 제한)
-        if (path.equals("/api/v1/products") || path.startsWith("/api/v1/products/")) {
-            return true;
+        // 상품 조회(GET)만 JWT 없이 허용. 등록/수정/삭제(POST, PATCH, DELETE)는 JWT·ADMIN 필수
+        if (path.equals("/api/products") || path.startsWith("/api/products/")) {
+            if ("GET".equalsIgnoreCase(request.getMethod())) {
+                return true;
+            }
         }
 
         return false;
@@ -73,8 +88,19 @@ public class JWTCheckFilter extends OncePerRequestFilter{
 
         // 클라이언트에서 Authorization: Bearer <JWT>로 전달
         String authHeaderStr = request.getHeader("Authorization");
+        String path = request.getRequestURI();
+
+        // 카트 일반 경로: 인증 없어도 통과(게스트). /api/cart/merge는 JWT 필수.
+        boolean isCartPath = path.startsWith("/api/cart");
+        boolean isCartMerge = path.equals("/api/cart/merge");
 
         if (authHeaderStr == null || !authHeaderStr.startsWith("Bearer ")) {
+            // 카트 일반 경로(merge 제외)만 인증 없이 통과
+            if (isCartPath && !isCartMerge) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+
             log.error("JWT Check Error: Authorization header is missing or invalid");
 
             // WebSocket 핸드셰이크 실패 시 403 Forbidden 반환
@@ -106,12 +132,12 @@ public class JWTCheckFilter extends OncePerRequestFilter{
                 throw new JWTException(ErrorCode.JWT_INVALID_TOKEN_TYPE);
             }
 
-            // 현재 MemberDTO는 회원가입용 DTO라 JWT의 상세 정보를 그대로 담지 않습니다.
-            // 필터에서는 인증 여부만 확인하면 되므로, SecurityContext에는 email 문자열만 principal 로 저장합니다.
             String email = (String) claims.get("email");
+            // JWT의 roleNames를 GrantedAuthority로 변환 (hasRole("ADMIN") 등 메서드/URL 인가에 사용)
+            List<GrantedAuthority> authorities = toAuthorities(claims.get("roleNames"));
 
             UsernamePasswordAuthenticationToken authenticationToken =
-                    new UsernamePasswordAuthenticationToken(email, null, null);
+                    new UsernamePasswordAuthenticationToken(email, null, authorities);
 
             // 민감행위 재확인(auth_time) 등에 사용할 수 있도록 최소 컨텍스트를 details로 부착
             authenticationToken.setDetails(Map.of(
@@ -121,6 +147,9 @@ public class JWTCheckFilter extends OncePerRequestFilter{
 
             // 지금 로그인한 사용자의 인증 정보(사용자 정보, 비밀번호, 권한 등)를 SecurityContext에 저장
             SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+            if (path.startsWith("/api/cart")) {
+                log.info("JWTCheckFilter: SecurityContext set for cart request, email={}", email);
+            }
 
         }catch(JWTException e){ // 예외 처리 (JWT 검증 실패만 처리)
             log.error("JWT Check Error..............");
@@ -151,6 +180,20 @@ public class JWTCheckFilter extends OncePerRequestFilter{
 
         // JWT 검증 성공 시 필터 체인 계속 진행
         filterChain.doFilter(request, response);
+    }
+
+    /** JWT claims의 roleNames(List)를 Spring Security GrantedAuthority 목록으로 변환 */
+    private static List<GrantedAuthority> toAuthorities(Object roleNamesObj) {
+        if (roleNamesObj == null) {
+            return new ArrayList<>();
+        }
+        if (roleNamesObj instanceof List<?> list) {
+            return list.stream()
+                    .filter(o -> o != null && !o.toString().isBlank())
+                    .map(o -> new SimpleGrantedAuthority("ROLE_" + o.toString()))
+                    .collect(Collectors.toList());
+        }
+        return new ArrayList<>();
     }
 
 }

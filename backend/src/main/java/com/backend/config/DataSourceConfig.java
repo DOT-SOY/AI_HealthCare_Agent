@@ -2,7 +2,12 @@ package com.backend.config;
 
 import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
+import org.springframework.boot.autoconfigure.orm.jpa.HibernateProperties;
+import org.springframework.boot.autoconfigure.orm.jpa.HibernatePropertiesCustomizer;
+import org.springframework.boot.autoconfigure.orm.jpa.HibernateSettings;
+import org.springframework.boot.autoconfigure.orm.jpa.JpaProperties;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.orm.jpa.EntityManagerFactoryBuilder;
 import org.springframework.context.annotation.Bean;
@@ -17,7 +22,8 @@ import org.springframework.transaction.PlatformTransactionManager;
 import javax.sql.DataSource;
 import jakarta.persistence.EntityManagerFactory;
 
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 @Configuration
@@ -28,6 +34,18 @@ import java.util.Map;
         transactionManagerRef = "transactionManager"
 )
 public class DataSourceConfig {
+
+    private final JpaProperties jpaProperties;
+    private final HibernateProperties hibernateProperties;
+    private final List<HibernatePropertiesCustomizer> hibernatePropertiesCustomizers;
+
+    public DataSourceConfig(JpaProperties jpaProperties,
+                            HibernateProperties hibernateProperties,
+                            ObjectProvider<List<HibernatePropertiesCustomizer>> hibernatePropertiesCustomizers) {
+        this.jpaProperties = jpaProperties;
+        this.hibernateProperties = hibernateProperties;
+        this.hibernatePropertiesCustomizers = hibernatePropertiesCustomizers.getIfAvailable(ArrayList::new);
+    }
 
     // MariaDB 설정 (Primary)
     @Bean
@@ -52,25 +70,21 @@ public class DataSourceConfig {
     public LocalContainerEntityManagerFactoryBean entityManagerFactory(
             EntityManagerFactoryBuilder builder, @Qualifier("mainDataSource") DataSource dataSource) {
 
-        Map<String, Object> properties = new HashMap<>();
-
-        // 자바의 카멜케이스(createdAt)를 DB의 스네이크케이스(created_at)로 매핑해줍니다.
-        properties.put("hibernate.physical_naming_strategy",
-                "org.springframework.boot.model.naming.CamelCaseToUnderscoresNamingStrategy");
-
-        // 암시적 명명 전략 추가
-        properties.put("hibernate.implicit_naming_strategy",
-                "org.springframework.boot.model.naming.ImplicitNamingStrategyComponentPathImpl");
+        Map<String, Object> properties = this.hibernateProperties.determineHibernateProperties(
+                this.jpaProperties.getProperties(), new HibernateSettings());
+        this.hibernatePropertiesCustomizers.forEach(customizer -> customizer.customize(properties));
 
         return builder
                 .dataSource(dataSource)
                 .packages("com.backend.domain") // Member 엔티티가 있는 패키지 경로
                 .persistenceUnit("main")
+                .properties(properties)
                 .build();
     }
 
     @Bean
     @Primary
+    @SuppressWarnings("null")
     public PlatformTransactionManager transactionManager(
             @Qualifier("entityManagerFactory") EntityManagerFactory entityManagerFactory) {
         return new JpaTransactionManager(entityManagerFactory);

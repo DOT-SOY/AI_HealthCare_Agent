@@ -31,6 +31,12 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-aop'
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
+
+    // [추가] AI 서버 통신 및 실시간 알림용
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    implementation 'io.projectreactor.netty:reactor-netty'
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
 
     // JWT
     implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
@@ -47,6 +53,9 @@ dependencies {
     // Rate Limiting
     implementation 'com.bucket4j:bucket4j-core:8.7.0'
 
+    //env
+    implementation 'me.paulschwarz:spring-dotenv:4.0.0'
+
     // QueryDSL
     implementation 'com.querydsl:querydsl-jpa:5.0.0:jakarta'
     annotationProcessor 'com.querydsl:querydsl-apt:5.0.0:jakarta'
@@ -60,7 +69,7 @@ dependencies {
     // Lombok
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
-    
+
     // Lombok + MapStruct 통합
     annotationProcessor 'org.projectlombok:lombok-mapstruct-binding:0.2.0'
 
@@ -70,7 +79,6 @@ dependencies {
 
     // Test
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    testImplementation 'com.h2database:h2'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
@@ -82,14 +90,63 @@ sourceSets {
 }
 
 tasks.named('compileJava') {
+    doFirst {
+        delete file(querydslDir)
+    }
     options.annotationProcessorGeneratedSourcesDirectory = file(querydslDir)
     options.annotationProcessorPath = configurations.annotationProcessor
 }
 
 clean {
     delete file(querydslDir)
+    delete file("$projectDir/bin/generated-sources")
 }
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+// .env
+def loadDotenv() {
+    def envFile = rootProject.file(".env")
+    if (!envFile.exists()) {
+        return [:]
+    }
+
+    def envMap = [:]
+    envFile.eachLine { line ->
+        def trimmed = line.trim()
+        if (!trimmed || trimmed.startsWith("#") || !trimmed.contains("=")) {
+            return
+        }
+        int idx = trimmed.indexOf("=")
+        if (idx <= 0) {
+            return
+        }
+        def key = trimmed.substring(0, idx).trim()
+        def value = trimmed.substring(idx + 1).trim()
+        if (value.startsWith("\"") && value.endsWith("\"") && value.length() >= 2) {
+            value = value.substring(1, value.length() - 1)
+        }
+        if (key) {
+            envMap[key] = value
+        }
+    }
+    return envMap
+}
+
+def dotenvEnv = loadDotenv()
+
+// bootRun 등 JavaExec 기반 실행 태스크에 .env 적용
+tasks.withType(JavaExec).configureEach {
+    dotenvEnv.each { k, v ->
+        environment k, v
+    }
+}
+
+// 테스트 실행 시에도 동일한 환경변수 적용
+tasks.withType(Test).configureEach {
+    dotenvEnv.each { k, v ->
+        environment k, v
+    }
 }

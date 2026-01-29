@@ -193,6 +193,36 @@ const BasicMenu = () => {
             </div>
           )}
         </div>
+
+        {/* 로그인/로그아웃 (좌측 하단 중앙쯤) */}
+        <div className="mt-auto p-4 border-t border-gray-200 flex flex-col items-center gap-3">
+          {!isLogin ? (
+            <Link
+              to="/member/login"
+              className="ui-btn-primary w-full text-center"
+              onClick={closeMobileMenu}
+            >
+              Login
+            </Link>
+          ) : (
+            <>
+              <div className="text-center">
+                <div className="text-xs text-gray-500">Welcome</div>
+                <div className="text-sm font-semibold text-gray-900">
+                  {(loginState?.name || loginState?.email)
+                    ? `${loginState?.name || loginState?.email}님`
+                    : ""}
+                </div>
+              </div>
+              <button
+                onClick={handleClickLogout}
+                className="ui-btn-ghost text-xs px-4 py-2"
+              >
+                Logout
+              </button>
+            </>
+          )}
+        </div>
       </aside>
 
       {/* 모바일 햄버거 버튼 */}
@@ -269,52 +299,7 @@ const BasicMenu = () => {
               </Link>
             );
           })}
-
-          {/* 프로필 아래에 로그인/로그아웃 (잠금 아이콘, 모바일) */}
-          {!isLogin ? (
-            <Link
-              to="/member/login"
-              className={getMenuClass("/member/login")}
-              onClick={closeMobileMenu}
-            >
-              <LockClosedIcon className="w-6 h-6 shrink-0" />
-              <span className="text-xs whitespace-nowrap">로그인</span>
-            </Link>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                handleClickLogout();
-                closeMobileMenu();
-              }}
-              className={`${getMenuClass("/member/logout")} border-none bg-transparent cursor-pointer`}
-            >
-              <LockOpenIcon className="w-6 h-6 shrink-0" />
-              <span className="text-xs whitespace-nowrap">로그아웃</span>
-            </button>
-          )}
-
-          {isLogin && isAdmin && (
-            <Link to="/admin" className={getMenuClass("/admin")} onClick={closeMobileMenu}>
-              <AdminIcon className="w-6 h-6 shrink-0" />
-              <span className="text-xs whitespace-nowrap">관리자</span>
-            </Link>
-          )}
         </nav>
-
-        {/* 하단: 로그인 시 이름만 표시 (모바일) */}
-        <div className="mt-auto p-4 app-sidebar-footer flex flex-col items-center gap-2">
-          {isLogin && (
-            <div className="text-center">
-              <div className="app-user-welcome">Welcome</div>
-              <div className="app-user-name">
-                {(loginState?.name || loginState?.email)
-                  ? `${loginState?.name || loginState?.email}님`
-                  : ""}
-              </div>
-            </div>
-          )}
-        </div>
       </aside>
     </>
   );

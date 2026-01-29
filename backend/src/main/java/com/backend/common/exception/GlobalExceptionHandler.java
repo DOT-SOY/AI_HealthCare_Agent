@@ -1,9 +1,14 @@
 package com.backend.common.exception;
 
+import com.backend.domain.order.OrderStatus;
+import com.backend.dto.payment.response.TossPaymentConfirmResponse;
+import com.backend.repository.order.OrderRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -32,7 +37,10 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @RestControllerAdvice
+@RequiredArgsConstructor
 public class GlobalExceptionHandler {
+
+    private final OrderRepository orderRepository;
 
     /**
      * 비즈니스 로직 예외 처리
@@ -79,6 +87,26 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 리소스를 찾을 수 없을 때 예외 처리
+     */
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleResourceNotFoundException(
+            ResourceNotFoundException e, HttpServletRequest request) {
+        log.warn("ResourceNotFoundException: {}", e.getMessage());
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .error(ErrorCode.MEMBER_NOT_FOUND.getCode())
+                .message(e.getMessage())
+                .timestamp(Instant.now().toString())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(errorResponse);
+    }
+
+    /**
      * @Valid 검증 실패 예외 처리 (JSON 요청)
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -118,6 +146,43 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.UNPROCESSABLE_ENTITY)
                 .body(errorResponse);
+    }
+
+    /**
+     * 요청 본문(JSON) 파싱 실패 시 400 응답 (amount 타입 오류 등)
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleHttpMessageNotReadableException(
+            HttpMessageNotReadableException e, HttpServletRequest request) {
+        log.warn("Request body parse error: {}", e.getMessage());
+
+        String code = ErrorCode.INVALID_INPUT_VALUE.getCode();
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .code(code)
+                .error(code)
+                .message("요청 본문 형식이 올바르지 않습니다. (paymentKey, orderId, amount 필수, amount는 숫자)")
+                .timestamp(Instant.now().toString())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(errorResponse);
+    }
+
+    /**
+     * 토스 "이미 처리된 결제" / payment_key 중복 시 → 멱등 성공으로 200 + 결제 완료 응답
+     */
+    @ExceptionHandler(PaymentAlreadyProcessedException.class)
+    public ResponseEntity<TossPaymentConfirmResponse> handlePaymentAlreadyProcessed(
+            PaymentAlreadyProcessedException e) {
+        log.info("PaymentAlreadyProcessedException (멱등 성공): orderId={}", e.getOrderId());
+        return orderRepository.findByOrderNo(e.getOrderId())
+                .filter(o -> o.getStatus() == OrderStatus.PAID)
+                .map(o -> ResponseEntity.ok(TossPaymentConfirmResponse.of(
+                        o.getOrderNo(), OrderStatus.PAID, o.getTotalPayableAmount(), o.getPaidAt())))
+                .orElseGet(() -> ResponseEntity.ok(TossPaymentConfirmResponse.of(
+                        e.getOrderId(), OrderStatus.PAID, null, Instant.now())));
     }
 
     /**

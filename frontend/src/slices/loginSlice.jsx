@@ -53,7 +53,13 @@ const loginSlice = createSlice({
   // createSlice : Redux에서 필요한 걸 한 번에 만들어줌
   name: "LoginSlice",
   // loadMemberCookie() 실행, 값이 “truthy”(true로 평가되는 값) 이면 → 그 값을 사용, 그렇지 않으면 → initState 사용
-  initialState: loadMemberCookie() || initState, // 쿠키가 없다면 초깃값 사용
+  initialState: (() => {
+    try {
+      return loadMemberCookie() || initState;
+    } catch (_) {
+      return initState;
+    }
+  })(),
   reducers: {
     // 이 slice가 직접 정의한 action + reducer
     login: (state, action) => {
@@ -62,6 +68,11 @@ const loginSlice = createSlice({
       setCookie("member", JSON.stringify(payload), 1); // 1일 - 로그인 정보를 쿠키에 저장
 
       // slice의 state를 payload로 변환
+      if (payload?.accessToken && typeof localStorage !== "undefined") {
+        try {
+          localStorage.setItem("accessToken", payload.accessToken);
+        } catch (_) {}
+      }
       return payload;
     },
   },
@@ -74,12 +85,14 @@ const loginSlice = createSlice({
         // 정상적인 로그인시에만 저장 (error 필드가 없을 때만)
         if (payload && !payload.error) {
           setCookie("member", JSON.stringify(payload), 1); //1일
+          if (payload.accessToken && typeof localStorage !== "undefined") {
+            try {
+              localStorage.setItem("accessToken", payload.accessToken);
+            } catch (_) {}
+          }
         }
 
         return payload;
-      })
-      .addCase(loginPostAsync.pending, (state, action) => {
-        // pending 처리
       })
       .addCase(loginPostAsync.rejected, (state, action) => {
         // 에러 응답 데이터를 state에 저장 (LoginComponent에서 catch로 받을 수 있도록)
@@ -88,18 +101,6 @@ const loginSlice = createSlice({
           return action.payload;
         }
         return { ...initState, error: "로그인에 실패했습니다.", message: "로그인에 실패했습니다." };
-      })
-      .addCase(logoutPostAsync.fulfilled, (state, action) => {
-        // 1. 우리 서비스 쿠키 삭제
-        removeCookie("member");
-        removeCookie("refreshToken");
-
-        // 2. 로컬/세션 스토리지 정리 (혹시 모를 토큰/정보 제거)
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("member");
-        sessionStorage.clear();
-
-        return { ...initState };
       })
       .addCase(logoutPostAsync.rejected, (state, action) => {
         // 로그아웃 API 실패해도 프론트엔드 로그아웃은 진행

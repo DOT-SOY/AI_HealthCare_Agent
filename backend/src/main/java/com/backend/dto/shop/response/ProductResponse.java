@@ -27,9 +27,8 @@ public class ProductResponse {
     private Instant updatedAt;
     private Long createdBy; // 작성자 ID
     private List<ProductImageResponse> images;
-    
-    // TODO: 추후 variant 도메인 연동 시 추가
-    // private List<ProductVariantResponse> variants;
+    private List<ProductVariantResponse> variants;
+    private List<CategoryResponse> categories;
     
     /**
      * Product 엔티티로부터 ProductResponse를 생성하는 정적 팩토리 메서드
