@@ -3,7 +3,13 @@ import { Link, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logout } from "../../slices/loginSlice";
 
-// 간단한 SVG 아이콘 컴포넌트들
+// 로고용 번개 아이콘 (라임 그린 박스 안)
+const LightningIcon = ({ className }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+  </svg>
+);
+
 const HomeIcon = ({ className }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -46,12 +52,49 @@ const UserIcon = ({ className }) => (
   </svg>
 );
 
+const LockClosedIcon = ({ className }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M8 11V7a4 4 0 118 0v4M7 11h10a1 1 0 011 1v7a1 1 0 01-1 1H7a1 1 0 01-1-1v-7a1 1 0 011-1z"
+    />
+  </svg>
+);
+
+const LockOpenIcon = ({ className }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M15 7a3 3 0 00-6 0v1M7 11h10a1 1 0 011 1v7a1 1 0 01-1 1H7a1 1 0 01-1-1v-7a1 1 0 011-1zM15 7a3 3 0 015 3v1"
+    />
+  </svg>
+);
+
+const AdminIcon = ({ className }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+    />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+  </svg>
+);
+
 const BasicMenu = () => {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const dispatch = useDispatch();
   const loginState = useSelector((state) => state.loginSlice);
   const isLogin = !!loginState?.email;
+  const isAdmin =
+    Array.isArray(loginState?.roleNames) &&
+    loginState.roleNames.some((r) => r === "ADMIN" || r === "ROLE_ADMIN");
 
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
@@ -61,7 +104,7 @@ const BasicMenu = () => {
   };
 
   const menuItems = [
-    { icon: HomeIcon, label: "메인", path: "/" },
+    { icon: HomeIcon, label: "Home", path: "/" },
     { icon: ClockIcon, label: "루틴", path: "/routine" },
     { icon: FileTextIcon, label: "기록", path: "/record" },
     { icon: UtensilsIcon, label: "식사", path: "/meal" },
@@ -78,30 +121,22 @@ const BasicMenu = () => {
   };
 
   const getMenuClass = (path) => {
-    const baseClass = "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors duration-200 ";
-    return isActive(path)
-      ? baseClass + "bg-blue-600 text-white"
-      : baseClass + "text-gray-700 hover:bg-gray-100";
+    return isActive(path) ? "app-menu-item active" : "app-menu-item";
   };
 
   return (
     <>
       {/* 데스크톱 사이드바 */}
-      <aside className="hidden lg:flex fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 flex-col shadow-lg z-50">
-        {/* 로고 */}
-        <div className="p-6 border-b border-gray-200">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">H</span>
-            </div>
-            <span className="text-xl font-semibold text-gray-900">
-              Healthcare
-            </span>
+      <aside className="hidden lg:flex fixed left-0 top-0 h-full w-44 flex-col shadow-lg z-50 app-sidebar">
+        {/* 로고: 라임 그린 둥근 박스 + 번개 아이콘만 */}
+        <div className="p-6 app-sidebar-header flex justify-center">
+          <Link to="/" className="app-sidebar-logo-box">
+            <LightningIcon className="w-6 h-6 text-white" />
           </Link>
         </div>
 
-        {/* 메뉴 아이템 */}
-        <nav className="flex-1 p-4 space-y-2">
+        {/* 메뉴 아이템: 아이콘 위, 텍스트 아래 세로 배치 */}
+        <nav className="flex-1 p-4 flex flex-col items-center gap-1">
           {menuItems.map((item) => {
             const Icon = item.icon;
             return (
@@ -110,40 +145,52 @@ const BasicMenu = () => {
                 to={item.path}
                 className={getMenuClass(item.path)}
               >
-                <Icon className="w-5 h-5" />
-                <span>{item.label}</span>
+                <Icon className="w-6 h-6 shrink-0" />
+                <span className="text-xs whitespace-nowrap">{item.label}</span>
               </Link>
             );
           })}
-        </nav>
 
-        {/* 로그인/로그아웃 (좌측 하단 중앙쯤) */}
-        <div className="mt-auto p-4 border-t border-gray-200 flex flex-col items-center gap-3">
+          {/* 프로필 아래에 로그인/로그아웃 (잠금 아이콘) */}
           {!isLogin ? (
             <Link
               to="/member/login"
-              className="ui-btn-primary w-full text-center"
+              className={getMenuClass("/member/login")}
               onClick={closeMobileMenu}
             >
-              Login
+              <LockClosedIcon className="w-6 h-6 shrink-0" />
+              <span className="text-xs whitespace-nowrap">로그인</span>
             </Link>
           ) : (
-            <>
-              <div className="text-center">
-                <div className="text-xs text-gray-500">Welcome</div>
-                <div className="text-sm font-semibold text-gray-900">
-                  {(loginState?.name || loginState?.email)
-                    ? `${loginState?.name || loginState?.email}님`
-                    : ""}
-                </div>
+            <button
+              type="button"
+              onClick={handleClickLogout}
+              className={`${getMenuClass("/member/logout")} border-none bg-transparent cursor-pointer`}
+            >
+              <LockOpenIcon className="w-6 h-6 shrink-0" />
+              <span className="text-xs whitespace-nowrap">로그아웃</span>
+            </button>
+          )}
+
+          {isLogin && isAdmin && (
+            <Link to="/admin" className={getMenuClass("/admin")} onClick={closeMobileMenu}>
+              <AdminIcon className="w-6 h-6 shrink-0" />
+              <span className="text-xs whitespace-nowrap">관리자</span>
+            </Link>
+          )}
+        </nav>
+
+        {/* 하단: 로그인 시 이름만 표시 */}
+        <div className="mt-auto p-4 app-sidebar-footer flex flex-col items-center gap-2">
+          {isLogin && (
+            <div className="text-center">
+              <div className="app-user-welcome">Welcome</div>
+              <div className="app-user-name">
+                {(loginState?.name || loginState?.email)
+                  ? `${loginState?.name || loginState?.email}님`
+                  : ""}
               </div>
-              <button
-                onClick={handleClickLogout}
-                className="ui-btn-ghost text-xs px-4 py-2"
-              >
-                Logout
-              </button>
-            </>
+            </div>
           )}
         </div>
       </aside>
@@ -151,12 +198,12 @@ const BasicMenu = () => {
       {/* 모바일 햄버거 버튼 */}
       <button
         onClick={toggleMobileMenu}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-md border border-gray-200"
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg shadow-md border border-[var(--color-sidebar-border)] app-sidebar"
         aria-label="메뉴 열기"
       >
         {isMobileMenuOpen ? (
           <svg
-            className="w-6 h-6 text-gray-700"
+            className="w-6 h-6 text-[var(--color-text)]"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -170,7 +217,7 @@ const BasicMenu = () => {
           </svg>
         ) : (
           <svg
-            className="w-6 h-6 text-gray-700"
+            className="w-6 h-6 text-[var(--color-text)]"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -195,24 +242,19 @@ const BasicMenu = () => {
 
       {/* 모바일 사이드바 */}
       <aside
-        className={`lg:hidden fixed left-0 top-0 h-full w-64 bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${
+        className={`lg:hidden fixed left-0 top-0 h-full w-44 shadow-xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col app-sidebar app-sidebar-mobile ${
           isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        {/* 로고 */}
-        <div className="p-6 border-b border-gray-200">
-          <Link to="/" className="flex items-center gap-2" onClick={closeMobileMenu}>
-            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">H</span>
-            </div>
-            <span className="text-xl font-semibold text-gray-900">
-              Healthcare
-            </span>
+        {/* 로고: 라임 그린 둥근 박스 + 번개 아이콘만 */}
+        <div className="p-6 app-sidebar-header flex justify-center">
+          <Link to="/" className="app-sidebar-logo-box" onClick={closeMobileMenu}>
+            <LightningIcon className="w-6 h-6 text-white" />
           </Link>
         </div>
 
-        {/* 메뉴 아이템 */}
-        <nav className="flex-1 p-4 space-y-2">
+        {/* 메뉴 아이템: 아이콘 위, 텍스트 아래 세로 배치 */}
+        <nav className="flex-1 p-4 flex flex-col items-center gap-1">
           {menuItems.map((item) => {
             const Icon = item.icon;
             return (
@@ -222,40 +264,55 @@ const BasicMenu = () => {
                 className={getMenuClass(item.path)}
                 onClick={closeMobileMenu}
               >
-                <Icon className="w-5 h-5" />
-                <span>{item.label}</span>
+                <Icon className="w-6 h-6 shrink-0" />
+                <span className="text-xs whitespace-nowrap">{item.label}</span>
               </Link>
             );
           })}
-        </nav>
 
-        {/* 로그인/로그아웃 (모바일: 하단 중앙) */}
-        <div className="mt-auto p-4 border-t border-gray-200 flex flex-col items-center gap-3">
+          {/* 프로필 아래에 로그인/로그아웃 (잠금 아이콘, 모바일) */}
           {!isLogin ? (
             <Link
               to="/member/login"
-              className="ui-btn-primary w-full text-center"
+              className={getMenuClass("/member/login")}
               onClick={closeMobileMenu}
             >
-              Login
+              <LockClosedIcon className="w-6 h-6 shrink-0" />
+              <span className="text-xs whitespace-nowrap">로그인</span>
             </Link>
           ) : (
-            <>
-              <div className="text-center">
-                <div className="text-xs text-gray-500">Welcome</div>
-                <div className="text-sm font-semibold text-gray-900">
-                  {(loginState?.name || loginState?.email)
-                    ? `${loginState?.name || loginState?.email}님`
-                    : ""}
-                </div>
+            <button
+              type="button"
+              onClick={() => {
+                handleClickLogout();
+                closeMobileMenu();
+              }}
+              className={`${getMenuClass("/member/logout")} border-none bg-transparent cursor-pointer`}
+            >
+              <LockOpenIcon className="w-6 h-6 shrink-0" />
+              <span className="text-xs whitespace-nowrap">로그아웃</span>
+            </button>
+          )}
+
+          {isLogin && isAdmin && (
+            <Link to="/admin" className={getMenuClass("/admin")} onClick={closeMobileMenu}>
+              <AdminIcon className="w-6 h-6 shrink-0" />
+              <span className="text-xs whitespace-nowrap">관리자</span>
+            </Link>
+          )}
+        </nav>
+
+        {/* 하단: 로그인 시 이름만 표시 (모바일) */}
+        <div className="mt-auto p-4 app-sidebar-footer flex flex-col items-center gap-2">
+          {isLogin && (
+            <div className="text-center">
+              <div className="app-user-welcome">Welcome</div>
+              <div className="app-user-name">
+                {(loginState?.name || loginState?.email)
+                  ? `${loginState?.name || loginState?.email}님`
+                  : ""}
               </div>
-              <button
-                onClick={handleClickLogout}
-                className="ui-btn-ghost text-xs px-4 py-2"
-              >
-                Logout
-              </button>
-            </>
+            </div>
           )}
         </div>
       </aside>

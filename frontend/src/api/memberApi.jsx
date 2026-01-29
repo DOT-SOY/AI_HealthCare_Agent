@@ -79,6 +79,12 @@ export const logoutPost = async () => {
   return res.data;
 };
 
+// 회원 탈퇴 API - 로그인한 본인 계정 탈퇴
+export const withdrawMember = async () => {
+  const res = await jwtAxios.delete(`${host}/withdraw`);
+  return res.data;
+};
+
 // 담당자 정보 조회 (email로 부서, 닉네임 조회)
 export const getMemberInfo = async (email) => {
   const res = await jwtAxios.get(`${host}/info/${email}`);

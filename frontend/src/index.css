@@ -4,10 +4,22 @@
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
+
+  /* 다크 테마 색상 (검정 배경) */
+  --color-bg-dark: #0a0a0a;
+  --color-sidebar: #000000;
+  --color-sidebar-border: rgba(255, 255, 255, 0.08);
+  --color-accent-lime: #84cc16;
+  --color-accent-lime-hover: #a3e635;
+  --color-text: #ffffff;
+  --color-text-muted: #9ca3af;
+  --color-text-muted-hover: #d1d5db;
 }
 
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background-color: var(--color-bg-dark);
+  color: var(--color-text);
 }

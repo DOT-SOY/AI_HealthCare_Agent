@@ -76,8 +76,7 @@ class ProductRepositoryTest {
                         Member member = Member.builder()
                                 .email("test@example.com")
                                 .pw("password")
-                                .nickname("테스트유저")
-                                .social(false)
+                                .name("테스트유저")
                                 .build();
                         member.addRole(MemberRole.ADMIN);
                         return memberRepository.save(member);
@@ -120,8 +119,7 @@ class ProductRepositoryTest {
         Member member = Member.builder()
                 .email("test@example.com")
                 .pw("password")
-                .nickname("테스트유저")
-                .social(false)
+                .name("테스트유저")
                 .build();
         member.addRole(MemberRole.ADMIN);
 
@@ -133,7 +131,7 @@ class ProductRepositoryTest {
         // then
         assertThat(saved.getId()).isNotNull();
         assertThat(saved.getEmail()).isEqualTo("test@example.com");
-        assertThat(saved.getNickname()).isEqualTo("테스트유저");
+        assertThat(saved.getName()).isEqualTo("테스트유저");
         assertThat(saved.getRoleList()).contains(MemberRole.ADMIN);
         
         // testMember에 저장하여 다른 테스트에서 사용할 수 있도록 함
@@ -390,8 +388,7 @@ class ProductRepositoryTest {
         Product product = fitnessProduct1;
         ProductVariant variant = ProductVariant.builder()
                 .product(product)
-                .sku("DUMBBELL-20KG-001")
-                .optionJson("{\"weight\":\"20kg\",\"color\":\"black\"}")
+                .optionText("weight: 20kg, color: black")
                 .price(new BigDecimal("89000"))
                 .stockQty(10)
                 .active(true)
@@ -405,7 +402,7 @@ class ProductRepositoryTest {
         // then
         Optional<ProductVariant> found = productVariantRepository.findById(saved.getId());
         assertThat(found).isPresent();
-        assertThat(found.get().getSku()).isEqualTo("DUMBBELL-20KG-001");
+        assertThat(found.get().getOptionText()).isEqualTo("weight: 20kg, color: black");
         assertThat(found.get().getPrice()).isEqualByComparingTo(new BigDecimal("89000"));
         assertThat(found.get().getStockQty()).isEqualTo(10);
         assertThat(found.get().isActive()).isTrue();
@@ -421,8 +418,7 @@ class ProductRepositoryTest {
         Product product = fitnessProduct1; // basePrice = 89000
         ProductVariant variant = ProductVariant.builder()
                 .product(product)
-                .sku("DUMBBELL-20KG-002")
-                .optionJson("{\"weight\":\"20kg\"}")
+                .optionText("weight: 20kg")
                 .price(null) // 가격이 null
                 .stockQty(5)
                 .build();
@@ -449,8 +445,7 @@ class ProductRepositoryTest {
         Product product = fitnessProduct1;
         ProductVariant variant = ProductVariant.builder()
                 .product(product)
-                .sku("DUMBBELL-20KG-003")
-                .optionJson("{\"weight\":\"20kg\"}")
+                .optionText("weight: 20kg")
                 .stockQty(10)
                 .build();
         variant = productVariantRepository.save(variant);
@@ -478,8 +473,7 @@ class ProductRepositoryTest {
         Product product = fitnessProduct1;
         ProductVariant variant = ProductVariant.builder()
                 .product(product)
-                .sku("DUMBBELL-20KG-004")
-                .optionJson("{\"weight\":\"20kg\"}")
+                .optionText("weight: 20kg")
                 .stockQty(10)
                 .build();
         variant = productVariantRepository.save(variant);
@@ -507,8 +501,7 @@ class ProductRepositoryTest {
         Product product = fitnessProduct1;
         ProductVariant variant = ProductVariant.builder()
                 .product(product)
-                .sku("DUMBBELL-20KG-005")
-                .optionJson("{\"weight\":\"20kg\"}")
+                .optionText("weight: 20kg")
                 .stockQty(10)
                 .build();
         variant = productVariantRepository.save(variant);
@@ -536,8 +529,7 @@ class ProductRepositoryTest {
         Product product = fitnessProduct1;
         final ProductVariant variant = ProductVariant.builder()
                 .product(product)
-                .sku("DUMBBELL-20KG-006")
-                .optionJson("{\"weight\":\"20kg\"}")
+                .optionText("weight: 20kg")
                 .stockQty(5)
                 .build();
         productVariantRepository.save(variant);
@@ -558,14 +550,12 @@ class ProductRepositoryTest {
         Product product = fitnessProduct1;
         ProductVariant variant1 = ProductVariant.builder()
                 .product(product)
-                .sku("DUMBBELL-20KG-007")
-                .optionJson("{\"weight\":\"20kg\",\"color\":\"black\"}")
+                .optionText("weight: 20kg, color: black")
                 .stockQty(10)
                 .build();
         ProductVariant variant2 = ProductVariant.builder()
                 .product(product)
-                .sku("DUMBBELL-20KG-008")
-                .optionJson("{\"weight\":\"20kg\",\"color\":\"red\"}")
+                .optionText("weight: 20kg, color: red")
                 .stockQty(5)
                 .build();
         productVariantRepository.save(variant1);
@@ -578,34 +568,8 @@ class ProductRepositoryTest {
 
         // then
         assertThat(variants).hasSizeGreaterThanOrEqualTo(2);
-        assertThat(variants).extracting(ProductVariant::getSku)
-                .contains("DUMBBELL-20KG-007", "DUMBBELL-20KG-008");
-    }
-
-    @Test
-    @DisplayName("SKU로 Variant 조회")
-    void findVariantBySku() {
-        // given
-        if (fitnessProduct1 == null) {
-            createFitnessDummyData();
-        }
-        Product product = fitnessProduct1;
-        ProductVariant variant = ProductVariant.builder()
-                .product(product)
-                .sku("DUMBBELL-20KG-009")
-                .optionJson("{\"weight\":\"20kg\"}")
-                .stockQty(10)
-                .build();
-        variant = productVariantRepository.save(variant);
-        entityManager.flush();
-        entityManager.clear();
-
-        // when
-        Optional<ProductVariant> found = productVariantRepository.findBySku("DUMBBELL-20KG-009");
-
-        // then
-        assertThat(found).isPresent();
-        assertThat(found.get().getId()).isEqualTo(variant.getId());
+        assertThat(variants).extracting(ProductVariant::getOptionText)
+                .contains("weight: 20kg, color: black", "weight: 20kg, color: red");
     }
 
     // ========== Product와 Category 연결 테스트 ==========
@@ -635,7 +599,7 @@ class ProductRepositoryTest {
         entityManager.clear();
 
         // then
-        List<ProductCategory> productCategories = productCategoryRepository.findByProductId(product.getId());
+        List<ProductCategory> productCategories = productCategoryRepository.findById_ProductId(product.getId());
         assertThat(productCategories).hasSize(1);
         assertThat(productCategories.get(0).getCategory().getName()).isEqualTo("헬스용품");
         assertThat(productCategories.get(0).getCategory().getCategoryType()).isEqualTo(CategoryType.HEALTH_GOODS);

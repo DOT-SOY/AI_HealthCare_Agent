@@ -64,7 +64,7 @@ class ProductServiceTest {
                 .filter(m -> "test@example.com".equals(m.getEmail()))
                 .findFirst()
                 .orElse(null);
-        
+
         // 멤버가 없으면 생성하고 피트니스 관련 더미 데이터 생성
         if (testMember == null) {
             testMember = getOrCreateTestMember();
@@ -123,8 +123,7 @@ class ProductServiceTest {
         // 덤벨 Variant 추가
         ProductVariant variant1 = ProductVariant.builder()
                 .product(fitnessProduct1)
-                .sku("DUMBBELL-20KG-BLACK")
-                .optionJson("{\"weight\":\"20kg\",\"color\":\"black\"}")
+                .optionText("weight: 20kg, color: black")
                 .price(new BigDecimal("89000"))
                 .stockQty(10)
                 .active(true)
@@ -133,8 +132,7 @@ class ProductServiceTest {
 
         ProductVariant variant2 = ProductVariant.builder()
                 .product(fitnessProduct1)
-                .sku("DUMBBELL-20KG-RED")
-                .optionJson("{\"weight\":\"20kg\",\"color\":\"red\"}")
+                .optionText("weight: 20kg, color: red")
                 .price(new BigDecimal("95000"))
                 .stockQty(5)
                 .active(true)
@@ -181,7 +179,7 @@ class ProductServiceTest {
         assertThat(saved.getEmail()).isEqualTo("test@example.com");
         assertThat(saved.getName()).isEqualTo("테스트유저");
         assertThat(saved.getRoleList()).contains(MemberRole.ADMIN);
-        
+
         // testMember에 저장하여 다른 테스트에서 사용할 수 있도록 함
         testMember = saved;
     }
@@ -206,7 +204,7 @@ class ProductServiceTest {
                         return memberRepository.save(member);
                     });
         }
-        
+
         // 고유한 이름 사용 (이전 테스트 데이터와 충돌 방지)
         String uniqueName = "옵티멈 골드 스탠다드 휘핑 프로틴 2.27kg " + System.currentTimeMillis();
         ProductCreateRequest request = new ProductCreateRequest();
@@ -319,7 +317,7 @@ class ProductServiceTest {
         // then
         assertThat(result.getName()).isEqualTo(uniqueName);
         assertThat(result.getBasePrice()).isEqualByComparingTo(new BigDecimal("95000"));
-        
+
         // 실제 DB에서도 확인
         Product updated = productRepository.findByIdAndDeletedAtIsNull(fitnessProduct1.getId())
                 .orElseThrow();
@@ -436,9 +434,9 @@ class ProductServiceTest {
         Product product = fitnessProduct1;
         // 여러 개가 있을 수 있으므로 첫 번째만 가져옴
         ProductVariant variant = productVariantRepository.findAll().stream()
-                .filter(v -> "DUMBBELL-20KG-BLACK".equals(v.getSku()))
+                .filter(v -> "weight: 20kg, color: black".equals(v.getOptionText()))
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("DUMBBELL-20KG-BLACK variant를 찾을 수 없습니다"));
+                .orElseThrow(() -> new IllegalStateException("weight: 20kg, color: black variant를 찾을 수 없습니다"));
         int originalStock = variant.getStockQty();
 
         // when
@@ -460,9 +458,9 @@ class ProductServiceTest {
         }
         // 여러 개가 있을 수 있으므로 첫 번째만 가져옴
         ProductVariant variant = productVariantRepository.findAll().stream()
-                .filter(v -> "DUMBBELL-20KG-BLACK".equals(v.getSku()))
+                .filter(v -> "weight: 20kg, color: black".equals(v.getOptionText()))
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("DUMBBELL-20KG-BLACK variant를 찾을 수 없습니다"));
+                .orElseThrow(() -> new IllegalStateException("weight: 20kg, color: black variant를 찾을 수 없습니다"));
         int originalStock = variant.getStockQty();
 
         // when
@@ -485,8 +483,7 @@ class ProductServiceTest {
         Product product = fitnessProduct1; // basePrice = 89000
         ProductVariant variant = ProductVariant.builder()
                 .product(product)
-                .sku("DUMBBELL-20KG-NO-PRICE")
-                .optionJson("{\"weight\":\"20kg\"}")
+                .optionText("weight: 20kg")
                 .price(null) // variant 가격이 null
                 .stockQty(10)
                 .build();
@@ -509,8 +506,7 @@ class ProductServiceTest {
         Product product = fitnessProduct1; // basePrice = 89000
         ProductVariant variant = ProductVariant.builder()
                 .product(product)
-                .sku("DUMBBELL-20KG-WITH-PRICE")
-                .optionJson("{\"weight\":\"20kg\"}")
+                .optionText("weight: 20kg")
                 .price(new BigDecimal("95000")) // variant 가격이 있음
                 .stockQty(10)
                 .build();
@@ -534,8 +530,7 @@ class ProductServiceTest {
         // 비활성 Variant 추가
         ProductVariant inactiveVariant = ProductVariant.builder()
                 .product(product)
-                .sku("DUMBBELL-20KG-INACTIVE")
-                .optionJson("{\"weight\":\"20kg\",\"color\":\"blue\"}")
+                .optionText("weight: 20kg, color: blue")
                 .stockQty(0)
                 .active(false)
                 .build();

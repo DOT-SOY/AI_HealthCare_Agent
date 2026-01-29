@@ -4,7 +4,7 @@ const BasicLayout = ({ children }) => {
   return (
     <>
       <BasicMenu />
-      <div className="lg:ml-64">
+      <div className="lg:ml-44 app-main">
         <main>
           {children}
         </main>

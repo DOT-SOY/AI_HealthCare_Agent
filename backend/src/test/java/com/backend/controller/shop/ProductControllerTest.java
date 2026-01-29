@@ -87,8 +87,7 @@ class ProductControllerTest {
                         Member member = Member.builder()
                                 .email("test@example.com")
                                 .pw("password")
-                                .nickname("테스트유저")
-                                .social(false)
+                                .name("테스트유저")
                                 .build();
                         member.addRole(MemberRole.ADMIN);
                         return memberRepository.save(member);
@@ -126,8 +125,7 @@ class ProductControllerTest {
         // 덤벨 Variant 추가
         ProductVariant variant1 = ProductVariant.builder()
                 .product(fitnessProduct1)
-                .sku("DUMBBELL-20KG-BLACK")
-                .optionJson("{\"weight\":\"20kg\",\"color\":\"black\"}")
+                .optionText("weight: 20kg, color: black")
                 .price(new BigDecimal("89000"))
                 .stockQty(10)
                 .active(true)
@@ -161,8 +159,7 @@ class ProductControllerTest {
         Member member = Member.builder()
                 .email("test@example.com")
                 .pw("password")
-                .nickname("테스트유저")
-                .social(false)
+                .name("테스트유저")
                 .build();
         member.addRole(MemberRole.ADMIN);
 
@@ -172,7 +169,7 @@ class ProductControllerTest {
         // then
         assertThat(saved.getId()).isNotNull();
         assertThat(saved.getEmail()).isEqualTo("test@example.com");
-        assertThat(saved.getNickname()).isEqualTo("테스트유저");
+        assertThat(saved.getName()).isEqualTo("테스트유저");
         assertThat(saved.getRoleList()).contains(MemberRole.ADMIN);
         
         // testMember에 저장하여 다른 테스트에서 사용할 수 있도록 함
@@ -198,7 +195,7 @@ class ProductControllerTest {
         request.setBasePrice(new BigDecimal("45000"));
 
         // when & then
-        mockMvc.perform(post("/api/v1/products")
+        mockMvc.perform(post("/api/products")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andDo(print())
@@ -218,7 +215,7 @@ class ProductControllerTest {
         // name이 비어있음
 
         // when & then
-        mockMvc.perform(post("/api/v1/products")
+        mockMvc.perform(post("/api/products")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andDo(print())
@@ -234,7 +231,7 @@ class ProductControllerTest {
         }
 
         // when & then
-        mockMvc.perform(get("/api/v1/products/" + fitnessProduct1.getId()))
+        mockMvc.perform(get("/api/products/" + fitnessProduct1.getId()))
                 .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(fitnessProduct1.getId()))
@@ -249,7 +246,7 @@ class ProductControllerTest {
         // given - setUp()에서 생성된 데이터 사용
 
         // when & then
-        mockMvc.perform(get("/api/v1/products")
+        mockMvc.perform(get("/api/products")
                         .param("page", "1")
                         .param("page_size", "20"))
                 .andDo(print())
@@ -269,7 +266,7 @@ class ProductControllerTest {
         // fitnessProduct2: "나이키 요가 매트 프리미엄 10mm", 가격 125000 (조건에 맞음)
 
         // when & then - 덤벨 키워드로 검색 (가격 범위: 50000~150000)
-        mockMvc.perform(get("/api/v1/products")
+        mockMvc.perform(get("/api/products")
                         .param("page", "1")
                         .param("page_size", "20")
                         .param("keyword", "덤벨")
@@ -297,7 +294,7 @@ class ProductControllerTest {
         request.setBasePrice(new BigDecimal("95000"));
 
         // when & then
-        mockMvc.perform(patch("/api/v1/products/" + fitnessProduct1.getId())
+        mockMvc.perform(patch("/api/products/" + fitnessProduct1.getId())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andDo(print())
@@ -317,12 +314,12 @@ class ProductControllerTest {
         Long productId = fitnessProduct2.getId();
 
         // when & then
-        mockMvc.perform(delete("/api/v1/products/" + productId))
+        mockMvc.perform(delete("/api/products/" + productId))
                 .andDo(print())
                 .andExpect(status().isNoContent());
 
         // 삭제 후 조회 시 404가 나와야 함 (소프트 삭제)
-        mockMvc.perform(get("/api/v1/products/" + productId))
+        mockMvc.perform(get("/api/products/" + productId))
                 .andDo(print())
                 .andExpect(status().isNotFound());
     }
@@ -334,7 +331,7 @@ class ProductControllerTest {
         // fitnessProduct1과 fitnessProduct2는 모두 fitnessCategory에 연결됨
 
         // when & then - 카테고리 필터로 검색
-        mockMvc.perform(get("/api/v1/products")
+        mockMvc.perform(get("/api/products")
                         .param("page", "1")
                         .param("page_size", "20")
                         .param("categoryId", String.valueOf(fitnessCategory.getId())))
@@ -350,7 +347,7 @@ class ProductControllerTest {
         // given - setUp()에서 생성된 데이터 사용
 
         // when & then - 카테고리와 키워드 필터 조합
-        mockMvc.perform(get("/api/v1/products")
+        mockMvc.perform(get("/api/products")
                         .param("page", "1")
                         .param("page_size", "20")
                         .param("categoryId", String.valueOf(fitnessCategory.getId()))
