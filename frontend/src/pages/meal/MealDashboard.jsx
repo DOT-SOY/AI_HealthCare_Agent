@@ -79,7 +79,7 @@ const MealDashboard = () => {
         analysisComments: []
     };
 
-    return (
+  return (
         <div className="w-full min-h-screen flex flex-col bg-[#121212] text-white font-sans">
             <div className="p-4">
             <style>{`

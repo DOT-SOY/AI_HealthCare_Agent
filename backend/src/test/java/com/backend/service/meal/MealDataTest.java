@@ -2,23 +2,27 @@ package com.backend.service.meal;
 
 import com.backend.domain.meal.Meal;
 import com.backend.domain.meal.MealTarget;
+import com.backend.domain.member.Member;
 import com.backend.domain.memberinfo.MemberInfoBody;
 import com.backend.repository.meal.MealRepository;
 import com.backend.repository.meal.MealTargetRepository;
+import com.backend.repository.member.MemberRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Sort;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * meal_target과 meal_schedule 테이블에 2주치 샘플 데이터를 삽입하는 테스트
  * member_id = 9 사용
  */
 @SpringBootTest
+@SuppressWarnings("null")
 
 public class MealDataTest {
 
@@ -28,9 +32,25 @@ public class MealDataTest {
     @Autowired
     private MealRepository mealRepository;
 
+    @Autowired
+    private MemberRepository memberRepository;
+
+    private Long resolveMemberId() {
+        return memberRepository.findAll(Sort.by("id")).stream()
+                .filter(member -> !member.isDeleted())
+                .findFirst()
+                .map(Member::getId)
+                .orElseGet(() -> memberRepository.save(Member.builder()
+                        .email("dummy-" + UUID.randomUUID() + "@example.com")
+                        .pw("pw")
+                        .name("dummy-user")
+                        .gender(Member.Gender.MALE)
+                        .build()).getId());
+    }
+
     @Test
     public void insertMealDataFor2Weeks() {
-        Long memberId = 9L;
+        Long memberId = resolveMemberId();
         LocalDate today = LocalDate.now();
         
         // 2주치 데이터 생성 (오늘부터 과거 13일)
@@ -47,16 +67,21 @@ public class MealDataTest {
             int goalProtein = (int) (goalCal * 0.4 / 4);
             int goalFat = (int) (goalCal * 0.2 / 9); // 지방 1g = 9kcal
 
-            MealTarget target = MealTarget.builder()
-                    .userId(memberId)
-                    .targetDate(targetDate)
-                    .goalType(MemberInfoBody.ExercisePurpose.MAINTAIN)
-                    .goalCal(goalCal)
-                    .goalCarbs(goalCarbs)
-                    .goalProtein(goalProtein)
-                    .goalFat(goalFat)
-                    .build();
-            targets.add(target);
+            boolean hasTarget = mealTargetRepository
+                    .findByUserIdAndTargetDate(memberId, targetDate)
+                    .isPresent();
+            if (!hasTarget) {
+                MealTarget target = MealTarget.builder()
+                        .userId(memberId)
+                        .targetDate(targetDate)
+                        .goalType(MemberInfoBody.ExercisePurpose.MAINTAIN)
+                        .goalCal(goalCal)
+                        .goalCarbs(goalCarbs)
+                        .goalProtein(goalProtein)
+                        .goalFat(goalFat)
+                        .build();
+                targets.add(target);
+            }
 
             // 각 날짜마다 3끼 식사 (아침, 점심, 저녁)
             String[] mealTimes = {"BREAKFAST", "LUNCH", "DINNER"};
@@ -94,26 +119,32 @@ public class MealDataTest {
                     fat = cal / 18;
                 }
 
-                Meal meal = Meal.builder()
-                        .userId(memberId)
-                        .mealDate(targetDate)
-                        .mealTime(Meal.MealTime.valueOf(mealTimeStr))
-                        .status(Meal.MealStatus.EATEN)
-                        .isAdditional(false)
-                        .foodName(foodName)
-                        .servingSize("1인분")
-                        .calories(cal)
-                        .carbs(carbs)
-                        .protein(protein)
-                        .fat(fat)
-                        .originalFoodName(foodName)
-                        .originalServingSize("1인분")
-                        .originalCalories(cal)
-                        .originalCarbs(carbs)
-                        .originalProtein(protein)
-                        .originalFat(fat)
-                        .build();
-                meals.add(meal);
+                Meal.MealTime mealTime = Meal.MealTime.valueOf(mealTimeStr);
+                boolean hasMeal = mealRepository
+                        .findByUserIdAndMealDateAndMealTime(memberId, targetDate, mealTime)
+                        .isPresent();
+                if (!hasMeal) {
+                    Meal meal = Meal.builder()
+                            .userId(memberId)
+                            .mealDate(targetDate)
+                            .mealTime(mealTime)
+                            .status(Meal.MealStatus.EATEN)
+                            .isAdditional(false)
+                            .foodName(foodName)
+                            .servingSize("1인분")
+                            .calories(cal)
+                            .carbs(carbs)
+                            .protein(protein)
+                            .fat(fat)
+                            .originalFoodName(foodName)
+                            .originalServingSize("1인분")
+                            .originalCalories(cal)
+                            .originalCarbs(carbs)
+                            .originalProtein(protein)
+                            .originalFat(fat)
+                            .build();
+                    meals.add(meal);
+                }
             }
         }
 
