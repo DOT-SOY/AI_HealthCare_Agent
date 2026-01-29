@@ -15,15 +15,9 @@ const loadScript = (url, runId) =>
     script.src = url;
     script.async = true;
     script.onload = () => {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/5651dfb0-2c7c-4017-b85d-b8406355b1a9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CheckoutPage.jsx:script.onload',message:'script loaded',data:{url,runId},timestamp:Date.now(),sessionId:'debug-session',runId,hypothesisId:'fix-verify'})}).catch(()=>{});
-      // #endregion
       resolve(window.TossPayments);
     };
     script.onerror = () => {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/5651dfb0-2c7c-4017-b85d-b8406355b1a9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CheckoutPage.jsx:script.onerror',message:'script failed',data:{url,runId},timestamp:Date.now(),sessionId:'debug-session',runId,hypothesisId:'fix-verify'})}).catch(()=>{});
-      // #endregion
       reject(new Error(`Toss Payments 스크립트 로드 실패: ${url}`));
     };
     document.body.appendChild(script);
@@ -35,11 +29,6 @@ const loadTossScript = () => {
       resolve(window.TossPayments);
       return;
     }
-    // #region agent log
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const referrer = typeof document !== 'undefined' ? !!document.referrer : false;
-    fetch('http://127.0.0.1:7242/ingest/5651dfb0-2c7c-4017-b85d-b8406355b1a9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CheckoutPage.jsx:loadTossScript',message:'script load start',data:{scriptUrl:TOSS_V1_URL,origin,hasReferrer:referrer},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,C,E'})}).catch(()=>{});
-    // #endregion
     loadScript(TOSS_V1_URL, 'run')
       .then(resolve)
       .catch(() => {
@@ -74,14 +63,8 @@ const loadTossScript = () => {
                   });
                 },
               });
-              // #region agent log
-              fetch('http://127.0.0.1:7242/ingest/5651dfb0-2c7c-4017-b85d-b8406355b1a9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CheckoutPage.jsx:npmFallback',message:'npm fallback loaded',data:{runId:'post-fix'},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'fix-verify'})}).catch(()=>{});
-              // #endregion
               resolve(window.TossPayments);
             } catch (e) {
-              // #region agent log
-              fetch('http://127.0.0.1:7242/ingest/5651dfb0-2c7c-4017-b85d-b8406355b1a9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CheckoutPage.jsx:npmFallback',message:'npm fallback error',data:{err:String(e?.message||e),runId:'post-fix'},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'fix-verify'})}).catch(()=>{});
-              // #endregion
               reject(e);
             }
           });
@@ -137,38 +120,7 @@ const CheckoutPage = () => {
   }, [navigate]);
 
   useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/5651dfb0-2c7c-4017-b85d-b8406355b1a9', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sessionId: 'debug-session',
-        runId: 'initial',
-        hypothesisId: 'H2',
-        location: 'CheckoutPage.jsx:mount',
-        message: 'CheckoutPage mounted',
-        data: {},
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
-    return () => {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/5651dfb0-2c7c-4017-b85d-b8406355b1a9', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: 'debug-session',
-          runId: 'initial',
-          hypothesisId: 'H2',
-          location: 'CheckoutPage.jsx:unmount',
-          message: 'CheckoutPage unmounted',
-          data: {},
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
-    };
+    return () => {};
   }, []);
 
   const handleChange = (section, field, value) => {
@@ -180,25 +132,6 @@ const CheckoutPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/5651dfb0-2c7c-4017-b85d-b8406355b1a9', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sessionId: 'debug-session',
-        runId: 'initial',
-        hypothesisId: 'H1',
-        location: 'CheckoutPage.jsx:handleSubmit',
-        message: 'handleSubmit invoked',
-        data: {
-          checkoutPhase,
-          hasWidgetInstance: !!widgetInstanceRef.current,
-          hasWidgetOrderPayload: !!widgetOrderPayload,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     if (submitting) return;
 
     // 결제위젯 연동 키: 위젯 렌더 후 "결제하기" 두 번째 클릭 → requestPayment
@@ -267,30 +200,20 @@ const CheckoutPage = () => {
       // 결제위젯 연동 키(문서용 테스트키 gck): sdk.widgets() 사용. docs.tosspayments.com/guides/v2/payment-widget/integration
       if (sdk?.widgets && customerKey) {
         const hadPrevInstance = !!widgetInstanceRef.current;
-        const widgets = sdk.widgets({ customerKey });
-        await widgets.setAmount({ currency: 'KRW', value: amountNumber });
-        await widgets.renderPaymentMethods({ selector: '#toss-payment-method' });
-        await widgets.renderAgreement({ selector: '#toss-agreement' });
-        widgetInstanceRef.current = widgets;
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/5651dfb0-2c7c-4017-b85d-b8406355b1a9', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sessionId: 'debug-session',
-            runId: 'initial',
-            hypothesisId: 'H1',
-            location: 'CheckoutPage.jsx:widgets-init',
-            message: 'widgets instance created and rendered',
-            data: {
-              hadPrevInstance,
-              customerKey,
-              amountNumber,
-            },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
+        let widgets = widgetInstanceRef.current;
+        try {
+          if (!widgets) {
+            widgets = sdk.widgets({ customerKey });
+          }
+          await widgets.setAmount({ currency: 'KRW', value: amountNumber });
+          if (!hadPrevInstance) {
+            await widgets.renderPaymentMethods({ selector: '#toss-payment-method' });
+            await widgets.renderAgreement({ selector: '#toss-agreement' });
+          }
+          widgetInstanceRef.current = widgets;
+        } catch (err) {
+          throw err;
+        }
         setWidgetOrderPayload({
           orderId: orderIdStr,
           orderName,
@@ -499,27 +422,8 @@ const CheckoutPage = () => {
             type="button"
             onClick={() => {
               if (checkoutPhase === 'widget_ready') {
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/5651dfb0-2c7c-4017-b85d-b8406355b1a9', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    sessionId: 'debug-session',
-                    runId: 'initial',
-                    hypothesisId: 'H3',
-                    location: 'CheckoutPage.jsx:resetPaymentMethod',
-                    message: 'reset payment method clicked',
-                    data: {
-                      hadWidgetInstance: !!widgetInstanceRef.current,
-                      checkoutPhase,
-                    },
-                    timestamp: Date.now(),
-                  }),
-                }).catch(() => {});
-                // #endregion
                 setCheckoutPhase('form');
                 setWidgetOrderPayload(null);
-                widgetInstanceRef.current = null;
               } else {
                 navigate(-1);
               }
