@@ -29,8 +29,8 @@ public class AiMealClient {
 
     private final WebClient webClient;
 
-    @Value("${ai.server.url:http://localhost:8000}/api/meal")
-    private String aiServerUrl;
+    @Value("${ai.server.base-url:http://localhost:8000}")
+    private String aiServerBaseUrl;
 
     /**
      * AI 서버로 비동기 요청을 보내고 CompletableFuture로 응답을 반환합니다.
@@ -49,7 +49,7 @@ public class AiMealClient {
         // WebClient의 Mono를 CompletableFuture로 변환
         return webClient
                 .post()
-                .uri(aiServerUrl + "/analyze")
+                .uri(aiServerBaseUrl + "/api/meal/analyze")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .retrieve()

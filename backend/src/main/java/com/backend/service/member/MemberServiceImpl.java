@@ -5,6 +5,8 @@ import com.backend.common.exception.ErrorCode;
 import com.backend.domain.member.Member;
 import com.backend.dto.member.MemberDTO;
 import com.backend.dto.member.MemberModifyDTO;
+import com.backend.dto.memberinfo.MemberInfoBodyDTO;
+import com.backend.service.memberinfo.MemberInfoBodyService;
 import com.backend.repository.member.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -22,6 +24,7 @@ public class MemberServiceImpl implements MemberService {
 
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
+    private final MemberInfoBodyService memberInfoBodyService;
 
     @Override
     public Long join(MemberDTO memberDTO) {
@@ -36,6 +39,13 @@ public class MemberServiceImpl implements MemberService {
 
         // 3. DB 저장
         memberRepository.save(member);
+
+        // 4. 회원가입 시점의 기본 신체 정보 저장 (member_info_body)
+        MemberInfoBodyDTO bodyDto = MemberInfoBodyDTO.builder()
+                .height(memberDTO.getHeight() != null ? memberDTO.getHeight().doubleValue() : null)
+                .weight(memberDTO.getWeight())
+                .build();
+        memberInfoBodyService.create(member.getId(), bodyDto);
 
         return member.getId();
     }

@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback } from 'react';
 import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
 import { getCookie } from '../util/cookieUtil';
 
 // 모듈 레벨에서 마지막 리뷰 알림을 기억하여 중복 수신 방지
@@ -115,7 +116,7 @@ export function useWebSocket() {
     try {
       isConnectingRef.current = true;
       const client = new Client({
-        brokerURL: 'ws://localhost:8080/ws',
+        webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
         reconnectDelay: 0, // 자동 재연결 비활성화
         heartbeatIncoming: 0, // heartbeat 비활성화 (이벤트 기반이므로 불필요)
         heartbeatOutgoing: 0, // heartbeat 비활성화

@@ -4,7 +4,7 @@
 /backend/build/
 /backend/.gradle/
 **/*.log
-
+python/
 
 /backend/node_modules/
 temp_meal_check.txt
