@@ -32,7 +32,6 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-aop'
-    
     // [추가] AI 서버 통신 및 실시간 알림용
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
     implementation 'io.projectreactor.netty:reactor-netty'

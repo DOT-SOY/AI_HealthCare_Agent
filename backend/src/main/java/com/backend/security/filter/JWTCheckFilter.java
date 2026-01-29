@@ -38,9 +38,17 @@ public class JWTCheckFilter extends OncePerRequestFilter{
 
         String path = request.getRequestURI();
 
+        // WebSocket 핸드셰이크는 JWT 필터를 우회 (STOMP CONNECT 단계에서 인증 처리)
+        // WebSocket 핸드셰이크는 HTTP 요청이지만, STOMP.js는 CONNECT 프레임에서 헤더를 전달하므로
+        // 핸드셰이크 단계에서는 필터를 우회하고, 실제 인증은 WebSocket 메시지 핸들러에서 처리
+        if (path.startsWith("/ws")) {
+            log.debug("WebSocket 핸드셰이크 요청 - JWT 필터 우회: {}", path);
+            return true;
+        }
+
         log.info("check uri......................."+path);
 
-        // “로그인 안 한 사용자도 접근 가능한 API”만 JWT 체크 안 함 (최소 예외)
+        // "로그인 안 한 사용자도 접근 가능한 API"만 JWT 체크 안 함 (최소 예외)
         if (path.equals("/api/member/login") ||
                 path.equals("/api/member/join") ||
                 path.equals("/api/member/refresh") ||
