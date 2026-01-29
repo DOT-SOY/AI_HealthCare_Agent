@@ -136,6 +136,41 @@ const CheckoutPage = () => {
     }
   }, [navigate]);
 
+  useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/5651dfb0-2c7c-4017-b85d-b8406355b1a9', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: 'debug-session',
+        runId: 'initial',
+        hypothesisId: 'H2',
+        location: 'CheckoutPage.jsx:mount',
+        message: 'CheckoutPage mounted',
+        data: {},
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+    return () => {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/5651dfb0-2c7c-4017-b85d-b8406355b1a9', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: 'debug-session',
+          runId: 'initial',
+          hypothesisId: 'H2',
+          location: 'CheckoutPage.jsx:unmount',
+          message: 'CheckoutPage unmounted',
+          data: {},
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
+    };
+  }, []);
+
   const handleChange = (section, field, value) => {
     setForm((prev) => ({
       ...prev,
@@ -145,6 +180,25 @@ const CheckoutPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/5651dfb0-2c7c-4017-b85d-b8406355b1a9', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: 'debug-session',
+        runId: 'initial',
+        hypothesisId: 'H1',
+        location: 'CheckoutPage.jsx:handleSubmit',
+        message: 'handleSubmit invoked',
+        data: {
+          checkoutPhase,
+          hasWidgetInstance: !!widgetInstanceRef.current,
+          hasWidgetOrderPayload: !!widgetOrderPayload,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
     if (submitting) return;
 
     // 결제위젯 연동 키: 위젯 렌더 후 "결제하기" 두 번째 클릭 → requestPayment
@@ -212,11 +266,31 @@ const CheckoutPage = () => {
 
       // 결제위젯 연동 키(문서용 테스트키 gck): sdk.widgets() 사용. docs.tosspayments.com/guides/v2/payment-widget/integration
       if (sdk?.widgets && customerKey) {
+        const hadPrevInstance = !!widgetInstanceRef.current;
         const widgets = sdk.widgets({ customerKey });
         await widgets.setAmount({ currency: 'KRW', value: amountNumber });
         await widgets.renderPaymentMethods({ selector: '#toss-payment-method' });
         await widgets.renderAgreement({ selector: '#toss-agreement' });
         widgetInstanceRef.current = widgets;
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/5651dfb0-2c7c-4017-b85d-b8406355b1a9', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: 'debug-session',
+            runId: 'initial',
+            hypothesisId: 'H1',
+            location: 'CheckoutPage.jsx:widgets-init',
+            message: 'widgets instance created and rendered',
+            data: {
+              hadPrevInstance,
+              customerKey,
+              amountNumber,
+            },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+        // #endregion
         setWidgetOrderPayload({
           orderId: orderIdStr,
           orderName,
@@ -425,6 +499,24 @@ const CheckoutPage = () => {
             type="button"
             onClick={() => {
               if (checkoutPhase === 'widget_ready') {
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/5651dfb0-2c7c-4017-b85d-b8406355b1a9', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    sessionId: 'debug-session',
+                    runId: 'initial',
+                    hypothesisId: 'H3',
+                    location: 'CheckoutPage.jsx:resetPaymentMethod',
+                    message: 'reset payment method clicked',
+                    data: {
+                      hadWidgetInstance: !!widgetInstanceRef.current,
+                      checkoutPhase,
+                    },
+                    timestamp: Date.now(),
+                  }),
+                }).catch(() => {});
+                // #endregion
                 setCheckoutPhase('form');
                 setWidgetOrderPayload(null);
                 widgetInstanceRef.current = null;

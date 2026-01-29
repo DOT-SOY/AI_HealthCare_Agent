@@ -155,5 +155,12 @@ public class Order extends AuditEntity {
         this.shipToSnapshot = snapshot;
         snapshot.setOrder(this);
     }
+
+    /** 배송지 수정 가능 여부: SHIPPED/DELIVERED/CANCELED 이후에는 수정 불가 */
+    public boolean isShippedOrLater() {
+        return this.status == OrderStatus.SHIPPED
+                || this.status == OrderStatus.DELIVERED
+                || this.status == OrderStatus.CANCELED;
+    }
 }
 

@@ -88,6 +88,26 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 리소스를 찾을 수 없을 때 예외 처리
+     */
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleResourceNotFoundException(
+            ResourceNotFoundException e, HttpServletRequest request) {
+        log.warn("ResourceNotFoundException: {}", e.getMessage());
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .error(ErrorCode.MEMBER_NOT_FOUND.getCode())
+                .message(e.getMessage())
+                .timestamp(Instant.now().toString())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(errorResponse);
+    }
+
+    /**
      * @Valid 검증 실패 예외 처리 (JSON 요청)
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)

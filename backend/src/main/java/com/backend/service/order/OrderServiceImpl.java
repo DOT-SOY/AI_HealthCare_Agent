@@ -222,5 +222,29 @@ public class OrderServiceImpl implements OrderService {
 
         return OrderDetailResponse.from(order);
     }
+
+    @Override
+    @Transactional
+    public void updateShipToForMember(String orderNo, Long memberId, OrderCreateFromCartRequest.ShipToDto shipToDto) {
+        Order order = orderRepository.findWithDetailsByOrderNo(orderNo)
+                .orElseThrow(() -> new BusinessException(ErrorCode.SHOP_ORDER_NOT_FOUND, orderNo));
+
+        if (order.getMember() == null || !order.getMember().getId().equals(memberId)) {
+            throw new BusinessException(ErrorCode.SHOP_ORDER_ACCESS_DENIED, orderNo);
+        }
+
+        if (order.isShippedOrLater()) {
+            throw new BusinessException(ErrorCode.SHOP_ORDER_SHIPTO_UPDATE_NOT_ALLOWED, orderNo);
+        }
+
+        OrderShipToSnapshot shipTo = order.getShipToSnapshot();
+        shipTo.update(
+                shipToDto.getRecipientName(),
+                shipToDto.getRecipientPhone(),
+                shipToDto.getZipcode(),
+                shipToDto.getAddress1(),
+                shipToDto.getAddress2()
+        );
+    }
 }
 

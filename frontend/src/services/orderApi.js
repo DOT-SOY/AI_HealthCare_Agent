@@ -83,3 +83,15 @@ export const getMyOrders = async (params = {}) => {
 export const getOrderDetail = async (orderNo) => {
   return await fetchAPI(`/orders/${encodeURIComponent(orderNo)}`);
 };
+
+/**
+ * 회원 주문 배송지 수정
+ * @param {string} orderNo - 주문번호
+ * @param {object} body - { recipientName, recipientPhone, zipcode, address1, address2 }
+ */
+export const updateOrderShipTo = async (orderNo, body) => {
+  return await fetchAPI(`/orders/${encodeURIComponent(orderNo)}/ship-to`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+};

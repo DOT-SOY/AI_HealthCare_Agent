@@ -29,5 +29,10 @@ public interface OrderService {
      * 비회원 주문 조회
      */
     OrderDetailResponse getOrderDetailForGuest(String orderNo, String guestPhone, String guestPassword);
+
+    /**
+     * 회원 주문 배송지 스냅샷 수정
+     */
+    void updateShipToForMember(String orderNo, Long memberId, OrderCreateFromCartRequest.ShipToDto shipToDto);
 }
 
