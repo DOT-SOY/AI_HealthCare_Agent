@@ -1,4 +1,5 @@
 import { useState, createContext, useContext, useCallback, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import BasicLayout from './BasicLayout';
 import FloatingCartButton from '../cart/FloatingCartButton';
 import CartDrawer from '../cart/CartDrawer';
@@ -18,6 +19,7 @@ export const useCart = () => {
 const emptyCart = { cartId: null, isGuest: true, items: [], totals: { itemCount: 0, totalQty: 0, totalPrice: 0 } };
 
 const ShopLayout = ({ children }) => {
+  const location = useLocation();
   const [cartState, setCartState] = useState(emptyCart);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [animateButton, setAnimateButton] = useState(false);
@@ -83,6 +85,8 @@ const ShopLayout = ({ children }) => {
   const items = Array.isArray(cartState.items) ? cartState.items : [];
   const totalItemCount = items.reduce((sum, item) => sum + (Number(item?.qty) || 0), 0);
 
+  const isCheckoutPage = location.pathname.startsWith('/shop/checkout');
+
   const cartContextValue = {
     cartItems: items,
     addToCart,
@@ -103,20 +107,24 @@ const ShopLayout = ({ children }) => {
           </div>
         </div>
 
-        <FloatingCartButton
-          itemCount={totalItemCount}
-          onClick={() => setIsDrawerOpen((v) => !v)}
-          animate={animateButton}
-        />
+        {!isCheckoutPage && (
+          <>
+            <FloatingCartButton
+              itemCount={totalItemCount}
+              onClick={() => setIsDrawerOpen((v) => !v)}
+              animate={animateButton}
+            />
 
-        <CartDrawer
-          isOpen={isDrawerOpen}
-          onClose={() => setIsDrawerOpen(false)}
-          cartItems={items}
-          totals={cartState.totals}
-          onUpdateQty={updateQty}
-          onRemoveItem={removeItem}
-        />
+            <CartDrawer
+              isOpen={isDrawerOpen}
+              onClose={() => setIsDrawerOpen(false)}
+              cartItems={items}
+              totals={cartState.totals}
+              onUpdateQty={updateQty}
+              onRemoveItem={removeItem}
+            />
+          </>
+        )}
       </BasicLayout>
     </CartContext.Provider>
   );

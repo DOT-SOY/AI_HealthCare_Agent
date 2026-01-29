@@ -1,11 +1,14 @@
 package com.backend.controller.cart;
 
+import com.backend.common.exception.BusinessException;
+import com.backend.common.exception.ErrorCode;
+import com.backend.domain.member.Member;
 import com.backend.dto.cart.request.CartItemAddRequest;
 import com.backend.dto.cart.request.CartItemUpdateRequest;
 import com.backend.dto.cart.response.CartResponse;
-import com.backend.repository.member.MemberRepository;
 import com.backend.service.cart.CartKey;
 import com.backend.service.cart.CartService;
+import com.backend.service.member.CurrentMemberService;
 import com.backend.util.CookieUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -24,7 +27,7 @@ public class CartController {
 
     private final CartService cartService;
     private final CookieUtil cookieUtil;
-    private final MemberRepository memberRepository;
+    private final CurrentMemberService currentMemberService;
 
     /**
      * 장바구니 조회
@@ -140,22 +143,15 @@ public class CartController {
     public ResponseEntity<CartResponse> mergeCart(
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
-        // JWT 인증 필수 확인
-        org.springframework.security.core.Authentication authentication = 
-                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-        
-        if (authentication == null || !authentication.isAuthenticated() 
-                || !(authentication.getPrincipal() instanceof String)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        
-        // 회원 정보 조회
-        String email = (String) authentication.getPrincipal();
-        var member = memberRepository.findByEmail(email)
-                .orElse(null);
-        
-        if (member == null || member.isDeleted()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        // JWT 인증 필수 확인 + 회원 조회는 CurrentMemberService 를 통해 수행
+        final Member member;
+        try {
+            member = currentMemberService.getCurrentMemberOrThrow();
+        } catch (BusinessException e) {
+            if (e.getErrorCode() == ErrorCode.JWT_ERROR || e.getErrorCode() == ErrorCode.MEMBER_NOT_FOUND) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            throw e;
         }
         
         // 게스트 토큰 읽기
@@ -182,23 +178,23 @@ public class CartController {
      * - cartId는 getCart 호출 후 응답에서만 알 수 있으므로 getCart() 내부에서 별도 로그.
      */
     private CartKey resolveCartKey(HttpServletRequest request, HttpServletResponse response) {
-        org.springframework.security.core.Authentication authentication =
-                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        String guestToken = cookieUtil.getGuestToken(request);
 
         String principal = null;
         Long memberId = null;
-        String guestToken = cookieUtil.getGuestToken(request);
 
-        if (authentication != null && authentication.isAuthenticated()
-                && authentication.getPrincipal() instanceof String) {
-            principal = (String) authentication.getPrincipal();
-            var member = memberRepository.findByEmail(principal).orElse(null);
-            if (member != null && !member.isDeleted()) {
-                memberId = member.getId();
-                CartKey key = CartKey.ofMember(memberId);
-                log.info("resolveCartKey: principal={}, memberId={}, guestToken=ignored, cartKey=member:{}",
-                        principal, memberId, memberId);
-                return key;
+        try {
+            Member member = currentMemberService.getCurrentMemberOrThrow();
+            memberId = member.getId();
+            principal = member.getEmail();
+            CartKey key = CartKey.ofMember(memberId);
+            log.info("resolveCartKey: principal={}, memberId={}, guestToken=ignored, cartKey=member:{}",
+                    principal, memberId, memberId);
+            return key;
+        } catch (BusinessException e) {
+            // JWT 미인증 또는 회원 없음/삭제 등은 게스트 플로우로 처리
+            if (e.getErrorCode() != ErrorCode.JWT_ERROR && e.getErrorCode() != ErrorCode.MEMBER_NOT_FOUND) {
+                throw e;
             }
         }
 

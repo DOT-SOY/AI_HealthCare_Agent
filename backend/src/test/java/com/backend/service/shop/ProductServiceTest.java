@@ -86,7 +86,6 @@ class ProductServiceTest {
                                 .pw("password")
                                 .name("테스트유저")
 
-
                                 .build();
                         member.addRole(MemberRole.ADMIN);
                         return memberRepository.save(member);
@@ -124,7 +123,6 @@ class ProductServiceTest {
         // 덤벨 Variant 추가
         ProductVariant variant1 = ProductVariant.builder()
                 .product(fitnessProduct1)
-                .sku("DUMBBELL-20KG-BLACK")
                 .optionText("weight: 20kg, color: black")
                 .price(new BigDecimal("89000"))
                 .stockQty(10)
@@ -134,7 +132,6 @@ class ProductServiceTest {
 
         ProductVariant variant2 = ProductVariant.builder()
                 .product(fitnessProduct1)
-                .sku("DUMBBELL-20KG-RED")
                 .optionText("weight: 20kg, color: red")
                 .price(new BigDecimal("95000"))
                 .stockQty(5)
@@ -170,6 +167,7 @@ class ProductServiceTest {
                 .email("test@example.com")
                 .pw("password")
                 .name("테스트유저")
+
                 .build();
         member.addRole(MemberRole.ADMIN);
 
@@ -200,6 +198,7 @@ class ProductServiceTest {
                                 .email("test@example.com")
                                 .pw("password")
                                 .name("테스트유저")
+
                                 .build();
                         member.addRole(MemberRole.ADMIN);
                         return memberRepository.save(member);
@@ -435,9 +434,9 @@ class ProductServiceTest {
         Product product = fitnessProduct1;
         // 여러 개가 있을 수 있으므로 첫 번째만 가져옴
         ProductVariant variant = productVariantRepository.findAll().stream()
-                .filter(v -> "DUMBBELL-20KG-BLACK".equals(v.getSku()))
+                .filter(v -> "weight: 20kg, color: black".equals(v.getOptionText()))
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("DUMBBELL-20KG-BLACK variant를 찾을 수 없습니다"));
+                .orElseThrow(() -> new IllegalStateException("weight: 20kg, color: black variant를 찾을 수 없습니다"));
         int originalStock = variant.getStockQty();
 
         // when
@@ -459,9 +458,9 @@ class ProductServiceTest {
         }
         // 여러 개가 있을 수 있으므로 첫 번째만 가져옴
         ProductVariant variant = productVariantRepository.findAll().stream()
-                .filter(v -> "DUMBBELL-20KG-BLACK".equals(v.getSku()))
+                .filter(v -> "weight: 20kg, color: black".equals(v.getOptionText()))
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("DUMBBELL-20KG-BLACK variant를 찾을 수 없습니다"));
+                .orElseThrow(() -> new IllegalStateException("weight: 20kg, color: black variant를 찾을 수 없습니다"));
         int originalStock = variant.getStockQty();
 
         // when
@@ -484,7 +483,6 @@ class ProductServiceTest {
         Product product = fitnessProduct1; // basePrice = 89000
         ProductVariant variant = ProductVariant.builder()
                 .product(product)
-                .sku("DUMBBELL-20KG-NO-PRICE")
                 .optionText("weight: 20kg")
                 .price(null) // variant 가격이 null
                 .stockQty(10)
@@ -508,7 +506,6 @@ class ProductServiceTest {
         Product product = fitnessProduct1; // basePrice = 89000
         ProductVariant variant = ProductVariant.builder()
                 .product(product)
-                .sku("DUMBBELL-20KG-WITH-PRICE")
                 .optionText("weight: 20kg")
                 .price(new BigDecimal("95000")) // variant 가격이 있음
                 .stockQty(10)
@@ -533,7 +530,6 @@ class ProductServiceTest {
         // 비활성 Variant 추가
         ProductVariant inactiveVariant = ProductVariant.builder()
                 .product(product)
-                .sku("DUMBBELL-20KG-INACTIVE")
                 .optionText("weight: 20kg, color: blue")
                 .stockQty(0)
                 .active(false)

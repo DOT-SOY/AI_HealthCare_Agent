@@ -3,22 +3,13 @@ package com.backend.domain;
 import jakarta.persistence.Column;
 import jakarta.persistence.MappedSuperclass;
 import lombok.Getter;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.Instant;
 
+/** created_at, updated_at, deleted_at + 소프트 삭제 (deleted_at 사용 엔티티용) */
 @MappedSuperclass
 @Getter
-public abstract class BaseEntity {
-
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private Instant createdAt;
-
-    @UpdateTimestamp
-    @Column(name = "updated_at", nullable = false)
-    private Instant updatedAt;
+public abstract class BaseEntity extends AuditEntity {
 
     @Column(name = "deleted_at")
     private Instant deletedAt;
