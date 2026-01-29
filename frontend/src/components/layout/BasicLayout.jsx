@@ -2,6 +2,8 @@ import BasicMenu from "../menu/BasicMenu";
 import { Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logout } from "../../slices/loginSlice";
+import AIChatOverlay from '../../pages/AIChatOverlay';
+import ResetStyles from '../common/ResetStyles';
 
 const BasicLayout = ({ children }) => {
   const dispatch = useDispatch();
@@ -43,6 +45,7 @@ const BasicLayout = ({ children }) => {
           {children}
         </main>
       </div>
+      <AIChatOverlay />
     </>
   );
 };
