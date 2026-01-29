@@ -4,6 +4,7 @@ import com.backend.domain.payment.Payment;
 import com.backend.domain.payment.PaymentStatus;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
