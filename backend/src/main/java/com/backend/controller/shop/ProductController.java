@@ -31,6 +31,15 @@ public class ProductController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ProductResponse> create(
             @Valid @RequestBody ProductCreateRequest request) {
+        // #region agent log
+        try {
+            java.nio.file.Files.writeString(
+                    java.nio.file.Paths.get("c:\\Users\\EZEN\\Downloads\\healthcare\\.cursor\\debug.log"),
+                    "{\"sessionId\":\"debug-session\",\"runId\":\"pre-fix\",\"hypothesisId\":\"H1\",\"location\":\"ProductController.create\",\"message\":\"enter create\",\"data\":{},\"timestamp\":" + System.currentTimeMillis() + "}\n",
+                    java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND
+            );
+        } catch (Exception ignored) {}
+        // #endregion
         // TODO: 추후 JWT에서 사용자 ID 추출
         // @AuthenticationPrincipal Long userId
         Long createdBy = 1L; // 임시 값
@@ -64,6 +73,15 @@ public class ProductController {
     public ResponseEntity<ProductResponse> update(
             @PathVariable Long id,
             @Valid @RequestBody ProductUpdateRequest request) {
+        // #region agent log
+        try {
+            java.nio.file.Files.writeString(
+                    java.nio.file.Paths.get("c:\\Users\\EZEN\\Downloads\\healthcare\\.cursor\\debug.log"),
+                    "{\"sessionId\":\"debug-session\",\"runId\":\"pre-fix\",\"hypothesisId\":\"H1\",\"location\":\"ProductController.update\",\"message\":\"enter update\",\"data\":{\"id\":" + id + "},\"timestamp\":" + System.currentTimeMillis() + "}\n",
+                    java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND
+            );
+        } catch (Exception ignored) {}
+        // #endregion
         ProductResponse response = productService.update(id, request);
         return ResponseEntity.ok(response);
     }
@@ -73,6 +91,15 @@ public class ProductController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
+        // #region agent log
+        try {
+            java.nio.file.Files.writeString(
+                    java.nio.file.Paths.get("c:\\Users\\EZEN\\Downloads\\healthcare\\.cursor\\debug.log"),
+                    "{\"sessionId\":\"debug-session\",\"runId\":\"pre-fix\",\"hypothesisId\":\"H1\",\"location\":\"ProductController.delete\",\"message\":\"enter delete\",\"data\":{\"id\":" + id + "},\"timestamp\":" + System.currentTimeMillis() + "}\n",
+                    java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND
+            );
+        } catch (Exception ignored) {}
+        // #endregion
         productService.delete(id);
         return ResponseEntity.noContent().build();
     }

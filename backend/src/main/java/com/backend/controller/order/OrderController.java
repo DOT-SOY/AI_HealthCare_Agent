@@ -1,9 +1,12 @@
 package com.backend.controller.order;
 
+import com.backend.common.dto.PageResponse;
 import com.backend.dto.order.request.OrderCreateFromCartRequest;
 import com.backend.dto.order.request.OrderGuestLookupRequest;
+import com.backend.dto.order.request.OrderListRequest;
 import com.backend.dto.order.response.OrderCreateFromCartResponse;
 import com.backend.dto.order.response.OrderDetailResponse;
+import com.backend.dto.order.response.OrderSummaryResponse;
 import com.backend.dto.payment.response.PaymentReadyResponse;
 import com.backend.service.payment.PaymentService;
 import com.backend.service.order.OrderService;
@@ -33,6 +36,17 @@ public class OrderController {
             @Valid @RequestBody OrderCreateFromCartRequest request) {
         var member = currentMemberService.getCurrentMemberOrThrow();
         OrderCreateFromCartResponse response = orderService.createOrderFromCart(member.getId(), request);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 회원 본인 주문 목록 조회 (페이지네이션, 기간·상태 필터). JWT 인증 필수.
+     */
+    @GetMapping("/me")
+    public ResponseEntity<PageResponse<OrderSummaryResponse>> getMyOrders(
+            @Valid @ModelAttribute OrderListRequest request) {
+        var member = currentMemberService.getCurrentMemberOrThrow();
+        PageResponse<OrderSummaryResponse> response = orderService.getMyOrders(member.getId(), request);
         return ResponseEntity.ok(response);
     }
 

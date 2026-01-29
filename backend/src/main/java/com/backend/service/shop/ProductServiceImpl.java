@@ -21,6 +21,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.support.PageableExecutionUtils;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -99,7 +101,20 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public PageResponse<ProductResponse> findAll(PageRequest pageRequest, ProductSearchRequest searchRequest) {
-        Page<Product> products = productSearch.search(searchRequest.toCondition(), pageRequest.toPageable());
+        boolean isAdmin = isCurrentUserAdmin();
+        ProductSearchCondition condition = isAdmin
+                ? searchRequest.toCondition()
+                : ProductSearchCondition.builder()
+                        .keyword(searchRequest.getKeyword())
+                        .categoryId(searchRequest.getCategoryId())
+                        .minPrice(searchRequest.getMinPrice())
+                        .maxPrice(searchRequest.getMaxPrice())
+                        .status(ProductStatus.ACTIVE)
+                        .sortBy(searchRequest.getSortBy())
+                        .direction(searchRequest.getDirection())
+                        .excludeOutOfStock(true)
+                        .build();
+        Page<Product> products = productSearch.search(condition, pageRequest.toPageable());
         List<Product> content = products.getContent();
 
         if (content.isEmpty()) {
@@ -135,6 +150,15 @@ public class ProductServiceImpl implements ProductService {
         );
 
         return PageResponse.of(responsePage, pageRequest.getPage());
+    }
+
+    private boolean isCurrentUserAdmin() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || auth.getAuthorities() == null) {
+            return false;
+        }
+        return auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
     }
 
     @Override

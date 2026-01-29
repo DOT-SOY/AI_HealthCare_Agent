@@ -60,6 +60,16 @@ public class CustomSecurityConfig {
 
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, authException) -> {
+                            // #region agent log
+                            try {
+                                java.nio.file.Files.writeString(
+                                        java.nio.file.Paths.get("c:\\Users\\EZEN\\Downloads\\healthcare\\.cursor\\debug.log"),
+                                        "{\"sessionId\":\"debug-session\",\"runId\":\"pre-fix\",\"hypothesisId\":\"H1\",\"location\":\"CustomSecurityConfig.filterChain:authenticationEntryPoint\",\"message\":\"unauthorized\",\"data\":{\"path\":\"" + request.getRequestURI() + "\",\"method\":\"" + request.getMethod() + "\"},\"timestamp\":" + System.currentTimeMillis() + "}\n",
+                                        java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND
+                                );
+                            } catch (Exception ignored) {}
+                            // #endregion
+
                             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                             response.setContentType("application/json; charset=UTF-8");
                             response.setCharacterEncoding("UTF-8");

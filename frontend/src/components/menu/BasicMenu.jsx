@@ -49,12 +49,17 @@ const UserIcon = ({ className }) => (
 const BasicMenu = () => {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [shopDropdownOpen, setShopDropdownOpen] = useState(false);
+  const [shopMobileOpen, setShopMobileOpen] = useState(false);
   const dispatch = useDispatch();
   const loginState = useSelector((state) => state.loginSlice);
   const isLogin = !!loginState?.email;
 
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
-  const closeMobileMenu = () => setIsMobileMenuOpen(false);
+  const closeMobileMenu = () => {
+    setIsMobileMenuOpen(false);
+    setShopMobileOpen(false);
+  };
   const handleClickLogout = async () => {
     await dispatch(logout());
     closeMobileMenu();
@@ -65,7 +70,15 @@ const BasicMenu = () => {
     { icon: ClockIcon, label: "루틴", path: "/routine" },
     { icon: FileTextIcon, label: "기록", path: "/record" },
     { icon: UtensilsIcon, label: "식사", path: "/meal" },
-    { icon: ShoppingBagIcon, label: "쇼핑", path: "/shop" },
+    {
+      icon: ShoppingBagIcon,
+      label: "쇼핑",
+      path: "/shop",
+      children: [
+        { label: "상품 목록", path: "/shop/list" },
+        { label: "내 주문 내역", path: "/shop/orders" },
+      ],
+    },
     { icon: StarIcon, label: "랭킹", path: "/ranking" },
     { icon: UserIcon, label: "프로필", path: "/profile" },
   ];
@@ -104,6 +117,40 @@ const BasicMenu = () => {
         <nav className="flex-1 p-4 space-y-2">
           {menuItems.map((item) => {
             const Icon = item.icon;
+            if (item.children) {
+              return (
+                <div
+                  key={item.path}
+                  onMouseEnter={() => setShopDropdownOpen(true)}
+                  onMouseLeave={() => setShopDropdownOpen(false)}
+                >
+                  <Link
+                    to={item.path}
+                    className={getMenuClass(item.path)}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span>{item.label}</span>
+                  </Link>
+                  {shopDropdownOpen && (
+                    <div className="pl-4 mt-1 space-y-1 border-l-2 border-gray-200 ml-4">
+                      {item.children.map((child) => (
+                        <Link
+                          key={child.path}
+                          to={child.path}
+                          className={`block px-3 py-2 text-sm rounded-lg transition-colors duration-200 ${
+                            isActive(child.path)
+                              ? "bg-blue-600 text-white"
+                              : "text-gray-700 hover:bg-gray-100"
+                          }`}
+                        >
+                          {child.label}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
             return (
               <Link
                 key={item.path}
@@ -215,6 +262,38 @@ const BasicMenu = () => {
         <nav className="flex-1 p-4 space-y-2">
           {menuItems.map((item) => {
             const Icon = item.icon;
+            if (item.children) {
+              return (
+                <div key={item.path}>
+                  <button
+                    type="button"
+                    onClick={() => setShopMobileOpen((prev) => !prev)}
+                    className={`w-full text-left ${getMenuClass(item.path)}`}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span>{item.label}</span>
+                  </button>
+                  {shopMobileOpen && (
+                    <div className="pl-4 mt-1 space-y-1 border-l-2 border-gray-200 ml-4">
+                      {item.children.map((child) => (
+                        <Link
+                          key={child.path}
+                          to={child.path}
+                          className={`block px-3 py-2 text-sm rounded-lg transition-colors duration-200 ${
+                            isActive(child.path)
+                              ? "bg-blue-600 text-white"
+                              : "text-gray-700 hover:bg-gray-100"
+                          }`}
+                          onClick={closeMobileMenu}
+                        >
+                          {child.label}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
             return (
               <Link
                 key={item.path}

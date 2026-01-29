@@ -59,12 +59,8 @@ public class JWTCheckFilter extends OncePerRequestFilter{
             return true;
         }
 
-        // 상품 조회(GET)만 JWT 없이 허용. 등록/수정/삭제(POST, PATCH, DELETE)는 JWT·ADMIN 필수
-        if (path.equals("/api/products") || path.startsWith("/api/products/")) {
-            if ("GET".equalsIgnoreCase(request.getMethod())) {
-                return true;
-            }
-        }
+        // 상품 조회(GET)는 필터를 타서 JWT가 있으면 SecurityContext 설정(관리자 전용 목록 필터용), 없으면 통과만 허용
+        // (shouldNotFilter false 유지 → doFilterInternal에서 Authorization 없을 때 GET /api/products는 통과 처리)
 
         return false;
     }
@@ -89,6 +85,11 @@ public class JWTCheckFilter extends OncePerRequestFilter{
         if (authHeaderStr == null || !authHeaderStr.startsWith("Bearer ")) {
             // 카트 일반 경로(merge 제외)만 인증 없이 통과
             if (isCartPath && !isCartMerge) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+            // 상품 조회(GET): JWT 없어도 통과 (목록은 USER 필터 적용)
+            if (("GET".equalsIgnoreCase(request.getMethod())) && (path.equals("/api/products") || path.startsWith("/api/products/"))) {
                 filterChain.doFilter(request, response);
                 return;
             }

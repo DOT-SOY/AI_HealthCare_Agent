@@ -73,8 +73,8 @@ const OrderDetailPage = () => {
     return (
       <div className="max-w-2xl mx-auto text-center py-16">
         <p className="text-gray-600">주문 정보를 찾을 수 없습니다.</p>
-        <Link to="/shop/list" className="text-blue-500 hover:underline">
-          쇼핑 계속하기
+        <Link to="/shop/orders" className="text-blue-500 hover:underline">
+          내 주문 내역
         </Link>
       </div>
     );
@@ -202,10 +202,10 @@ const OrderDetailPage = () => {
       <div className="flex gap-3">
         <button
           type="button"
-          onClick={() => navigate('/shop/list')}
+          onClick={() => navigate('/shop/orders')}
           className="px-4 py-2 border rounded-lg hover:bg-gray-50"
         >
-          쇼핑 계속하기
+          내 주문 내역
         </button>
       </div>
     </div>

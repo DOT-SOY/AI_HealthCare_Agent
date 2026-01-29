@@ -22,7 +22,8 @@ import java.util.List;
                 @UniqueConstraint(name = "uk_orders_order_no", columnNames = "order_no")
         },
         indexes = {
-                @Index(name = "idx_orders_member_id", columnList = "member_id")
+                @Index(name = "idx_orders_member_id", columnList = "member_id"),
+                @Index(name = "idx_orders_member_created", columnList = "member_id, created_at")
         }
 )
 public class Order extends AuditEntity {
@@ -59,6 +60,21 @@ public class Order extends AuditEntity {
 
     @Column(name = "paid_at")
     private Instant paidAt;
+
+    /**
+     * 결제 이후 후처리(재고 차감 + 장바구니 정리 등)가 완료되었는지 여부.
+     * - false: 아직 finalizeAfterPaid 미실행 또는 실패
+     * - true : finalizeAfterPaid 정상 완료 (멱등 보장용)
+     */
+    @Column(name = "finalized", nullable = false)
+    private boolean finalized = false;
+
+    /**
+     * finalizeAfterPaid 수행 중임을 나타내는 플래그.
+     * 동시 요청 간 "승자" 선점을 위해 사용된다.
+     */
+    @Column(name = "finalizing", nullable = false)
+    private boolean finalizing = false;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     // TODO: 주문 상세 조회 시 Order -> OrderItem 로딩을 위한 EntityGraph 후보
@@ -113,6 +129,16 @@ public class Order extends AuditEntity {
         }
         this.status = OrderStatus.PAID;
         this.paidAt = paidAt;
+    }
+
+    /**
+     * finalizeAfterPaid 정상 완료 후 마킹.
+     * - finalized = true
+     * - finalizing = false
+     */
+    public void markFinalized() {
+        this.finalized = true;
+        this.finalizing = false;
     }
 
     public void addItem(OrderItem item) {
