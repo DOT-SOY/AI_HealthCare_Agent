@@ -63,7 +63,7 @@ public class MealController {
      */
     @PutMapping("/intake/{scheduleId}")
     public ResponseEntity<MealDto> updateIntake(
-            @PathVariable Long scheduleId,
+            @PathVariable("scheduleId") Long scheduleId,
             @RequestBody MealDto mealDto) {
         
         return ResponseEntity.ok(mealService.updateMeal(scheduleId, mealDto));
@@ -74,7 +74,7 @@ public class MealController {
      */
     @PatchMapping("/intake/{scheduleId}/status")
     public ResponseEntity<Void> toggleIntakeStatus(
-            @PathVariable Long scheduleId,
+            @PathVariable("scheduleId") Long scheduleId,
             @RequestParam("status") String status) {
         
         mealService.toggleMealStatus(scheduleId, status);
@@ -86,7 +86,7 @@ public class MealController {
      */
     @DeleteMapping("/intake/{scheduleId}")
     public ResponseEntity<Void> removeIntake(
-            @PathVariable Long scheduleId,
+            @PathVariable("scheduleId") Long scheduleId,
             @RequestParam(value = "isPermanent", defaultValue = "false") boolean isPermanent) {
         
         mealService.removeOrSkipMeal(scheduleId, isPermanent);
@@ -122,7 +122,7 @@ public class MealController {
     @PostMapping("/ai/advice")
     public ResponseEntity<Map<String, Object>> requestAdvice(
             @AuthenticationPrincipal String email,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+            @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         
         Long userId = resolveUserId(email);
         mealService.asyncDeepAdvice(userId, date);
@@ -140,7 +140,7 @@ public class MealController {
     @PostMapping("/ai/replan")
     public ResponseEntity<Map<String, Object>> requestReplan(
             @AuthenticationPrincipal String email,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+            @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         
         Long userId = resolveUserId(email);
         mealService.asyncMealReplan(userId, date);

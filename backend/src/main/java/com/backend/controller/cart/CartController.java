@@ -86,7 +86,7 @@ public class CartController {
     @PatchMapping("/items/{itemId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public ResponseEntity<Void> updateQty(
-            @PathVariable Long itemId,
+            @PathVariable("itemId") Long itemId,
             @Valid @RequestBody CartItemUpdateRequest request,
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
@@ -106,7 +106,7 @@ public class CartController {
     @DeleteMapping("/items/{itemId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public ResponseEntity<Void> removeItem(
-            @PathVariable Long itemId,
+            @PathVariable("itemId") Long itemId,
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
         CartKey cartKey = resolveCartKey(httpRequest, httpResponse);

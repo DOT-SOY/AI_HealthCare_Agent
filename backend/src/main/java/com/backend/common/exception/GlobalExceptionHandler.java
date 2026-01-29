@@ -1,6 +1,5 @@
 package com.backend.common.exception;
 
-import com.backend.exception.ResourceNotFoundException;
 import com.backend.domain.order.OrderStatus;
 import com.backend.dto.payment.response.TossPaymentConfirmResponse;
 import com.backend.repository.order.OrderRepository;

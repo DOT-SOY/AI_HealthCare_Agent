@@ -1,4 +1,4 @@
-package com.backend.exception;
+package com.backend.common.exception;
 
 public class ResourceNotFoundException extends RuntimeException {
     
@@ -10,3 +10,4 @@ public class ResourceNotFoundException extends RuntimeException {
         super(message, cause);
     }
 }
+
