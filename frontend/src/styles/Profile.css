@@ -1,0 +1,228 @@
+/* src/styles/Profile.css */
+
+/* === 색상 변수 정의 (라이트 모드 기본) === */
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #e0e0e0; /* 카드, 박스 배경 */
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --accent-lime: #ccff00;
+  --btn-logout-bg: #e0e0e0;
+  --border-color: rgba(0, 0, 0, 0.05);
+}
+
+/* === 다크 모드 색상 오버라이드 === */
+[data-theme="dark"] {
+  --bg-primary: #121212;
+  --bg-secondary: #2c2c2c; /* 어두운 회색 */
+  --text-primary: #e0e0e0; /* 밝은 텍스트 */
+  --text-secondary: #aaaaaa;
+  --accent-lime: #b2d900; /* 조금 톤다운된 라임 (눈뽕 방지) */
+  --btn-logout-bg: #444444;
+  --border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* 기본 초기화 및 폰트 */
+.dashboard-container {
+  font-family: "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+  color: var(--text-primary);
+  background-color: var(--bg-primary); /* 전체 배경 */
+  min-height: 100vh; /* 화면 꽉 차게 */
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease; /* 부드러운 전환 */
+}
+
+/* === 헤더 영역 === */
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+.header-right {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+.icon-home {
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+/* 다크모드 버튼 & 로그아웃 버튼 */
+.btn-toggle-theme {
+  background: none;
+  border: 1px solid var(--text-secondary);
+  color: var(--text-primary);
+  padding: 5px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-logout {
+  background: var(--btn-logout-bg);
+  border: none;
+  padding: 6px 16px;
+  border-radius: 4px;
+  font-weight: bold;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+/* === 메인 그리드 === */
+.dashboard-main {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 40px;
+}
+
+/* === 왼쪽 사이드바 === */
+.left-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* 공통 카드 스타일 */
+.info-card {
+  background-color: var(--bg-secondary);
+  padding: 20px;
+  transition: background-color 0.3s;
+  /* border-radius: 8px; */
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+.card-header h2 {
+  font-size: 24px;
+  margin: 0;
+  font-weight: 900;
+  color: var(--text-primary);
+}
+.section-title {
+  text-align: center;
+  font-size: 22px;
+  font-weight: bold;
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: var(--text-primary);
+}
+
+.btn-edit {
+  background-color: var(--accent-lime);
+  border: none;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: #000; /* 버튼 글자는 검정 고정 */
+}
+
+.data-list .data-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 16px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 2px;
+  color: var(--text-primary);
+}
+.data-row .value {
+  font-weight: bold;
+}
+
+.profile-details {
+  font-size: 17px;
+  line-height: 1.8;
+  color: var(--text-primary);
+}
+.gender-icon {
+  font-size: 15px;
+  margin-left: 15px;
+  color: var(--text-secondary);
+}
+.row.stats {
+  font-weight: bold;
+  font-size: 18px;
+  margin-top: 5px;
+}
+
+/* === 오른쪽 컨텐츠 === */
+.right-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.badge-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 20px;
+}
+.lime-badge {
+  background-color: var(--accent-lime);
+  padding: 8px 15px;
+  font-size: 20px;
+  font-weight: bold;
+  color: #000;
+  border: 1px solid #ccc;
+}
+
+/* 차트 컨테이너 */
+.charts-container {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+.chart-layout-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 30px;
+}
+
+/* 왼쪽 정보 박스 */
+.grey-info-box {
+  background-color: var(--bg-secondary);
+  width: 150px;
+  padding: 20px 15px;
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  transition: background-color 0.3s;
+}
+.info-title {
+  font-size: 15px;
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: var(--text-primary);
+}
+.info-value {
+  font-size: 20px;
+  font-weight: bold;
+  color: var(--text-primary);
+}
+
+.chart-area {
+  flex: 1;
+  position: relative;
+  top: -10px;
+}
+.chart-main-title {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin-bottom: 5px;
+}

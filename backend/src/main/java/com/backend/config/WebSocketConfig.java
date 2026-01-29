@@ -12,22 +12,28 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @EnableWebSocketMessageBroker
 @RequiredArgsConstructor
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
-    
+
     private final WebSocketAuthInterceptor webSocketAuthInterceptor;
-    
+
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
+        // 프론트에서 STOMP Client의 brokerURL로 직접 연결하는 순수 WebSocket 엔드포인트
         registry.addEndpoint("/ws")
-            .setAllowedOriginPatterns("*");
+                .setAllowedOriginPatterns("*");
+
+        // 필요 시 별도 SockJS 엔드포인트 유지 (현재 프론트에서는 사용하지 않음)
+        registry.addEndpoint("/ws-meal")
+                .setAllowedOriginPatterns("*")
+                .withSockJS();
     }
-    
+
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
         registry.enableSimpleBroker("/topic", "/queue");
         registry.setApplicationDestinationPrefixes("/app");
         registry.setUserDestinationPrefix("/user");
     }
-    
+
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
         // STOMP CONNECT 프레임에서 JWT 인증 처리

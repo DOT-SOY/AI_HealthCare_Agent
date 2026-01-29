@@ -44,7 +44,7 @@ public class ProductController {
 
     // 상품 단건 조회
     @GetMapping("/{id}")
-    public ResponseEntity<ProductResponse> findById(@PathVariable Long id) {
+    public ResponseEntity<ProductResponse> findById(@PathVariable("id") Long id) {
         ProductResponse response = productService.findById(id);
         return ResponseEntity.ok(response);
     }
@@ -62,7 +62,7 @@ public class ProductController {
     @PatchMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ProductResponse> update(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @Valid @RequestBody ProductUpdateRequest request) {
         ProductResponse response = productService.update(id, request);
         return ResponseEntity.ok(response);
@@ -72,7 +72,7 @@ public class ProductController {
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
+    public ResponseEntity<Void> delete(@PathVariable("id") Long id) {
         productService.delete(id);
         return ResponseEntity.noContent().build();
     }

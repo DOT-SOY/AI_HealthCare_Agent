@@ -64,7 +64,7 @@ class ProductServiceTest {
                 .filter(m -> "test@example.com".equals(m.getEmail()))
                 .findFirst()
                 .orElse(null);
-        
+
         // 멤버가 없으면 생성하고 피트니스 관련 더미 데이터 생성
         if (testMember == null) {
             testMember = getOrCreateTestMember();
@@ -179,7 +179,7 @@ class ProductServiceTest {
         assertThat(saved.getEmail()).isEqualTo("test@example.com");
         assertThat(saved.getName()).isEqualTo("테스트유저");
         assertThat(saved.getRoleList()).contains(MemberRole.ADMIN);
-        
+
         // testMember에 저장하여 다른 테스트에서 사용할 수 있도록 함
         testMember = saved;
     }
@@ -204,7 +204,7 @@ class ProductServiceTest {
                         return memberRepository.save(member);
                     });
         }
-        
+
         // 고유한 이름 사용 (이전 테스트 데이터와 충돌 방지)
         String uniqueName = "옵티멈 골드 스탠다드 휘핑 프로틴 2.27kg " + System.currentTimeMillis();
         ProductCreateRequest request = new ProductCreateRequest();
@@ -317,7 +317,7 @@ class ProductServiceTest {
         // then
         assertThat(result.getName()).isEqualTo(uniqueName);
         assertThat(result.getBasePrice()).isEqualByComparingTo(new BigDecimal("95000"));
-        
+
         // 실제 DB에서도 확인
         Product updated = productRepository.findByIdAndDeletedAtIsNull(fitnessProduct1.getId())
                 .orElseThrow();
