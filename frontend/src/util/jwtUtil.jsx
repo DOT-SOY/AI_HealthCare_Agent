@@ -71,6 +71,10 @@ const beforeReq = async (config) => {
     console.log("No accessToken found in cookie, proceeding to let interceptor handle it.");
   }
 
+//  console.log("accessToken:", accessToken);
+
+  // Authorization 헤더 설정
+  config.headers.Authorization = `Bearer ${accessToken}`;
   return config;
 };
 

@@ -122,7 +122,6 @@ const ProductCreatePage = () => {
         status: formData.status || 'DRAFT',
         imageFilePaths: uploadedFiles.map(file => file.filePath),
         variants: variants.length > 0 ? variants.map(v => ({
-          sku: v.sku,
           optionText: (v.optionDisplay ?? '').trim(),
           price: v.price ? parseFloat(v.price) : null,
           stockQty: parseInt(v.stockQty) || 0,
@@ -253,7 +252,7 @@ const ProductCreatePage = () => {
             <h2 className="text-xl font-semibold">상품 변형</h2>
             <button
               type="button"
-              onClick={() => setVariants([...variants, { sku: '', optionDisplay: '', price: '', stockQty: 0, active: true }])}
+              onClick={() => setVariants([...variants, { optionDisplay: '', price: '', stockQty: 0, active: true }])}
               className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
             >
               + 변형 추가
@@ -276,24 +275,6 @@ const ProductCreatePage = () => {
                   </div>
                   
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium mb-1">
-                        SKU 코드 <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={variant.sku}
-                        onChange={(e) => {
-                          setVariants(variants.map((v, i) =>
-                            i === index ? { ...v, sku: e.target.value } : v
-                          ));
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="예: PROD-001-RED-L"
-                        required
-                      />
-                    </div>
-
                     <div>
                       <label className="block text-sm font-medium mb-1">
                         옵션 <span className="text-red-500">*</span>

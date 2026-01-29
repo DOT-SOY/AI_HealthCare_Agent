@@ -41,7 +41,6 @@ public class JWTCheckFilter extends OncePerRequestFilter{
         log.info("check uri......................."+path);
 
         // “로그인 안 한 사용자도 접근 가능한 API”만 JWT 체크 안 함 (최소 예외)
-
         if (path.equals("/api/member/login") ||
                 path.equals("/api/member/join") ||
                 path.equals("/api/member/refresh") ||
@@ -49,7 +48,6 @@ public class JWTCheckFilter extends OncePerRequestFilter{
                 path.equals("/api/member/check-email")) {
             return true;
         }
-
 
         // 이미지 조회 경로는 체크하지 않음
         if (path.startsWith("/api/files/view/")) {

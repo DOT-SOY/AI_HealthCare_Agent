@@ -4,10 +4,6 @@
 /backend/build/
 /backend/.gradle/
 **/*.log
-*.out
-*.err
-/backend/.vscode/tasks.json
-/backend/.vscode/launch.json
 
 
 /backend/node_modules/

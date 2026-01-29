@@ -16,11 +16,10 @@ import java.time.Duration;
 @Configuration
 public class RedisConfig {
 
-    // NOTE: Spring Boot 3.x 기본 Redis 프로퍼티는 spring.data.redis.* 입니다.
-    @Value("${spring.data.redis.host:localhost}")
+    @Value("${spring.redis.host}")
     private String redisHost;
 
-    @Value("${spring.data.redis.port:6379}")
+    @Value("${spring.redis.port}")
     private int redisPort;
 
     @Bean

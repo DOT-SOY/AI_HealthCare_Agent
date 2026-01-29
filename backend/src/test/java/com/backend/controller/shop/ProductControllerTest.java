@@ -88,7 +88,6 @@ class ProductControllerTest {
                                 .email("test@example.com")
                                 .pw("password")
                                 .name("테스트유저")
-                                // .social(false)
                                 .build();
                         member.addRole(MemberRole.ADMIN);
                         return memberRepository.save(member);
@@ -126,7 +125,6 @@ class ProductControllerTest {
         // 덤벨 Variant 추가
         ProductVariant variant1 = ProductVariant.builder()
                 .product(fitnessProduct1)
-                .sku("DUMBBELL-20KG-BLACK")
                 .optionText("weight: 20kg, color: black")
                 .price(new BigDecimal("89000"))
                 .stockQty(10)
@@ -162,7 +160,6 @@ class ProductControllerTest {
                 .email("test@example.com")
                 .pw("password")
                 .name("테스트유저")
-                // .social(false)
                 .build();
         member.addRole(MemberRole.ADMIN);
 

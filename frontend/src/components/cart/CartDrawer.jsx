@@ -1,8 +1,10 @@
+import { useNavigate } from 'react-router-dom';
 import QtyStepper from './QtyStepper';
 
 // API 응답 형식: itemId, variantId, qty, productId, productName, price, optionSummary, primaryImageUrl
 // onUpdateQty(itemId, qty), onRemoveItem(itemId) — DELETE/수정은 반드시 itemId로만 호출 (variantId 금지)
 const CartDrawer = ({ isOpen, onClose, cartItems, totals, onUpdateQty, onRemoveItem }) => {
+  const navigate = useNavigate();
   const totalQty = totals?.totalQty ?? cartItems.reduce((sum, item) => sum + (item.qty ?? 0), 0);
   const totalPrice = totals?.totalPrice ?? cartItems.reduce((sum, item) => {
     const p = Number(item.price ?? 0);
@@ -92,7 +94,11 @@ const CartDrawer = ({ isOpen, onClose, cartItems, totals, onUpdateQty, onRemoveI
                 <span className="font-semibold">총 금액</span>
                 <span className="font-bold text-blue-600">{Number(totalPrice).toLocaleString()}원</span>
               </div>
-              <button type="button" className="w-full py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium">
+              <button
+                type="button"
+                onClick={() => { onClose(); navigate('/shop/checkout'); }}
+                className="w-full py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium"
+              >
                 주문하기
               </button>
             </div>

@@ -1,7 +1,7 @@
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '3.2.5' // (주의: 3.5.9는 존재하지 않아 에러 남 -> 3.2.5로 자동 보정)
-    id 'io.spring.dependency-management' version '1.1.4'
+    id 'org.springframework.boot' version '3.5.9'
+    id 'io.spring.dependency-management' version '1.1.7'
 }
 
 group = 'com'
@@ -10,7 +10,7 @@ description = 'Demo project for Spring Boot'
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21) // 사용자님 JDK 버전에 맞춤
+        languageVersion = JavaLanguageVersion.of(21)
     }
 }
 
@@ -70,12 +70,12 @@ dependencies {
     // Lombok
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
-    
+
     // Lombok + MapStruct 통합
     annotationProcessor 'org.projectlombok:lombok-mapstruct-binding:0.2.0'
 
     // Dev & DB
-    
+
     runtimeOnly 'org.mariadb.jdbc:mariadb-java-client'
 
     // Test
@@ -105,4 +105,49 @@ clean {
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+// .env
+def loadDotenv() {
+    def envFile = rootProject.file(".env")
+    if (!envFile.exists()) {
+        return [:]
+    }
+
+    def envMap = [:]
+    envFile.eachLine { line ->
+        def trimmed = line.trim()
+        if (!trimmed || trimmed.startsWith("#") || !trimmed.contains("=")) {
+            return
+        }
+        int idx = trimmed.indexOf("=")
+        if (idx <= 0) {
+            return
+        }
+        def key = trimmed.substring(0, idx).trim()
+        def value = trimmed.substring(idx + 1).trim()
+        if (value.startsWith("\"") && value.endsWith("\"") && value.length() >= 2) {
+            value = value.substring(1, value.length() - 1)
+        }
+        if (key) {
+            envMap[key] = value
+        }
+    }
+    return envMap
+}
+
+def dotenvEnv = loadDotenv()
+
+// bootRun 등 JavaExec 기반 실행 태스크에 .env 적용
+tasks.withType(JavaExec).configureEach {
+    dotenvEnv.each { k, v ->
+        environment k, v
+    }
+}
+
+// 테스트 실행 시에도 동일한 환경변수 적용
+tasks.withType(Test).configureEach {
+    dotenvEnv.each { k, v ->
+        environment k, v
+    }
 }

@@ -16,11 +16,10 @@ const Main = lazy(() => import("../pages/MainPage"));
 const ShopIndex = lazy(() => import("../pages/shop/ShopIndex"));
 const RoutineIndex = lazy(() => import("../pages/routine/RoutineIndex"));
 const RecordIndex = lazy(() => import("../pages/record/RecordIndex"));
-
 const MealIndex = lazy(() => import("../pages/meal/MealIndex"));
-
 const RankingIndex = lazy(() => import("../pages/ranking/RankingIndex"));
 const ProfileIndex = lazy(() => import("../pages/profile/ProfileIndex"));
+
 const AdminIndex = lazy(() => import("../pages/admin/MainPage"));
 
 const root = createBrowserRouter([

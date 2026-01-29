@@ -96,6 +96,10 @@ public class CustomSecurityConfig {
                 .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasRole("ADMIN")
                 /* 카트: 게스트·로그인 모두 허용 */
                 .requestMatchers("/api/cart/**").permitAll()
+                /* 비회원 주문 조회 허용 */
+                .requestMatchers("/api/orders/guest-lookup").permitAll()
+                /* 결제 승인/웹훅 콜백은 토큰 없이 허용 (Toss 위젯 연동용) */
+                .requestMatchers("/api/payments/toss/confirm", "/api/payments/toss/webhook").permitAll()
                 /* 그 외: 인증 필수 */
                 .anyRequest().authenticated()
         );

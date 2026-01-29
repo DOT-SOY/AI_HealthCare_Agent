@@ -21,7 +21,6 @@ import java.time.Instant;
 @AllArgsConstructor
 public class ProductVariantResponse {
     private Long id;
-    private String sku;
     private String optionText;
     private BigDecimal price;
     private Integer stockQty;
@@ -42,7 +41,6 @@ public class ProductVariantResponse {
         
         return ProductVariantResponse.builder()
                 .id(variant.getId())
-                .sku(variant.getSku())
                 .optionText(variant.getOptionText())
                 .price(variant.getPrice())
                 .stockQty(variant.getStockQty())
