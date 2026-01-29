@@ -14,7 +14,11 @@ import com.backend.dto.shop.response.CategoryResponse;
 import com.backend.dto.shop.response.ProductImageResponse;
 import com.backend.dto.shop.response.ProductResponse;
 import com.backend.dto.shop.response.ProductVariantResponse;
+import com.backend.dto.shop.response.ReviewSummaryResponse;
+import com.backend.domain.order.OrderItemStatus;
+import com.backend.domain.order.OrderStatus;
 import com.backend.repository.member.MemberRepository;
+import com.backend.repository.order.OrderItemRepository;
 import com.backend.repository.shop.*;
 import com.backend.service.file.FileStorageService;
 import lombok.RequiredArgsConstructor;
@@ -46,6 +50,8 @@ public class ProductServiceImpl implements ProductService {
 
     private final CategoryRepository categoryRepository;
     private final ProductCategoryRepository productCategoryRepository;
+    private final ProductReviewRepository productReviewRepository;
+    private final OrderItemRepository orderItemRepository;
 
     // ===========================
     // Public APIs
@@ -96,7 +102,25 @@ public class ProductServiceImpl implements ProductService {
         List<ProductImage> images = productImageRepository.findByProductIdAndDeletedAtIsNull(id);
         List<ProductVariant> variants = productVariantRepository.findByProductId(id);
 
-        return toFullResponse(product, images, variants);
+        ProductResponse response = toFullResponse(product, images, variants);
+        long reviewCount = productReviewRepository.countByProductId(id);
+        Double avgRating = productReviewRepository.getAverageRatingByProductId(id);
+        response.setReviewSummary(ReviewSummaryResponse.builder()
+                .averageRating(avgRating != null ? avgRating : 0.0)
+                .count(reviewCount)
+                .build());
+        return response;
+    }
+
+    private static final List<OrderStatus> PAID_OR_LATER = List.of(OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.DELIVERED);
+
+    @Override
+    @Transactional(readOnly = true)
+    public void setCanReview(ProductResponse response, Long productId, Long memberId) {
+        boolean purchased = orderItemRepository.existsByMemberIdAndProductIdAndOrderStatusInAndItemStatus(
+                memberId, productId, PAID_OR_LATER, OrderItemStatus.ORDERED);
+        boolean alreadyReviewed = productReviewRepository.existsByProductIdAndMemberId(productId, memberId);
+        response.setCanReview(purchased && !alreadyReviewed);
     }
 
     @Override

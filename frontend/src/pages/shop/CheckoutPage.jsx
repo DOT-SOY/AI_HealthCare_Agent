@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../components/layout/ShopLayout';
 import { getCart } from '../../services/cartApi';
 import { createOrderFromCart, preparePayment } from '../../services/orderApi';
+import { getMyAddressList } from '../../services/memberInfoAddrApi';
 
 const TOSS_V1_URL = 'https://js.tosspayments.com/v1/payment.js';
 const TOSS_V2_URL = 'https://js.tosspayments.com/v2/payment.js';
@@ -89,6 +90,13 @@ const CheckoutPage = () => {
   const [widgetOrderPayload, setWidgetOrderPayload] = useState(null);
   const widgetInstanceRef = useRef(null);
 
+  /** 저장된 배송지 목록 (기본 배송지 우선) */
+  const [addressList, setAddressList] = useState([]);
+  /** 배송지 불러오기 드롭다운 표시 여부 */
+  const [showAddressSelect, setShowAddressSelect] = useState(false);
+  /** 기본 배송지 자동 기입 한 번만 수행 */
+  const defaultAppliedRef = useRef(false);
+
   /** 토스 requestPayment method 코드 ↔ 화면 라벨 (API 개별 연동 키 + 결제창용) */
   const PAYMENT_METHODS = [
     { value: 'CARD', label: '카드(신용/체크/간편결제)', description: '네이버페이·카카오페이 등은 결제창에서 선택' },
@@ -119,15 +127,54 @@ const CheckoutPage = () => {
     }
   }, [navigate]);
 
+  /** 로그인 시 내 배송지 목록 조회 */
   useEffect(() => {
-    return () => {};
+    if (!localStorage.getItem('accessToken')) return;
+    getMyAddressList()
+      .then((list) => setAddressList(Array.isArray(list) ? list : []))
+      .catch(() => setAddressList([]));
   }, []);
+
+  /** 저장된 기본 배송지가 있으면 한 번만 자동 기입 */
+  useEffect(() => {
+    if (addressList.length === 0 || defaultAppliedRef.current) return;
+    const defaultAddr = addressList.find((a) => a.isDefault);
+    if (defaultAddr) {
+      setForm((prev) => ({
+        ...prev,
+        shipTo: {
+          recipientName: defaultAddr.shipToName ?? '',
+          recipientPhone: defaultAddr.shipToPhone ?? '',
+          zipcode: defaultAddr.shipZipcode ?? '',
+          address1: defaultAddr.shipAddress1 ?? '',
+          address2: defaultAddr.shipAddress2 ?? '',
+        },
+      }));
+      defaultAppliedRef.current = true;
+    }
+  }, [addressList]);
 
   const handleChange = (section, field, value) => {
     setForm((prev) => ({
       ...prev,
       [section]: { ...prev[section], [field]: value },
     }));
+  };
+
+  /** DTO 항목을 form.shipTo로 적용 (배송지 불러오기 선택 시) */
+  const applyAddressToForm = (addr) => {
+    if (!addr) return;
+    setForm((prev) => ({
+      ...prev,
+      shipTo: {
+        recipientName: addr.shipToName ?? '',
+        recipientPhone: addr.shipToPhone ?? '',
+        zipcode: addr.shipZipcode ?? '',
+        address1: addr.shipAddress1 ?? '',
+        address2: addr.shipAddress2 ?? '',
+      },
+    }));
+    setShowAddressSelect(false);
   };
 
   const handleSubmit = async (e) => {
@@ -307,7 +354,40 @@ const CheckoutPage = () => {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <section>
-          <h2 className="text-lg font-semibold mb-3">배송지</h2>
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <h2 className="text-lg font-semibold">배송지</h2>
+            <div className="relative">
+              <button
+                type="button"
+                disabled={addressList.length === 0}
+                onClick={() => setShowAddressSelect((v) => !v)}
+                className="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                배송지 불러오기
+              </button>
+              {showAddressSelect && addressList.length > 0 && (
+                <div className="absolute right-0 top-full mt-1 z-10 min-w-[240px] border rounded-lg bg-white shadow-lg py-1 max-h-48 overflow-auto">
+                  {addressList.map((addr) => (
+                    <button
+                      key={addr.id}
+                      type="button"
+                      onClick={() => applyAddressToForm(addr)}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100"
+                    >
+                      <span className="font-medium">{addr.shipToName}</span>
+                      {addr.isDefault && (
+                        <span className="ml-1 text-xs text-gray-500">(기본)</span>
+                      )}
+                      <br />
+                      <span className="text-gray-600">
+                        {[addr.shipAddress1, addr.shipAddress2].filter(Boolean).join(' ')}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
           <div className="space-y-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">수령인</label>

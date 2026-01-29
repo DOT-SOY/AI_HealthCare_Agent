@@ -2,7 +2,6 @@ package com.backend.controller.memberinfo;
 
 import com.backend.domain.member.Member;
 import com.backend.dto.memberinfo.MemberInfoAddrDTO;
-import com.backend.domain.memberinfo.MemberInfoAddr;
 import com.backend.repository.member.MemberRepository;
 import com.backend.service.memberinfo.MemberInfoAddrService;
 import jakarta.validation.Valid;
@@ -23,6 +22,17 @@ public class MemberInfoAddrController {
 
     private final MemberInfoAddrService memberInfoAddrService;
     private final MemberRepository memberRepository;
+
+    /**
+     * [조회] 내 배송지 목록 조회 (토큰 기반)
+     */
+    @GetMapping("/me")
+    public ResponseEntity<List<MemberInfoAddrDTO>> getMyList(
+            @AuthenticationPrincipal String email) {
+        Long memberId = resolveUserId(email);
+        List<MemberInfoAddrDTO> list = memberInfoAddrService.getList(memberId);
+        return ResponseEntity.ok(list);
+    }
 
     /**
      * [조회] 배송지 목록 조회
