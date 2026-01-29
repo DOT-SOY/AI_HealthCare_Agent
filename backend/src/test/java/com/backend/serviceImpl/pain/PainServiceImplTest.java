@@ -2,11 +2,11 @@ package com.backend.serviceImpl.pain;
 
 import com.backend.client.PainAdviceClient;
 import com.backend.domain.member.Member;
-import com.backend.domain.member.Target;
 import com.backend.domain.pain.PainLog;
 import com.backend.dto.response.PainAdviceResponse;
 import com.backend.repository.member.MemberRepository;
 import com.backend.repository.pain.PainLogRepository;
+import com.backend.service.pain.PainServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,7 +17,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -48,9 +47,12 @@ class PainServiceImplTest {
     void setUp() {
         member = Member.builder()
             .id(1L)
+            .email("test@example.com")
+            .pw("encodedPw")
             .name("테스트 회원")
-            .target(Target.BULK)
-            .physicalInfo("{}")
+            .gender(Member.Gender.MALE)
+            .height(175)
+            .weight(70.0)
             .build();
     }
     

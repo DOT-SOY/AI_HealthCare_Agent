@@ -4,13 +4,14 @@ import com.backend.domain.exercise.Exercise;
 import com.backend.domain.exercise.ExerciseCategory;
 import com.backend.domain.exercise.ExerciseType;
 import com.backend.domain.member.Member;
-import com.backend.domain.member.Target;
 import com.backend.domain.routine.Routine;
 import com.backend.domain.routine.RoutineStatus;
+import com.backend.dto.member.MemberDTO;
 import com.backend.repository.exercise.ExerciseRepository;
 import com.backend.repository.exercise.ExerciseTypeRepository;
 import com.backend.repository.member.MemberRepository;
 import com.backend.repository.routine.RoutineRepository;
+import com.backend.service.member.MemberService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +40,9 @@ class DummyDataGeneratorTest {
     private MemberRepository memberRepository;
     
     @Autowired
+    private MemberService memberService;
+    
+    @Autowired
     private RoutineRepository routineRepository;
     
     @Autowired
@@ -54,37 +58,35 @@ class DummyDataGeneratorTest {
     void generateDummyData() {
         System.out.println("=== 더미데이터 생성 시작 ===");
         
-        // 1. 멤버 4 또는 8을 찾거나 생성
-        Member member = memberRepository.findAll().stream()
-            .filter(m -> m.getId() == 4L || m.getId() == 8L)
-            .findFirst()
+        // 1. 더미 데이터용 회원 1명을 이메일로 고정 생성/재사용
+        // MemberService.join()을 사용하여 비밀번호가 해싱된 회원 생성
+        String dummyEmail = "dummy@example.com";
+        Member member = memberRepository.findByEmail(dummyEmail)
             .orElseGet(() -> {
-                // 멤버 4 또는 8이 없으면 첫 번째 멤버 사용
-                Member existingMember = memberRepository.findAll().stream()
-                    .findFirst()
-                    .orElse(null);
-                
-                if (existingMember != null) {
-                    System.out.println("기존 멤버 사용: ID=" + existingMember.getId() + ", 이름=" + existingMember.getName());
-                    return existingMember;
-                }
-                
-                // 멤버가 없으면 새로 생성
-                Member newMember = Member.builder()
-                    .name("테스트 회원")
-                    .target(Target.BULK)
-                    .physicalInfo("{\"height\": 175, \"weight\": 70}")
+                // MemberDTO 생성 (비밀번호는 validation 규칙에 맞게 설정)
+                MemberDTO memberDTO = MemberDTO.builder()
+                    .email(dummyEmail)
+                    .pw("Test1234!") // 8자 이상, 영문+숫자+특수문자 조합 (validation 통과)
+                    .name("테스트회원") // 한글 2자 이상
+                    .gender("MALE")
+                    .birthDate("1990-01-01") // YYYY-MM-DD 형식
+                    .height(175)
+                    .weight(70.0)
                     .build();
-                Member saved = memberRepository.save(newMember);
-                System.out.println("새 멤버 생성: ID=" + saved.getId() + ", 이름=" + saved.getName());
+                
+                // MemberService.join()을 통해 비밀번호 해싱 후 저장
+                Long memberId = memberService.join(memberDTO);
+                Member saved = memberRepository.findById(memberId)
+                    .orElseThrow(() -> new RuntimeException("회원 생성 실패"));
+                System.out.println("새 멤버 생성: ID=" + saved.getId() + ", 이메일=" + saved.getEmail());
+                System.out.println("비밀번호: Test1234! (해싱되어 저장됨)");
                 return saved;
             });
         
         System.out.println("=== 사용할 멤버 정보 ===");
         System.out.println("멤버 ID: " + member.getId());
+        System.out.println("멤버 이메일: " + member.getEmail());
         System.out.println("멤버 이름: " + member.getName());
-        System.out.println("주의: 백엔드 컨트롤러는 멤버 4 또는 8을 우선 사용합니다.");
-        System.out.println("현재 멤버 ID가 4 또는 8이 아니면, 백엔드에서 다른 멤버를 사용할 수 있습니다.");
         System.out.println("=========================");
         
         // 2. ExerciseType이 없으면 생성 (초기화)

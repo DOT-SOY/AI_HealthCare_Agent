@@ -1,8 +1,8 @@
-import apiClient from './axiosConfig';
+import jwtAxios from '../services/jwtAxios';
 
 export const painApi = {
   report: async (bodyPart, note) => {
-    const response = await apiClient.post('/api/pain/report', {
+    const response = await jwtAxios.post('/pain/report', {
       bodyPart,
       note,
     });

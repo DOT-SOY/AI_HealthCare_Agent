@@ -1,21 +1,15 @@
-import { Routes, Route } from 'react-router-dom'
-import Header from './pages/Header'
-import AIChatOverlay from './pages/AIChatOverlay'
-import TodayRoutinePage from './pages/TodayRoutinePage/TodayRoutinePage'
-import HistoryPage from './pages/HistoryPage/HistoryPage'
+import { RouterProvider } from "react-router-dom";
+import "./App.css";
+import root from "./router/root";
+import AuthAlert from "./components/common/AuthAlert";
 
 function App() {
   return (
-    <div className="min-h-screen bg-neutral-950">
-      <Header />
-      <Routes>
-        <Route path="/" element={<TodayRoutinePage />} />
-        <Route path="/routine" element={<TodayRoutinePage />} />
-        <Route path="/history" element={<HistoryPage />} />
-      </Routes>
-      <AIChatOverlay />
-    </div>
-  )
+    <>
+      <AuthAlert />
+      <RouterProvider router={root} />
+    </>
+  );
 }
 
-export default App
+export default App;

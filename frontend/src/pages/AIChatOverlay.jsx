@@ -10,17 +10,42 @@ export default function AIChatOverlay() {
   const { isChatOpen, messages, loading, notificationCount } = useSelector((state) => state.ai);
   const { sendAIMessage } = useAI();
   const { isListening, transcript, startListening, stopListening } = useSTT();
-  const { subscribeToReview } = useWebSocket();
+  const { subscribeToReview, connectWebSocket, disconnect } = useWebSocket();
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef(null);
 
+  const lastMessageRef = useRef(null);
+  const lastMessageTimeRef = useRef(0);
+  const subscriptionInitializedRef = useRef(false);
+  
   useEffect(() => {
+    // AIChatOverlay가 마운트될 때 WebSocket 연결 시도 (알림을 받기 위해 미리 연결)
+    connectWebSocket();
+    
+    // 구독은 한 번만 초기화 (중복 구독 방지)
+    if (subscriptionInitializedRef.current) {
+      return;
+    }
+    
+    subscriptionInitializedRef.current = true;
+    
     // WebSocket 구독 - 채팅창이 닫혀있어도 알림을 받아서 메시지에 추가
-    const subscription = subscribeToReview((data) => {
-      console.log('회고 알림 수신 (AIChatOverlay):', data);
+    subscribeToReview((data) => {
+      // 중복 메시지 방지: 같은 메시지가 짧은 시간 내에 여러 번 오는 경우 필터링
+      const messageContent = data.message || '오늘 운동은 어땠나요? 피드백을 주시면 다음 루틴에 반영하겠습니다.';
+      const now = Date.now();
+      
+      // 같은 메시지가 1초 이내에 다시 오면 무시
+      if (lastMessageRef.current === messageContent && (now - lastMessageTimeRef.current) < 1000) {
+        return; // 중복 메시지 무시
+      }
+      
+      lastMessageRef.current = messageContent;
+      lastMessageTimeRef.current = now;
+      
       dispatch(addMessage({
         role: 'assistant',
-        content: data.message || '오늘 운동은 어땠나요? 피드백을 주시면 다음 루틴에 반영하겠습니다.',
+        content: messageContent,
       }));
       
       // 채팅창이 닫혀있으면 알림 카운트 증가 (자동으로 열지 않음)
@@ -30,10 +55,11 @@ export default function AIChatOverlay() {
     });
     
     return () => {
-      // 구독 해제하지 않음 (항상 알림을 받아야 함)
-      // subscription은 useWebSocket에서 관리됨
+      subscriptionInitializedRef.current = false;
+      // 컴포넌트 언마운트 시 WebSocket 정리 (StrictMode에서 중복 구독 방지)
+      disconnect();
     };
-  }, [subscribeToReview, dispatch, isChatOpen]);
+  }, [subscribeToReview, connectWebSocket, disconnect, dispatch, isChatOpen]);
 
   useEffect(() => {
     // 음성 인식 결과를 입력 필드에 반영
@@ -133,11 +159,11 @@ export default function AIChatOverlay() {
                 <div
                   className={`max-w-[80%] rounded-lg px-4 py-2 ${
                     message.role === 'user'
-                      ? 'bg-neon-green text-neutral-950'
+                      ? 'bg-neon-green/90 text-white'
                       : 'bg-neutral-800 text-neutral-50'
                   }`}
                 >
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  <p className="text-sm whitespace-pre-wrap font-medium drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]">{message.content}</p>
                 </div>
               </div>
             ))}

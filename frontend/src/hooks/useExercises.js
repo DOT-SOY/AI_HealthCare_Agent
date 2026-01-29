@@ -10,10 +10,12 @@ import {
 } from '../store/routinesSlice';
 import { exerciseApi } from '../api/exerciseApi';
 import { routineApi } from '../api/routineApi';
+import { useWebSocket } from './useWebSocket';
 
 export function useExercises() {
   const dispatch = useDispatch();
   const { todayRoutine, weekRoutines } = useSelector((state) => state.routines);
+  const { connectWebSocket } = useWebSocket();
 
   const refreshTodayRoutine = async () => {
     try {
@@ -48,9 +50,15 @@ export function useExercises() {
         completed: response.completed 
       }));
       
+      // 4. 운동 완료 시 WebSocket 연결 시도 (회고 알림을 받기 위해)
+      // 모든 운동이 완료되면 백엔드에서 WebSocket 메시지를 보내므로, 이 시점에 연결 준비
+      if (response.completed) {
+        connectWebSocket();
+      }
+      
       return response;
     } catch (error) {
-      // 4. 실패 시 롤백 (다시 토글하여 원래 상태로)
+      // 5. 실패 시 롤백 (다시 토글하여 원래 상태로)
       dispatch(toggleExerciseCompleted({ routineId, exerciseId }));
       console.error('운동 완료 토글 실패:', error);
       throw error;

@@ -35,6 +35,8 @@ public class BaseAIClient {
         try {
             String url = aiServerBaseUrl + endpoint;
             
+            log.info("AI 서버 호출: url={}, endpoint={}", url, endpoint);
+            
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             
@@ -45,6 +47,15 @@ public class BaseAIClient {
                 request,
                 responseType
             );
+            
+            String bodySummary = response.getBody() != null
+                ? String.valueOf(response.getBody().toString().length())
+                : "null";
+            
+            log.info("AI 서버 응답 수신: endpoint={}, status={}, bodyLength={}", 
+                endpoint, 
+                response.getStatusCode(),
+                bodySummary);
             
             return response.getBody();
         } catch (Exception e) {

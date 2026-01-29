@@ -22,7 +22,7 @@ public class Exercise {
     
     private String name;
     
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "exercise_type_id", nullable = true)
     private ExerciseType exerciseType; // 운동 타입 참조 (메인/서브 타겟 포함)
     

@@ -1,20 +1,15 @@
 package com.backend.controller.ai;
 
-import com.backend.domain.member.Member;
-import com.backend.domain.member.Target;
 import com.backend.dto.request.AIChatRequest;
 import com.backend.dto.response.AIChatResponse;
 import com.backend.dto.response.IntentClassificationResult;
-import com.backend.repository.member.MemberRepository;
+import com.backend.service.member.CurrentMemberService;
 import com.backend.service.ai.AIIntentService;
 import com.backend.service.pain.WorkoutReviewService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 /**
  * AI Gateway Controller
@@ -34,37 +29,7 @@ public class AIGatewayController {
     
     private final AIIntentService aiIntentService;
     private final WorkoutReviewService workoutReviewService;
-    private final MemberRepository memberRepository;
-    
-    /**
-     * 현재 멤버 ID를 가져오거나 기본 멤버를 생성
-     * 더미데이터가 있는 멤버 8을 우선 사용
-     */
-    @Transactional
-    private Long getCurrentMemberId() {
-        List<Member> allMembers = memberRepository.findAll();
-        
-        // 멤버 4 또는 8이 있으면 우선 사용 (더미데이터가 있는 멤버)
-        return allMembers.stream()
-            .filter(m -> m.getId() == 4L || m.getId() == 8L)
-            .findFirst()
-            .map(Member::getId)
-            .orElseGet(() -> {
-                // 멤버 4 또는 8이 없으면 첫 번째 멤버 사용
-                return allMembers.stream()
-                    .findFirst()
-                    .map(Member::getId)
-                    .orElseGet(() -> {
-                        // 멤버가 없으면 기본 멤버 생성
-                        Member newMember = Member.builder()
-                            .name("테스트 회원")
-                            .target(Target.BULK)
-                            .physicalInfo("{\"height\": 175, \"weight\": 70}")
-                            .build();
-                        return memberRepository.save(newMember).getId();
-                    });
-            });
-    }
+    private final CurrentMemberService currentMemberService;
     
     /**
      * 텍스트 기반 AI 채팅 처리
@@ -114,8 +79,7 @@ public class AIGatewayController {
         int intensity = extractIntensity(entities);
         String description = classification.getAiAnswer();
         
-        // TODO: 실제 memberId는 인증에서 가져와야 함
-        Long memberId = getCurrentMemberId();
+        Long memberId = currentMemberService.getCurrentMemberOrThrow().getId();
         
         // 오늘 루틴과 관련된 통증인지 확인은 WorkoutReviewService에서 처리
         // processPainReport 내부에서 오늘 루틴을 조회하여 관련성 판단
@@ -145,8 +109,18 @@ public class AIGatewayController {
      * - DB 저장 없이 AI 응답만 반환
      */
     private AIChatResponse handleGeneralChat(IntentClassificationResult classification) {
+        String aiAnswer = classification.getAiAnswer();
+        
+        // aiAnswer가 null이거나 빈 문자열인 경우 처리
+        if (aiAnswer == null || aiAnswer.trim().isEmpty()) {
+            log.warn("GENERAL_CHAT: Python AI 서버에서 aiAnswer가 비어있습니다. intent={}", classification.getIntent());
+            aiAnswer = "죄송합니다. 응답을 생성하는 중 오류가 발생했습니다. 다시 시도해주세요.";
+        }
+        
+        log.info("GENERAL_CHAT 응답: intent={}, answerLength={}", classification.getIntent(), aiAnswer.length());
+        
         return AIChatResponse.builder()
-            .message(classification.getAiAnswer())
+            .message(aiAnswer)
             .intent("GENERAL_CHAT")
             .build();
     }

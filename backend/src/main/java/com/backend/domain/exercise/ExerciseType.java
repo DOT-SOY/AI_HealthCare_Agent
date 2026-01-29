@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.BatchSize;
 
 import java.util.List;
 
@@ -32,6 +33,7 @@ public class ExerciseType {
     @CollectionTable(name = "exercise_type_sub_targets", joinColumns = @JoinColumn(name = "exercise_type_id"))
     @Column(name = "sub_target")
     @Enumerated(EnumType.STRING)
+    @BatchSize(size = 50) // N+1 문제 방지: 배치로 로드
     private List<ExerciseCategory> subTargets; // 서브 타겟 (예: [GLUTE, THIGH])
 }
 

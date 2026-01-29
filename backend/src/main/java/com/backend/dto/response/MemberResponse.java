@@ -13,9 +13,12 @@ import lombok.Setter;
 @Builder
 public class MemberResponse {
     private Long id;
+    private String email;
     private String name;
-    private String target; // BULK or DIET
-    private String physicalInfo; // JSON 문자열
+    private String gender;     // MALE or FEMALE
+    private String birthDate;  // YYYY-MM-DD
+    private Integer height;    // cm
+    private Double weight;     // kg
 }
 
 

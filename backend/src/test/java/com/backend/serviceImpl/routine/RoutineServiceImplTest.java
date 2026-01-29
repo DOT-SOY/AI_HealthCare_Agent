@@ -1,9 +1,7 @@
 package com.backend.serviceImpl.routine;
 
 import com.backend.domain.exercise.Exercise;
-import com.backend.domain.exercise.ExerciseCategory;
 import com.backend.domain.member.Member;
-import com.backend.domain.member.Target;
 import com.backend.domain.routine.Routine;
 import com.backend.domain.routine.RoutineStatus;
 import com.backend.dto.request.ExerciseAddRequest;
@@ -13,6 +11,7 @@ import com.backend.dto.response.RoutineResponse;
 import com.backend.repository.exercise.ExerciseRepository;
 import com.backend.repository.routine.RoutineRepository;
 import com.backend.service.pain.WorkoutReviewService;
+import com.backend.service.routine.RoutineServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -56,9 +55,12 @@ class RoutineServiceImplTest {
     void setUp() {
         member = Member.builder()
             .id(1L)
+            .email("test@example.com")
+            .pw("encodedPw")
             .name("테스트 회원")
-            .target(Target.BULK)
-            .physicalInfo("{}")
+            .gender(Member.Gender.MALE)
+            .height(175)
+            .weight(70.0)
             .build();
         
         exercises = new ArrayList<>();
