@@ -93,6 +93,8 @@ public class CustomSecurityConfig {
          */
         http.authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                /* WebSocket 핸드셰이크 허용 (STOMP CONNECT 단계에서 JWT 인증 처리) */
+                .requestMatchers("/ws", "/ws/**").permitAll()
                 /* 공개: 회원 로그인·가입·리프레시·소셜·이메일체크 등 (추후 member 일부만 공개로 좁힐 수 있음) */
                 .requestMatchers("/api/member/**").permitAll()
                 /* 공개: 파일 조회 */

@@ -6,6 +6,7 @@ import com.backend.dto.shop.request.ProductCreateRequest;
 import com.backend.dto.shop.request.ProductSearchRequest;
 import com.backend.dto.shop.request.ProductUpdateRequest;
 import com.backend.dto.shop.response.ProductResponse;
+import com.backend.service.member.CurrentMemberService;
 import com.backend.service.shop.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ import java.net.URI;
 public class ProductController {
 
     private final ProductService productService;
+    private final CurrentMemberService currentMemberService;
 
     // 상품 등록 (ADMIN 전용)
     @PostMapping
@@ -46,6 +48,8 @@ public class ProductController {
     @GetMapping("/{id}")
     public ResponseEntity<ProductResponse> findById(@PathVariable("id") Long id) {
         ProductResponse response = productService.findById(id);
+        currentMemberService.getCurrentMemberIdOptional()
+                .ifPresent(memberId -> productService.setCanReview(response, id, memberId));
         return ResponseEntity.ok(response);
     }
 

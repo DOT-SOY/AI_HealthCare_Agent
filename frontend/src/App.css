@@ -1,13 +1,4 @@
-* {
-  padding: 0;
-  box-sizing: border-box;
-}
+/* App.css - 추가 커스텀 스타일 */
+/* 기본 리셋은 index.css에서 처리하므로 여기서는 앱 전용 스타일만 정의 */
 
-body {
-  font-family: system-ui, -apple-system, sans-serif;
-}
-
-h1 {
-  padding: 2rem;
-  text-align: center;
-}
+/* 필요시 여기에 앱 전용 스타일 추가 */
