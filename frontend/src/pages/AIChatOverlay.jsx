@@ -132,19 +132,29 @@ export default function AIChatOverlay() {
 
       {/* 채팅 패널 */}
       {isChatOpen && (
-        <div className="fixed bottom-8 right-8 w-96 h-[600px] bg-neutral-900 rounded-lg shadow-2xl border border-neutral-700 flex flex-col z-50">
-          {/* 헤더 */}
-          <div className="flex items-center justify-between p-4 border-b border-neutral-700">
-            <h2 className="text-lg font-semibold text-neutral-50">AI 코치</h2>
-            <button
-              onClick={() => dispatch(toggleChat())}
-              className="text-neutral-400 hover:text-neutral-50 transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+        <>
+          {/* 배경 오버레이 */}
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => dispatch(toggleChat())}
+          />
+          {/* 채팅 패널 */}
+          <div
+            className="fixed bottom-8 right-8 w-96 h-[600px] bg-neutral-900 rounded-lg shadow-2xl border border-neutral-700 flex flex-col z-50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 헤더 */}
+            <div className="flex items-center justify-between p-4 border-b border-neutral-700">
+              <h2 className="text-lg font-semibold text-neutral-50">AI 코치</h2>
+              <button
+                onClick={() => dispatch(toggleChat())}
+                className="text-neutral-400 hover:text-neutral-50 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
 
           {/* 메시지 영역 */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -237,6 +247,7 @@ export default function AIChatOverlay() {
             )}
           </div>
         </div>
+        </>
       )}
     </>
   );

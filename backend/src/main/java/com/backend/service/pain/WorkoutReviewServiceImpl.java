@@ -138,7 +138,7 @@ public class WorkoutReviewServiceImpl implements WorkoutReviewService {
             }
             response.append("운동으로 인한 일시적인 통증일 가능성이 높습니다.\n\n");
             response.append("다음과 같은 방법을 시도해보세요:\n");
-            response.append(advice.getAdvice());
+            response.append(replaceBodyPartTerms(advice.getAdvice()));
             if (intensity >= 7) {
                 response.append("\n\n통증이 심하시다면 운동을 잠시 쉬시고, ");
                 response.append("통증이 완전히 사라질 때까지 휴식을 취하시는 것을 권장드립니다.");
@@ -156,7 +156,7 @@ public class WorkoutReviewServiceImpl implements WorkoutReviewService {
             response.append("오늘 운동과는 직접적인 관련이 없어 보이지만, ");
             response.append("일상생활에서의 자세나 습관이 원인일 수 있습니다.\n\n");
             response.append("다음과 같은 방법을 시도해보세요:\n");
-            response.append(advice.getAdvice());
+            response.append(replaceBodyPartTerms(advice.getAdvice()));
             if (intensity >= 7) {
                 response.append("\n\n통증이 심하시다면 가능한 한 빨리 전문의 상담을 받아보시는 것을 강력히 권장드립니다.");
             } else {
@@ -215,6 +215,35 @@ public class WorkoutReviewServiceImpl implements WorkoutReviewService {
             case "CALF" -> "종아리";
             default -> bodyPart; // 이미 한글이거나 다른 형식이면 그대로 반환
         };
+    }
+    
+    /**
+     * AI 응답 텍스트에서 영어 부위 용어를 한글로 치환합니다.
+     * 예: "글루트", "GLUTE" -> "둔근"
+     */
+    private String replaceBodyPartTerms(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return text;
+        }
+        
+        String result = text;
+        
+        // 영어 ENUM 형식 치환 (대소문자 구분 없이)
+        result = result.replaceAll("(?i)\\bGLUTE\\b", "둔근");
+        result = result.replaceAll("(?i)\\bBACK\\b", "등");
+        result = result.replaceAll("(?i)\\bCHEST\\b", "가슴");
+        result = result.replaceAll("(?i)\\bSHOULDER\\b", "어깨");
+        result = result.replaceAll("(?i)\\bARM\\b", "팔");
+        result = result.replaceAll("(?i)\\bCORE\\b", "코어");
+        result = result.replaceAll("(?i)\\bABS\\b", "복근");
+        result = result.replaceAll("(?i)\\bTHIGH\\b", "허벅지");
+        result = result.replaceAll("(?i)\\bCALF\\b", "종아리");
+        
+        // 한글 음성 표기 치환
+//        result = result.replace("글루트", "둔근");
+//        result = result.replace("글루티", "둔근");
+        
+        return result;
     }
     
     /**
