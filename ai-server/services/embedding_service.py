@@ -23,3 +23,4 @@ def get_embedding(text: str) -> Optional[List[float]]:
         return None
 
 
+

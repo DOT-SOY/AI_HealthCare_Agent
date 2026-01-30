@@ -7,11 +7,12 @@ export default {
   theme: {
     extend: {
       colors: {
-        'neon-green': '#00ff41',
+        'neon-green': '#88ce02',
       },
     },
   },
   plugins: [],
 }
+
 
 

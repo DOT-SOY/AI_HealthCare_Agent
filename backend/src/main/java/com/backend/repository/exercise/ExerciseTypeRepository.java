@@ -9,3 +9,4 @@ public interface ExerciseTypeRepository extends JpaRepository<ExerciseType, Long
     Optional<ExerciseType> findByName(String name);
 }
 
+

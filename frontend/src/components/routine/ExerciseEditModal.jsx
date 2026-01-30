@@ -135,15 +135,39 @@ export default function ExerciseEditModal({ exercise, isOpen, onClose, onSave })
     onClose();
   };
 
+  const handleBackdropClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-neutral-800 rounded-lg p-6 w-96 max-h-[90vh] overflow-visible">
+    <div 
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+      onClick={handleBackdropClick}
+    >
+      <div 
+        className="bg-neutral-800 rounded-lg p-6 w-96 max-h-[90vh] relative" 
+        style={{ overflow: 'visible' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* X 버튼 */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-4 right-4 text-neutral-400 hover:text-neutral-50 transition-colors z-10"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+        
         <h2 className="text-xl font-bold text-neutral-50 mb-4">
           {exercise ? '운동 수정' : '운동 추가'}
         </h2>
         
-        <form onSubmit={handleSubmit} className="space-y-4 overflow-visible">
-          <div className="relative">
+        <form onSubmit={handleSubmit} className="space-y-4" style={{ overflow: 'visible' }} onClick={(e) => e.stopPropagation()}>
+          <div className="relative" style={{ zIndex: 10 }}>
             <label className="block text-sm font-medium text-neutral-300 mb-1">운동명</label>
             <div className="relative">
               <input
@@ -151,27 +175,47 @@ export default function ExerciseEditModal({ exercise, isOpen, onClose, onSave })
                 type="text"
                 value={formData.name}
                 onChange={(e) => handleNameChange(e.target.value)}
-                onFocus={() => {
+                onFocus={(e) => {
                   if (formData.name.trim() === '') {
                     setFilteredExercises(EXERCISE_LIST);
                   }
                   setShowDropdown(true);
+                  e.target.style.boxShadow = '0 0 0 2px #88ce02';
                 }}
+                onBlur={(e) => e.target.style.boxShadow = ''}
                 placeholder="운동명을 입력하거나 목록에서 선택하세요"
-                className="w-full bg-neutral-700 text-neutral-50 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-neon-green pr-10"
+                className="w-full bg-neutral-700 text-neutral-50 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 pr-10"
+                style={{ '--tw-ring-color': '#88ce02' }}
                 required
               />
-              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                <svg className="w-5 h-5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (formData.name.trim() === '') {
+                    setFilteredExercises(EXERCISE_LIST);
+                  }
+                  setShowDropdown(!showDropdown);
+                }}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-neutral-400 hover:text-neutral-200 transition-colors cursor-pointer"
+              >
+                <svg 
+                  className={`w-5 h-5 transition-transform ${showDropdown ? 'rotate-180' : ''}`} 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
-              </div>
+              </button>
               
               {/* 드롭다운 목록 */}
               {showDropdown && filteredExercises.length > 0 && (
                 <div
                   ref={dropdownRef}
-                  className="absolute z-[60] w-full mt-1 bg-neutral-700 rounded-lg shadow-lg border border-neutral-600 max-h-60 overflow-y-auto"
+                  className="absolute w-full mt-1 bg-neutral-700/95 backdrop-blur-sm rounded-lg shadow-lg border border-neutral-600 max-h-60 overflow-y-auto"
+                  style={{ zIndex: 1000, top: '100%' }}
                 >
                   {filteredExercises.map((ex) => (
                     <button
@@ -200,7 +244,10 @@ export default function ExerciseEditModal({ exercise, isOpen, onClose, onSave })
                   type="number"
                   value={formData.sets}
                   onChange={(e) => setFormData({ ...formData, sets: parseInt(e.target.value) || 0 })}
-                  className="w-full bg-neutral-700 text-neutral-50 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-neon-green focus:ring-offset-2 focus:ring-offset-neutral-800"
+                  className="w-full bg-neutral-700 text-neutral-50 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-800"
+                  style={{ '--tw-ring-color': '#88ce02' }}
+                  onFocus={(e) => e.target.style.boxShadow = '0 0 0 2px #88ce02'}
+                  onBlur={(e) => e.target.style.boxShadow = ''}
                   min="0"
                   required
                 />
@@ -212,7 +259,10 @@ export default function ExerciseEditModal({ exercise, isOpen, onClose, onSave })
                   type="number"
                   value={formData.reps}
                   onChange={(e) => setFormData({ ...formData, reps: parseInt(e.target.value) || 0 })}
-                  className="w-full bg-neutral-700 text-neutral-50 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-neon-green focus:ring-offset-2 focus:ring-offset-neutral-800"
+                  className="w-full bg-neutral-700 text-neutral-50 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-800"
+                  style={{ '--tw-ring-color': '#88ce02' }}
+                  onFocus={(e) => e.target.style.boxShadow = '0 0 0 2px #88ce02'}
+                  onBlur={(e) => e.target.style.boxShadow = ''}
                   min="0"
                   required
                 />
@@ -229,7 +279,10 @@ export default function ExerciseEditModal({ exercise, isOpen, onClose, onSave })
                     const value = e.target.value === '' ? null : parseFloat(e.target.value);
                     setFormData({ ...formData, weight: value });
                   }}
-                  className="w-full bg-neutral-700 text-neutral-50 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-neon-green focus:ring-offset-2 focus:ring-offset-neutral-800"
+                  className="w-full bg-neutral-700 text-neutral-50 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-800"
+                  style={{ '--tw-ring-color': '#88ce02' }}
+                  onFocus={(e) => e.target.style.boxShadow = '0 0 0 2px #88ce02'}
+                  onBlur={(e) => e.target.style.boxShadow = ''}
                   min="0"
                   step="0.5"
                   placeholder={needsWeight ? "0" : "무게 없음"}
@@ -250,7 +303,10 @@ export default function ExerciseEditModal({ exercise, isOpen, onClose, onSave })
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-neon-green text-neutral-950 rounded-lg hover:bg-neon-green/80 transition-colors font-medium"
+              className="px-4 py-2 text-neutral-950 rounded-lg transition-colors font-medium"
+              style={{ backgroundColor: '#88ce02' }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(136, 206, 2, 0.8)'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = '#88ce02'}
             >
               저장
             </button>

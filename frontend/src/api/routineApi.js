@@ -17,6 +17,19 @@ export const routineApi = {
     return response.data;
   },
   
+  getLatestByExercise: async () => {
+    const response = await jwtAxios.get('/routines/history/latest');
+    return response.data;
+  },
+  
+  getRoutinesByExercise: async (exerciseName, page = 0, size = 1) => {
+    const response = await jwtAxios.get(
+      `/routines/history/exercise/${encodeURIComponent(exerciseName)}`,
+      { params: { page, size } }
+    );
+    return response.data;
+  },
+  
   getById: async (routineId) => {
     const response = await jwtAxios.get(`/routines/${routineId}`);
     return response.data;

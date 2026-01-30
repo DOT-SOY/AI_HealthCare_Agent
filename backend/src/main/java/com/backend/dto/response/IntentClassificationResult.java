@@ -14,8 +14,9 @@ import java.util.Map;
 @AllArgsConstructor
 @Builder
 public class IntentClassificationResult {
-    private String intent; // PAIN_REPORT, GENERAL_CHAT
-    private Map<String, Object> entities; // body_part, intensity 등
+    private String intent; // WORKOUT, WORKOUT_REVIEW, PAIN_REPORT, GENERAL_CHAT 등
+    private String action; // QUERY, RECOMMEND, MODIFY, REPORT, CHAT 등
+    private Map<String, Object> entities; // date, exercise_name, body_part, intensity 등
     private String aiAnswer;
     private boolean requiresDbCheck;
 }

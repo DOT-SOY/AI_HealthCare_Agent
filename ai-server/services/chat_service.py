@@ -21,3 +21,4 @@ def generate_ai_answer(text: str, intent: str, entities: Dict[str, Any] = None) 
         return "죄송합니다. 답변을 생성하는 중 오류가 발생했습니다."
 
 
+

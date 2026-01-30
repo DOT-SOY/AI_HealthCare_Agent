@@ -112,7 +112,10 @@ export default function AIChatOverlay() {
         <div className="fixed bottom-8 right-8 z-50">
           <button
             onClick={() => dispatch(toggleChat())}
-            className="w-16 h-16 bg-neon-green rounded-full flex items-center justify-center shadow-lg hover:bg-neon-green/80 transition-colors relative"
+            className="w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-colors relative"
+            style={{ backgroundColor: '#88ce02' }}
+            onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(136, 206, 2, 0.8)'}
+            onMouseLeave={(e) => e.target.style.backgroundColor = '#88ce02'}
           >
             <svg className="w-8 h-8 text-neutral-950" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
@@ -159,9 +162,10 @@ export default function AIChatOverlay() {
                 <div
                   className={`max-w-[80%] rounded-lg px-4 py-2 ${
                     message.role === 'user'
-                      ? 'bg-neon-green/90 text-white'
+                      ? 'text-white'
                       : 'bg-neutral-800 text-neutral-50'
                   }`}
+                  style={message.role === 'user' ? { backgroundColor: 'rgba(136, 206, 2, 0.9)' } : {}}
                 >
                   <p className="text-sm whitespace-pre-wrap font-medium drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]">{message.content}</p>
                 </div>
@@ -203,19 +207,33 @@ export default function AIChatOverlay() {
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="메시지를 입력하세요..."
-                className="flex-1 bg-neutral-800 text-neutral-50 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-neon-green"
+                className="flex-1 bg-neutral-800 text-neutral-50 px-4 py-2 rounded-lg focus:outline-none focus:ring-2"
+                style={{ '--tw-ring-color': '#88ce02' }}
+                onFocus={(e) => e.target.style.boxShadow = '0 0 0 2px #88ce02'}
+                onBlur={(e) => e.target.style.boxShadow = ''}
                 disabled={loading}
               />
               <button
                 onClick={handleSend}
                 disabled={!inputText.trim() || loading}
-                className="bg-neon-green text-neutral-950 px-4 py-2 rounded-lg font-medium hover:bg-neon-green/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="text-neutral-950 px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ backgroundColor: '#88ce02' }}
+                onMouseEnter={(e) => {
+                  if (!e.currentTarget.disabled) {
+                    e.currentTarget.style.backgroundColor = 'rgba(136, 206, 2, 0.8)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!e.currentTarget.disabled) {
+                    e.currentTarget.style.backgroundColor = '#88ce02';
+                  }
+                }}
               >
                 전송
               </button>
             </div>
             {isListening && (
-              <p className="text-xs text-neon-green mt-2">음성 인식 중...</p>
+              <p className="text-xs mt-2" style={{ color: '#88ce02' }}>음성 인식 중...</p>
             )}
           </div>
         </div>
