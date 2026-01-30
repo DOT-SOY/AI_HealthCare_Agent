@@ -9,9 +9,10 @@ export default function FilterButtons({ selectedFilter, onFilterChange }) {
           onClick={() => onFilterChange(filter)}
           className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
             selectedFilter === filter
-              ? 'bg-neon-green text-neutral-950'
+              ? 'text-neutral-950'
               : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
           }`}
+          style={selectedFilter === filter ? { backgroundColor: '#88ce02' } : {}}
         >
           {filter}
         </button>

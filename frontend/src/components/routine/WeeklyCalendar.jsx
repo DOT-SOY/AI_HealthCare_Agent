@@ -47,24 +47,33 @@ export default function WeeklyCalendar({ routines = [], selectedDate, onDateChan
             onClick={() => onDateChange && onDateChange(date)}
             className={`px-4 py-3 rounded-lg text-sm font-medium transition-colors whitespace-nowrap flex flex-col items-center gap-1 min-w-[70px] ${
               selected
-                ? 'bg-neon-green text-neutral-950'
+                ? 'text-neutral-950'
                 : todayFlag
-                ? 'bg-neutral-700 text-neon-green border border-neon-green'
+                ? 'bg-neutral-700 border'
                 : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
             }`}
+            style={selected 
+              ? { backgroundColor: '#88ce02' }
+              : todayFlag
+              ? { color: '#88ce02', borderColor: '#88ce02' }
+              : {}}
           >
             <span className={`text-xs ${selected ? 'text-neutral-950' : 'text-neutral-500'}`}>
               {dayName}
             </span>
             <span className={`text-lg font-bold ${
-              selected ? 'text-neutral-950' : todayFlag ? 'text-neon-green' : 'text-neutral-50'
-            }`}>
+              selected ? 'text-neutral-950' : 'text-neutral-50'
+            }`}
+            style={!selected && todayFlag ? { color: '#88ce02' } : {}}
+            >
               {dayNumber}
             </span>
             {routine && (
               <span className={`w-1.5 h-1.5 rounded-full mt-1 ${
-                selected ? 'bg-neutral-950' : 'bg-neon-green'
-              }`} />
+                selected ? 'bg-neutral-950' : ''
+              }`}
+              style={!selected ? { backgroundColor: '#88ce02' } : {}}
+              />
             )}
           </button>
         );

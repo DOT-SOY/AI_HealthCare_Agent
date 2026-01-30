@@ -21,9 +21,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+
 import java.time.LocalDate;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -57,6 +63,22 @@ public class RoutineServiceImpl implements RoutineService {
             routine.getExercises().size());
         
         return toRoutineResponse(routine, true);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public RoutineResponse getRoutineByDate(Long memberId, LocalDate date) {
+        log.info("특정 날짜 루틴 조회: memberId={}, date={}", memberId, date);
+
+        Routine routine = routineRepository.findByDateAndMemberId(date, memberId)
+            .orElse(null);
+
+        if (routine == null) {
+            log.warn("해당 날짜의 루틴을 찾을 수 없습니다: memberId={}, date={}", memberId, date);
+            return null;
+        }
+
+        return toRoutineResponse(routine, date.equals(LocalDate.now()));
     }
     
     @Override
@@ -157,6 +179,106 @@ public class RoutineServiceImpl implements RoutineService {
     }
     
     @Override
+    @Transactional(readOnly = true)
+    public Map<String, RoutineResponse> getLatestRoutinesByExercise(Long memberId) {
+        LocalDate start = LocalDate.now().minusMonths(3);
+        LocalDate end = LocalDate.now();
+        
+        log.info("운동별 최신 루틴 조회: memberId={}, start={}, end={}", memberId, start, end);
+        
+        // 최근 3개월의 완료된 운동이 있는 루틴 조회
+        List<Routine> routines = routineRepository.findByMemberIdAndDateBetween(memberId, start, end);
+        
+        // 완료된 운동이 있는 루틴만 필터링
+        List<Routine> routinesWithCompletedExercises = routines.stream()
+            .filter(routine -> routine.getExercises().stream()
+                .anyMatch(Exercise::isCompleted))
+            .collect(Collectors.toList());
+        
+        // 운동별로 그룹화하고 각 운동의 가장 최신 루틴만 선택
+        Map<String, RoutineResponse> latestByExercise = new HashMap<>();
+        
+        routinesWithCompletedExercises.forEach(routine -> {
+            routine.getExercises().stream()
+                .filter(Exercise::isCompleted)
+                .forEach(exercise -> {
+                    if (exercise.getExerciseType() == null || exercise.getExerciseType().getName() == null) {
+                        return; // ExerciseType이 없으면 스킵
+                    }
+                    String exerciseName = exercise.getExerciseType().getName();
+                    
+                    // 이미 해당 운동의 루틴이 있고, 현재 루틴이 더 최신이면 업데이트
+                    if (!latestByExercise.containsKey(exerciseName) || 
+                        routine.getDate().isAfter(latestByExercise.get(exerciseName).getDate())) {
+                        // 해당 운동만 포함하는 루틴 응답 생성
+                        RoutineResponse response = toRoutineResponseForExercise(routine, exerciseName);
+                        if (response != null) {
+                            latestByExercise.put(exerciseName, response);
+                        }
+                    }
+                });
+        });
+        
+        log.info("운동별 최신 루틴 조회 결과: exerciseCount={}", latestByExercise.size());
+        
+        return latestByExercise;
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public Page<RoutineResponse> getRoutinesByExercise(Long memberId, String exerciseName, Pageable pageable) {
+        LocalDate start = LocalDate.now().minusMonths(3);
+        LocalDate end = LocalDate.now();
+        
+        log.info("특정 운동의 루틴 조회: memberId={}, exerciseName={}, page={}, size={}", 
+            memberId, exerciseName, pageable.getPageNumber(), pageable.getPageSize());
+        
+        Page<Routine> routines = routineRepository.findByExerciseName(
+            memberId, exerciseName, start, end, pageable
+        );
+        
+        // 각 루틴에서 해당 운동만 필터링하여 응답 생성
+        List<RoutineResponse> responses = routines.getContent().stream()
+            .map(routine -> toRoutineResponseForExercise(routine, exerciseName))
+            .filter(response -> response != null)
+            .collect(Collectors.toList());
+        
+        return new PageImpl<>(responses, pageable, routines.getTotalElements());
+    }
+    
+    /**
+     * 특정 운동만 포함하는 루틴 응답 생성
+     */
+    private RoutineResponse toRoutineResponseForExercise(Routine routine, String exerciseName) {
+        // 해당 운동만 필터링
+        List<ExerciseResponse> exerciseResponses = routine.getExercises().stream()
+            .filter(ex -> {
+                if (ex.getExerciseType() == null || ex.getExerciseType().getName() == null) {
+                    return false;
+                }
+                String exName = ex.getExerciseType().getName();
+                return exName.equals(exerciseName) && ex.isCompleted();
+            })
+            .sorted(Comparator.comparing(Exercise::getOrderIndex))
+            .map(this::toExerciseResponse)
+            .collect(Collectors.toList());
+        
+        if (exerciseResponses.isEmpty()) {
+            return null;
+        }
+        
+        return RoutineResponse.builder()
+            .id(routine.getId())
+            .date(routine.getDate())
+            .title(routine.getTitle())
+            .status(routine.getStatus().name())
+            .isToday(routine.getDate().equals(LocalDate.now()))
+            .summary(routine.getAiSummary())
+            .exercises(exerciseResponses)
+            .build();
+    }
+    
+    @Override
     @Transactional
     public RoutineResponse createRoutine(Long memberId, RoutineCreateRequest request) {
         Member member = memberRepository.findById(memberId)
@@ -173,7 +295,7 @@ public class RoutineServiceImpl implements RoutineService {
             .date(request.getDate())
             .title(request.getTitle() != null ? request.getTitle() : "새로운 루틴")
             .aiSummary(request.getSummary() != null ? request.getSummary() : "")
-            .status(RoutineStatus.IN_PROGRESS)
+            .status(RoutineStatus.EXPECTED)  // 기본 상태는 EXPECTED (예정)
             .build();
         
         routine = routineRepository.save(routine);
@@ -209,24 +331,41 @@ public class RoutineServiceImpl implements RoutineService {
         exercise.setCompleted(!exercise.isCompleted());
         exerciseRepository.save(exercise);
         
-        // 오늘 날짜의 루틴이고 모든 운동 완료 시에만 회고 시작
-        if (exercise.isCompleted()) {
-            // 오늘 날짜인지 확인
+        // 운동 완료 상태에 따라 루틴 status 자동 변경
+        long completedCount = routine.getExercises().stream()
+            .filter(Exercise::isCompleted)
+            .count();
+        int totalExercises = routine.getExercises().size();
+        
+        RoutineStatus previousStatus = routine.getStatus();
+        RoutineStatus newStatus;
+        
+        if (completedCount == 0) {
+            // 완료된 운동이 하나도 없으면 EXPECTED
+            newStatus = RoutineStatus.EXPECTED;
+        } else if (completedCount == totalExercises) {
+            // 모든 운동이 완료되면 COMPLETED
+            newStatus = RoutineStatus.COMPLETED;
+        } else {
+            // 하나라도 완료되면 IN_PROGRESS
+            newStatus = RoutineStatus.IN_PROGRESS;
+        }
+        
+        // 상태가 변경된 경우에만 업데이트
+        if (previousStatus != newStatus) {
+            routine.setStatus(newStatus);
+            routineRepository.save(routine);
+            log.info("루틴 상태 자동 변경: routineId={}, previousStatus={}, newStatus={}, completedCount={}, totalExercises={}", 
+                routineId, previousStatus, newStatus, completedCount, totalExercises);
+        }
+        
+        // COMPLETED가 되고 오늘 날짜인 경우에만 회고 알림 전송
+        if (newStatus == RoutineStatus.COMPLETED && previousStatus != RoutineStatus.COMPLETED) {
             boolean isTodayRoutine = routine.getDate().equals(LocalDate.now());
-            
             if (isTodayRoutine) {
-                // exercises가 이미 로드되어 있으므로 다시 확인
-                boolean allCompleted = routine.getExercises().stream()
-                    .allMatch(Exercise::isCompleted);
-                
-                log.info("운동 완료 토글: routineId={}, exerciseId={}, date={}, isToday={}, allCompleted={}, totalExercises={}, completedCount={}", 
-                    routineId, exerciseId, routine.getDate(), isTodayRoutine, allCompleted, routine.getExercises().size(),
-                    routine.getExercises().stream().filter(Exercise::isCompleted).count());
-                
-                if (allCompleted) {
-                    log.info("오늘의 모든 운동 완료 - 회고 시작: memberId={}", routine.getMember().getId());
-                    workoutReviewService.startWorkoutReview(routine.getMember().getId());
-                }
+                log.info("오늘의 모든 운동 완료 - 회고 시작: memberId={}, routineId={}", 
+                    routine.getMember().getId(), routineId);
+                workoutReviewService.startWorkoutReview(routine.getMember().getId());
             } else {
                 log.debug("오늘 날짜가 아닌 루틴이므로 회고를 시작하지 않습니다: routineId={}, date={}", 
                     routineId, routine.getDate());
@@ -265,7 +404,6 @@ public class RoutineServiceImpl implements RoutineService {
             });
         
         Exercise exercise = Exercise.builder()
-            .name(request.getName())
             .exerciseType(exerciseType)
             .sets(request.getSets())
             .reps(request.getReps())
@@ -291,8 +429,6 @@ public class RoutineServiceImpl implements RoutineService {
             .filter(e -> e.getId().equals(exerciseId))
             .findFirst()
             .orElseThrow(() -> new IllegalArgumentException("운동을 찾을 수 없습니다: " + exerciseId));
-        
-        exercise.setName(request.getName());
         
         // ExerciseType 업데이트 (이름이 변경된 경우)
         if (exercise.getExerciseType() == null || !exercise.getExerciseType().getName().equals(request.getName())) {
@@ -365,11 +501,11 @@ public class RoutineServiceImpl implements RoutineService {
     
     private ExerciseResponse toExerciseResponse(Exercise exercise) {
         ExerciseType exerciseType = exercise.getExerciseType();
-        // 이름과 타겟 정보는 ExerciseType을 기준으로 사용하고,
-        // Exercise.name은 필요 시 커스텀 표시용으로만 사용 (null/없을 때만 fallback)
-        String name = exerciseType != null && exerciseType.getName() != null
-            ? exerciseType.getName()
-            : exercise.getName();
+        if (exerciseType == null) {
+            throw new IllegalStateException("Exercise must have an ExerciseType");
+        }
+        // 이름과 타겟 정보는 ExerciseType을 기준으로 사용
+        String name = exerciseType.getName();
 
         ExerciseCategory mainTarget = exerciseType != null 
             ? exerciseType.getMainTarget() 
