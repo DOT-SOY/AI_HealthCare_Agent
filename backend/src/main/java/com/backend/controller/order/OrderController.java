@@ -1,9 +1,12 @@
 package com.backend.controller.order;
 
+import com.backend.common.dto.PageResponse;
 import com.backend.dto.order.request.OrderCreateFromCartRequest;
 import com.backend.dto.order.request.OrderGuestLookupRequest;
+import com.backend.dto.order.request.OrderListRequest;
 import com.backend.dto.order.response.OrderCreateFromCartResponse;
 import com.backend.dto.order.response.OrderDetailResponse;
+import com.backend.dto.order.response.OrderSummaryResponse;
 import com.backend.dto.payment.response.PaymentReadyResponse;
 import com.backend.service.payment.PaymentService;
 import com.backend.service.order.OrderService;
@@ -37,6 +40,17 @@ public class OrderController {
     }
 
     /**
+     * 회원 본인 주문 목록 조회 (페이지네이션, 기간·상태 필터). JWT 인증 필수.
+     */
+    @GetMapping("/me")
+    public ResponseEntity<PageResponse<OrderSummaryResponse>> getMyOrders(
+            @Valid @ModelAttribute OrderListRequest request) {
+        var member = currentMemberService.getCurrentMemberOrThrow();
+        PageResponse<OrderSummaryResponse> response = orderService.getMyOrders(member.getId(), request);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * 회원 주문 상세 조회
      * - 로그인한 member의 주문만 접근 가능
      */
@@ -45,6 +59,21 @@ public class OrderController {
         var member = currentMemberService.getCurrentMemberOrThrow();
         OrderDetailResponse response = orderService.getOrderDetailForMember(orderNo, member.getId());
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 회원 주문 배송지 스냅샷 수정
+     * - 로그인한 member의 주문만 접근 가능
+     * - 주문 상태가 SHIPPED/DELIVERED/CANCELED 인 경우 수정 불가
+     */
+    @PatchMapping("/{orderNo}/ship-to")
+    public ResponseEntity<Void> updateShipTo(
+            @PathVariable("orderNo") String orderNo,
+            @Valid @RequestBody OrderCreateFromCartRequest.ShipToDto request
+    ) {
+        var member = currentMemberService.getCurrentMemberOrThrow();
+        orderService.updateShipToForMember(orderNo, member.getId(), request);
+        return ResponseEntity.noContent().build();
     }
 
     /**
