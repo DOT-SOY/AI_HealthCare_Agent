@@ -1,4 +1,4 @@
-import jwtAxios from '../services/jwtAxios';
+import jwtAxios from '../util/jwtUtil';
 
 export const aiApi = {
   sendMessage: async (text) => {

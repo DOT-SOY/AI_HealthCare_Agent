@@ -60,16 +60,6 @@ public class CustomSecurityConfig {
 
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, authException) -> {
-                            // #region agent log
-                            try {
-                                java.nio.file.Files.writeString(
-                                        java.nio.file.Paths.get("c:\\Users\\EZEN\\Downloads\\healthcare\\.cursor\\debug.log"),
-                                        "{\"sessionId\":\"debug-session\",\"runId\":\"pre-fix\",\"hypothesisId\":\"H1\",\"location\":\"CustomSecurityConfig.filterChain:authenticationEntryPoint\",\"message\":\"unauthorized\",\"data\":{\"path\":\"" + request.getRequestURI() + "\",\"method\":\"" + request.getMethod() + "\"},\"timestamp\":" + System.currentTimeMillis() + "}\n",
-                                        java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND
-                                );
-                            } catch (Exception ignored) {}
-                            // #endregion
-
                             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                             response.setContentType("application/json; charset=UTF-8");
                             response.setCharacterEncoding("UTF-8");
@@ -99,8 +89,8 @@ public class CustomSecurityConfig {
                 .requestMatchers("/api/member/**").permitAll()
                 /* 공개: 파일 조회 */
                 .requestMatchers("/api/files/view/**").permitAll()
-                /* 공개(예정: ADMIN 전용으로 조정 가능) */
-                .requestMatchers("/api/files/upload").permitAll()
+                /* 파일 업로드: ADMIN 전용 */
+                .requestMatchers(HttpMethod.POST, "/api/files/upload").hasRole("ADMIN")
                 /* 상품: 조회만 공개, 등록/수정/삭제는 ADMIN */
                 .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/products").hasRole("ADMIN")

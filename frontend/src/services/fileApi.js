@@ -1,4 +1,4 @@
-import jwtAxios from './jwtAxios';
+import jwtAxios from '../util/jwtUtil';
 
 /**
  * 파일 업로드 API

@@ -219,7 +219,6 @@ public class GlobalExceptionHandler {
                 .map(error -> ErrorResponse.FieldError.builder()
                         .field(error.getField())
                         .message(error.getDefaultMessage())
-                        .value(error.getRejectedValue())
                         .build())
                 .collect(Collectors.toList());
 
