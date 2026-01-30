@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../components/layout/ShopLayout';
 import { getCart } from '../../services/cartApi';
 import { createOrderFromCart, preparePayment } from '../../services/orderApi';
+import { getMyAddressList } from '../../services/memberInfoAddrApi';
 
 const TOSS_V1_URL = 'https://js.tosspayments.com/v1/payment.js';
 const TOSS_V2_URL = 'https://js.tosspayments.com/v2/payment.js';
@@ -15,15 +16,9 @@ const loadScript = (url, runId) =>
     script.src = url;
     script.async = true;
     script.onload = () => {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/5651dfb0-2c7c-4017-b85d-b8406355b1a9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CheckoutPage.jsx:script.onload',message:'script loaded',data:{url,runId},timestamp:Date.now(),sessionId:'debug-session',runId,hypothesisId:'fix-verify'})}).catch(()=>{});
-      // #endregion
       resolve(window.TossPayments);
     };
     script.onerror = () => {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/5651dfb0-2c7c-4017-b85d-b8406355b1a9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CheckoutPage.jsx:script.onerror',message:'script failed',data:{url,runId},timestamp:Date.now(),sessionId:'debug-session',runId,hypothesisId:'fix-verify'})}).catch(()=>{});
-      // #endregion
       reject(new Error(`Toss Payments 스크립트 로드 실패: ${url}`));
     };
     document.body.appendChild(script);
@@ -35,11 +30,6 @@ const loadTossScript = () => {
       resolve(window.TossPayments);
       return;
     }
-    // #region agent log
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const referrer = typeof document !== 'undefined' ? !!document.referrer : false;
-    fetch('http://127.0.0.1:7242/ingest/5651dfb0-2c7c-4017-b85d-b8406355b1a9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CheckoutPage.jsx:loadTossScript',message:'script load start',data:{scriptUrl:TOSS_V1_URL,origin,hasReferrer:referrer},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,C,E'})}).catch(()=>{});
-    // #endregion
     loadScript(TOSS_V1_URL, 'run')
       .then(resolve)
       .catch(() => {
@@ -74,14 +64,8 @@ const loadTossScript = () => {
                   });
                 },
               });
-              // #region agent log
-              fetch('http://127.0.0.1:7242/ingest/5651dfb0-2c7c-4017-b85d-b8406355b1a9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CheckoutPage.jsx:npmFallback',message:'npm fallback loaded',data:{runId:'post-fix'},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'fix-verify'})}).catch(()=>{});
-              // #endregion
               resolve(window.TossPayments);
             } catch (e) {
-              // #region agent log
-              fetch('http://127.0.0.1:7242/ingest/5651dfb0-2c7c-4017-b85d-b8406355b1a9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CheckoutPage.jsx:npmFallback',message:'npm fallback error',data:{err:String(e?.message||e),runId:'post-fix'},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'fix-verify'})}).catch(()=>{});
-              // #endregion
               reject(e);
             }
           });
@@ -105,6 +89,13 @@ const CheckoutPage = () => {
   const [checkoutPhase, setCheckoutPhase] = useState('form');
   const [widgetOrderPayload, setWidgetOrderPayload] = useState(null);
   const widgetInstanceRef = useRef(null);
+
+  /** 저장된 배송지 목록 (기본 배송지 우선) */
+  const [addressList, setAddressList] = useState([]);
+  /** 배송지 불러오기 드롭다운 표시 여부 */
+  const [showAddressSelect, setShowAddressSelect] = useState(false);
+  /** 기본 배송지 자동 기입 한 번만 수행 */
+  const defaultAppliedRef = useRef(false);
 
   /** 토스 requestPayment method 코드 ↔ 화면 라벨 (API 개별 연동 키 + 결제창용) */
   const PAYMENT_METHODS = [
@@ -136,11 +127,54 @@ const CheckoutPage = () => {
     }
   }, [navigate]);
 
+  /** 로그인 시 내 배송지 목록 조회 */
+  useEffect(() => {
+    if (!localStorage.getItem('accessToken')) return;
+    getMyAddressList()
+      .then((list) => setAddressList(Array.isArray(list) ? list : []))
+      .catch(() => setAddressList([]));
+  }, []);
+
+  /** 저장된 기본 배송지가 있으면 한 번만 자동 기입 */
+  useEffect(() => {
+    if (addressList.length === 0 || defaultAppliedRef.current) return;
+    const defaultAddr = addressList.find((a) => a.isDefault);
+    if (defaultAddr) {
+      setForm((prev) => ({
+        ...prev,
+        shipTo: {
+          recipientName: defaultAddr.shipToName ?? '',
+          recipientPhone: defaultAddr.shipToPhone ?? '',
+          zipcode: defaultAddr.shipZipcode ?? '',
+          address1: defaultAddr.shipAddress1 ?? '',
+          address2: defaultAddr.shipAddress2 ?? '',
+        },
+      }));
+      defaultAppliedRef.current = true;
+    }
+  }, [addressList]);
+
   const handleChange = (section, field, value) => {
     setForm((prev) => ({
       ...prev,
       [section]: { ...prev[section], [field]: value },
     }));
+  };
+
+  /** DTO 항목을 form.shipTo로 적용 (배송지 불러오기 선택 시) */
+  const applyAddressToForm = (addr) => {
+    if (!addr) return;
+    setForm((prev) => ({
+      ...prev,
+      shipTo: {
+        recipientName: addr.shipToName ?? '',
+        recipientPhone: addr.shipToPhone ?? '',
+        zipcode: addr.shipZipcode ?? '',
+        address1: addr.shipAddress1 ?? '',
+        address2: addr.shipAddress2 ?? '',
+      },
+    }));
+    setShowAddressSelect(false);
   };
 
   const handleSubmit = async (e) => {
@@ -212,11 +246,21 @@ const CheckoutPage = () => {
 
       // 결제위젯 연동 키(문서용 테스트키 gck): sdk.widgets() 사용. docs.tosspayments.com/guides/v2/payment-widget/integration
       if (sdk?.widgets && customerKey) {
-        const widgets = sdk.widgets({ customerKey });
-        await widgets.setAmount({ currency: 'KRW', value: amountNumber });
-        await widgets.renderPaymentMethods({ selector: '#toss-payment-method' });
-        await widgets.renderAgreement({ selector: '#toss-agreement' });
-        widgetInstanceRef.current = widgets;
+        const hadPrevInstance = !!widgetInstanceRef.current;
+        let widgets = widgetInstanceRef.current;
+        try {
+          if (!widgets) {
+            widgets = sdk.widgets({ customerKey });
+          }
+          await widgets.setAmount({ currency: 'KRW', value: amountNumber });
+          if (!hadPrevInstance) {
+            await widgets.renderPaymentMethods({ selector: '#toss-payment-method' });
+            await widgets.renderAgreement({ selector: '#toss-agreement' });
+          }
+          widgetInstanceRef.current = widgets;
+        } catch (err) {
+          throw err;
+        }
         setWidgetOrderPayload({
           orderId: orderIdStr,
           orderName,
@@ -310,7 +354,40 @@ const CheckoutPage = () => {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <section>
-          <h2 className="text-lg font-semibold mb-3">배송지</h2>
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <h2 className="text-lg font-semibold">배송지</h2>
+            <div className="relative">
+              <button
+                type="button"
+                disabled={addressList.length === 0}
+                onClick={() => setShowAddressSelect((v) => !v)}
+                className="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                배송지 불러오기
+              </button>
+              {showAddressSelect && addressList.length > 0 && (
+                <div className="absolute right-0 top-full mt-1 z-10 min-w-[240px] border rounded-lg bg-white shadow-lg py-1 max-h-48 overflow-auto">
+                  {addressList.map((addr) => (
+                    <button
+                      key={addr.id}
+                      type="button"
+                      onClick={() => applyAddressToForm(addr)}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100"
+                    >
+                      <span className="font-medium">{addr.shipToName}</span>
+                      {addr.isDefault && (
+                        <span className="ml-1 text-xs text-gray-500">(기본)</span>
+                      )}
+                      <br />
+                      <span className="text-gray-600">
+                        {[addr.shipAddress1, addr.shipAddress2].filter(Boolean).join(' ')}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
           <div className="space-y-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">수령인</label>
@@ -427,7 +504,6 @@ const CheckoutPage = () => {
               if (checkoutPhase === 'widget_ready') {
                 setCheckoutPhase('form');
                 setWidgetOrderPayload(null);
-                widgetInstanceRef.current = null;
               } else {
                 navigate(-1);
               }

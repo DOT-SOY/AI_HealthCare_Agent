@@ -4,8 +4,10 @@ import com.backend.domain.shop.Product;
 import com.backend.domain.shop.ProductStatus;
 import com.backend.domain.shop.QProduct;
 import com.backend.domain.shop.QProductCategory;
+import com.backend.domain.shop.QProductVariant;
 import com.backend.domain.shop.QCategory;
 import com.querydsl.core.types.Order;
+import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQuery;
@@ -49,7 +51,8 @@ public class ProductSearchImpl implements ProductSearch {
                         keywordContains(condition.getKeyword()),
                         categoryIdEq(condition.getCategoryId(), productCategory, category),
                         priceBetween(condition.getMinPrice(), condition.getMaxPrice()),
-                        statusEq(condition.getStatus())
+                        statusEq(condition.getStatus()),
+                        excludeOutOfStock(condition, product)
                 );
         
         // 카테고리 조인 시 중복 방지를 위해 distinct 사용
@@ -82,7 +85,8 @@ public class ProductSearchImpl implements ProductSearch {
                         keywordContains(condition.getKeyword()),
                         categoryIdEq(condition.getCategoryId(), productCategory, category),
                         priceBetween(condition.getMinPrice(), condition.getMaxPrice()),
-                        statusEq(condition.getStatus())
+                        statusEq(condition.getStatus()),
+                        excludeOutOfStock(condition, product)
                 );
 
         return PageableExecutionUtils.getPage(content, pageable, countQuery::fetchOne);
@@ -140,6 +144,25 @@ public class ProductSearchImpl implements ProductSearch {
             return null;
         }
         return QProduct.product.status.eq(status);
+    }
+
+    // 품절 제외: variant가 없거나, 재고가 1개 이상인 variant가 있는 상품만 포함
+    private BooleanExpression excludeOutOfStock(ProductSearchCondition condition, QProduct product) {
+        if (!condition.isExcludeOutOfStock()) {
+            return null;
+        }
+        QProductVariant variant = QProductVariant.productVariant;
+        // 품절이 아닌 상품 = variant가 없음 OR (재고 > 0인 variant가 1개 이상 있음)
+        BooleanExpression hasNoVariants = JPAExpressions.selectOne()
+                .from(variant)
+                .where(variant.product.id.eq(product.id))
+                .exists()
+                .not();
+        BooleanExpression hasInStockVariant = JPAExpressions.selectOne()
+                .from(variant)
+                .where(variant.product.id.eq(product.id), variant.stockQty.gt(0))
+                .exists();
+        return hasNoVariants.or(hasInStockVariant);
     }
 
     // 정렬 조건

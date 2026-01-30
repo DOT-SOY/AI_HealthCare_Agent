@@ -62,14 +62,14 @@ export default function ExerciseCard({ exercise, routineId, isActive = false, on
     <div
       className={`bg-neutral-800 rounded-lg p-6 ${
         isActive 
-          ? 'border-2 shadow-[0_0_20px_rgba(136,206,2,0.3)]' 
-          : isExerciseCompleted 
-            ? 'border-2 bg-neutral-800/80' 
+          ? 'border-2 shadow-[0_0_20px_rgba(136,206,2,0.3)]'
+          : isExerciseCompleted
+            ? 'border-2 bg-neutral-800/80'
             : 'border border-neutral-700'
       }`}
-      style={isActive 
+      style={isActive
         ? { borderColor: '#88ce02', boxShadow: '0 0 20px rgba(136, 206, 2, 0.3)' }
-        : isExerciseCompleted 
+        : isExerciseCompleted
           ? { borderColor: 'rgba(136, 206, 2, 0.5)' }
           : {}}
     >

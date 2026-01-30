@@ -29,7 +29,7 @@ def call_ai(
         temperature: 온도 (기본값 0.7)
         response_format: 응답 형식 (JSON 등)
         model: 사용할 모델 (None이면 기본 모델 사용)
-    
+
     Returns:
         AI 응답 텍스트
     """
@@ -73,6 +73,5 @@ def call_ai_json(
         response_format={"type": "json_object"}
     )
     return json.loads(response)
-
 
 

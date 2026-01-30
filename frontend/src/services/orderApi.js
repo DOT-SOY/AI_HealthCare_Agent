@@ -40,6 +40,32 @@ export const confirmTossPayment = async (body) => {
 };
 
 /**
+ * 회원 본인 주문 목록 조회 (JWT 인증 필수)
+ * @param {object} params - { page?, page_size?, from_date?, to_date?, status? }
+ * @returns {Promise<{ items: Array<{ orderNo, status, totalPayableAmount, createdAt, firstProductName, itemCount }>, page, page_size, total, pages, has_next, has_previous }>}
+ */
+export const getMyOrders = async (params = {}) => {
+  const {
+    page = 1,
+    page_size = 20,
+    from_date = null,
+    to_date = null,
+    status = null,
+  } = params;
+
+  const queryParams = new URLSearchParams({
+    page: String(page),
+    page_size: String(page_size),
+  });
+  if (from_date) queryParams.append('from_date', from_date);
+  if (to_date) queryParams.append('to_date', to_date);
+  if (status) queryParams.append('status', status);
+
+  const url = `/orders/me?${queryParams.toString()}`;
+  return await fetchAPI(url);
+};
+
+/**
  * 회원 주문 상세 조회
  * @param {string} orderNo - 주문번호
  * @returns {Promise<{
@@ -56,4 +82,16 @@ export const confirmTossPayment = async (body) => {
  */
 export const getOrderDetail = async (orderNo) => {
   return await fetchAPI(`/orders/${encodeURIComponent(orderNo)}`);
+};
+
+/**
+ * 회원 주문 배송지 수정
+ * @param {string} orderNo - 주문번호
+ * @param {object} body - { recipientName, recipientPhone, zipcode, address1, address2 }
+ */
+export const updateOrderShipTo = async (orderNo, body) => {
+  return await fetchAPI(`/orders/${encodeURIComponent(orderNo)}/ship-to`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
 };
