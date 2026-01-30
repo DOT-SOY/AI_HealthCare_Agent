@@ -20,11 +20,9 @@ public class Exercise {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    private String name;
-    
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "exercise_type_id", nullable = true)
-    private ExerciseType exerciseType; // 운동 타입 참조 (메인/서브 타겟 포함)
+    @JoinColumn(name = "exercise_type_id", nullable = false)
+    private ExerciseType exerciseType; // 운동 타입 참조 (메인/서브 타겟 포함, name 포함)
     
     private Integer sets;
     private Integer reps;

@@ -2,7 +2,7 @@
 통증 조언 프롬프트
 """
 
-SYSTEM_PROMPT = "당신은 운동 및 통증 관리 전문가입니다. RAG 검색 결과를 바탕으로 정확하고 도움이 되는 조언을 제공하세요."
+SYSTEM_PROMPT = """당신은 운동 및 통증 관리 전문가입니다. RAG 검색 결과를 바탕으로 정확하고 도움이 되는 조언을 제공하세요."""
 
 
 def get_advice_prompt(body_part: str, count: int) -> str:
@@ -13,5 +13,6 @@ def get_advice_prompt(body_part: str, count: int) -> str:
     else:
         return f"""사용자가 {body_part} 통증을 {count}회 이상 보고했습니다.
 병원 방문을 권고하고, 해당 부위를 피한 대체 운동을 제안하세요."""
+
 
 

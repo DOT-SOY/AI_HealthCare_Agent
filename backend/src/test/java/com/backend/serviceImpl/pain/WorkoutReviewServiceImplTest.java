@@ -1,6 +1,8 @@
 package com.backend.serviceImpl.pain;
 
 import com.backend.domain.exercise.Exercise;
+import com.backend.domain.exercise.ExerciseCategory;
+import com.backend.domain.exercise.ExerciseType;
 import com.backend.domain.member.Member;
 import com.backend.domain.routine.Routine;
 import com.backend.domain.routine.RoutineStatus;
@@ -58,11 +60,18 @@ class WorkoutReviewServiceImplTest {
             .weight(70.0)
             .build();
         
+        // ExerciseType 생성 (벤치프레스)
+        ExerciseType benchPressType = ExerciseType.builder()
+            .id(1L)
+            .name("벤치프레스")
+            .mainTarget(ExerciseCategory.CHEST)
+            .subTargets(List.of(ExerciseCategory.ARM, ExerciseCategory.SHOULDER))
+            .build();
+        
         exercises = new ArrayList<>();
         exercises.add(Exercise.builder()
             .id(1L)
-            .name("벤치프레스")
-//            .category(ExerciseCategory.CHEST)
+            .exerciseType(benchPressType)
             .sets(3)
             .reps(10)
             .weight(80.0)

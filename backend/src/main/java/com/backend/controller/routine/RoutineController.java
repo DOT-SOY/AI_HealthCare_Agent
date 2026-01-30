@@ -10,10 +10,13 @@ import com.backend.service.member.CurrentMemberService;
 import com.backend.service.routine.RoutineService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/routines")
@@ -52,6 +55,37 @@ public class RoutineController {
     public ResponseEntity<List<RoutineResponse>> getHistory(@RequestParam(required = false) String bodyPart) {
         Long memberId = currentMemberService.getCurrentMemberOrThrow().getId();
         List<RoutineResponse> response = routineService.getHistory(memberId, bodyPart);
+        return ResponseEntity.ok(response);
+    }
+    
+    /**
+     * 각 운동별로 가장 최신 루틴 1개씩 조회
+     * - 기록 페이지 초기 로딩용
+     */
+    @GetMapping("/history/latest")
+    public ResponseEntity<Map<String, RoutineResponse>> getLatestRoutinesByExercise() {
+        Long memberId = currentMemberService.getCurrentMemberOrThrow().getId();
+        log.debug("운동별 최신 루틴 조회 요청: memberId={}", memberId);
+        Map<String, RoutineResponse> response = routineService.getLatestRoutinesByExercise(memberId);
+        return ResponseEntity.ok(response);
+    }
+    
+    /**
+     * 특정 운동의 루틴 목록을 페이지네이션으로 조회
+     * - 무한 스크롤용
+     */
+    @GetMapping("/history/exercise/{exerciseName}")
+    public ResponseEntity<Page<RoutineResponse>> getRoutinesByExercise(
+        @PathVariable String exerciseName,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "1") int size
+    ) {
+        Long memberId = currentMemberService.getCurrentMemberOrThrow().getId();
+        log.debug("특정 운동의 루틴 조회 요청: memberId={}, exerciseName={}, page={}, size={}", 
+            memberId, exerciseName, page, size);
+        Page<RoutineResponse> response = routineService.getRoutinesByExercise(
+            memberId, exerciseName, PageRequest.of(page, size)
+        );
         return ResponseEntity.ok(response);
     }
     

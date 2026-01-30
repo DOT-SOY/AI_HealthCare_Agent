@@ -9,7 +9,7 @@ export default function AISummaryCard({ routine }) {
     <div className="bg-neutral-800 rounded-lg p-6 mb-6">
       <div className="flex items-center gap-3 mb-4">
         <div className="w-8 h-8 flex items-center justify-center">
-          <span className="text-neon-green text-xl">☀️</span>
+          <span className="text-xl" style={{ color: '#88ce02' }}>☀️</span>
         </div>
         <h2 className="text-xl font-semibold text-neutral-50">AI 코칭 요약</h2>
       </div>
@@ -17,7 +17,7 @@ export default function AISummaryCard({ routine }) {
         <ul className="space-y-2">
           {summaryPoints.map((point, index) => (
             <li key={index} className="text-neutral-300 flex items-start gap-2">
-              <span className="text-neon-green mt-1">•</span>
+              <span className="mt-1" style={{ color: '#88ce02' }}>•</span>
               <span>{point.trim()}</span>
             </li>
           ))}
