@@ -9,13 +9,16 @@ from openai import OpenAI
 # OpenAI 클라이언트 초기화
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+# 통증 조언용 모델 (간단한 대답용)
+PAIN_ADVICE_MODEL = os.getenv("PAIN_ADVICE_MODEL", "gpt-4.1-nano")
 
 
 def call_ai(
     system_prompt: str,
     user_prompt: str,
     temperature: float = 0.7,
-    response_format: Optional[Dict[str, str]] = None
+    response_format: Optional[Dict[str, str]] = None,
+    model: Optional[str] = None
 ) -> str:
     """
     공통 AI 호출 함수
@@ -25,7 +28,8 @@ def call_ai(
         user_prompt: 사용자 프롬프트
         temperature: 온도 (기본값 0.7)
         response_format: 응답 형식 (JSON 등)
-    
+        model: 사용할 모델 (None이면 기본 모델 사용)
+
     Returns:
         AI 응답 텍스트
     """
@@ -36,7 +40,7 @@ def call_ai(
         ]
         
         params = {
-            "model": OPENAI_MODEL,
+            "model": model or OPENAI_MODEL,
             "messages": messages,
             "temperature": temperature
         }

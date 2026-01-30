@@ -5,15 +5,34 @@ import com.backend.dto.request.ExerciseUpdateRequest;
 import com.backend.dto.request.RoutineCreateRequest;
 import com.backend.dto.response.ExerciseResponse;
 import com.backend.dto.response.RoutineResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
+import java.util.Map;
 
 public interface RoutineService {
     RoutineResponse getTodayRoutine(Long memberId);
+
+    /**
+     * 특정 날짜의 루틴을 조회합니다.
+     * AI 운동 회고(Workout Review)에서 사용됩니다.
+     */
+    RoutineResponse getRoutineByDate(Long memberId, java.time.LocalDate date);
     
     List<RoutineResponse> getWeeklyRoutines(Long memberId);
     
     List<RoutineResponse> getHistory(Long memberId, String bodyPart);
+    
+    /**
+     * 각 운동별로 가장 최신 루틴 1개씩 조회
+     */
+    Map<String, RoutineResponse> getLatestRoutinesByExercise(Long memberId);
+    
+    /**
+     * 특정 운동의 루틴 목록을 페이지네이션으로 조회
+     */
+    Page<RoutineResponse> getRoutinesByExercise(Long memberId, String exerciseName, Pageable pageable);
     
     RoutineResponse getRoutineById(Long routineId);
     

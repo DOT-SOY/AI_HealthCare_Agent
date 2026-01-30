@@ -4,18 +4,18 @@ import com.backend.domain.exercise.Exercise;
 import com.backend.domain.exercise.ExerciseCategory;
 import com.backend.domain.exercise.ExerciseType;
 import com.backend.domain.member.Member;
+import com.backend.domain.member.MemberRole;
 import com.backend.domain.routine.Routine;
 import com.backend.domain.routine.RoutineStatus;
-import com.backend.dto.member.MemberDTO;
 import com.backend.repository.exercise.ExerciseRepository;
 import com.backend.repository.exercise.ExerciseTypeRepository;
 import com.backend.repository.member.MemberRepository;
 import com.backend.repository.routine.RoutineRepository;
-import com.backend.service.member.MemberService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,7 +40,7 @@ class DummyDataGeneratorTest {
     private MemberRepository memberRepository;
     
     @Autowired
-    private MemberService memberService;
+    private PasswordEncoder passwordEncoder;
     
     @Autowired
     private RoutineRepository routineRepository;
@@ -59,27 +59,32 @@ class DummyDataGeneratorTest {
         System.out.println("=== 더미데이터 생성 시작 ===");
         
         // 1. 더미 데이터용 회원 1명을 이메일로 고정 생성/재사용
-        // MemberService.join()을 사용하여 비밀번호가 해싱된 회원 생성
+        // memberRepository에 직접 넣되, 비밀번호는 PasswordEncoder로 인코딩
         String dummyEmail = "dummy@example.com";
         Member member = memberRepository.findByEmail(dummyEmail)
             .orElseGet(() -> {
-                // MemberDTO 생성 (비밀번호는 validation 규칙에 맞게 설정)
-                MemberDTO memberDTO = MemberDTO.builder()
+                // 비밀번호 인코딩 (1111로 하드코딩)
+                String encodedPassword = passwordEncoder.encode("1111");
+                
+                // Member 엔티티 직접 생성
+                Member newMember = Member.builder()
                     .email(dummyEmail)
-                    .pw("Test1234!") // 8자 이상, 영문+숫자+특수문자 조합 (validation 통과)
-                    .name("테스트회원") // 한글 2자 이상
-                    .gender("MALE")
-                    .birthDate("1990-01-01") // YYYY-MM-DD 형식
+                    .pw(encodedPassword) // 인코딩된 비밀번호
+                    .name("테스트회원")
+                    .gender(Member.Gender.MALE)
+                    .birthDate(LocalDate.of(1990, 1, 1))
                     .height(175)
                     .weight(70.0)
+                    .isDeleted(false)
                     .build();
                 
-                // MemberService.join()을 통해 비밀번호 해싱 후 저장
-                Long memberId = memberService.join(memberDTO);
-                Member saved = memberRepository.findById(memberId)
-                    .orElseThrow(() -> new RuntimeException("회원 생성 실패"));
+                // 기본 역할 추가
+                newMember.addRole(MemberRole.USER);
+                
+                // 저장
+                Member saved = memberRepository.save(newMember);
                 System.out.println("새 멤버 생성: ID=" + saved.getId() + ", 이메일=" + saved.getEmail());
-                System.out.println("비밀번호: Test1234! (해싱되어 저장됨)");
+                System.out.println("비밀번호: 1111 (해싱되어 저장됨)");
                 return saved;
             });
         
@@ -244,8 +249,7 @@ class DummyDataGeneratorTest {
                                    int sets, int reps, double weight, int orderIndex, boolean completed) {
         return Exercise.builder()
             .routine(routine)
-            .name(name)
-            .exerciseType(exerciseType)
+            .exerciseType(exerciseType) // name 필드 제거됨, exerciseType만 사용
             .sets(sets)
             .reps(reps)
             .weight(weight)

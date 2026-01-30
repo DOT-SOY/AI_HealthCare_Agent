@@ -14,6 +14,10 @@ import java.util.Map;
 @AllArgsConstructor
 public class ChatResponse {
     private String intent;
+
+    @JsonProperty("action")
+    private String action;
+
     private Map<String, Object> entities;
     
     @JsonProperty("ai_answer") // Python AI 서버가 snake_case로 반환하므로 매핑 필요

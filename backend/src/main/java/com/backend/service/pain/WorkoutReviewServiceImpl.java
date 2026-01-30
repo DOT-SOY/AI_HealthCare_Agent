@@ -118,30 +118,132 @@ public class WorkoutReviewServiceImpl implements WorkoutReviewService {
         // 운동과 연관된 통증도 조언은 제공 (escalationCount는 0으로 전달)
         PainAdviceResponse advice = painService.getPainAdvice(bodyPart, escalationCount, description);
         
-        // 3. 오늘 루틴과 관련된 통증인지에 따라 응답 메시지 구성
+        // 3. 통증 부위를 사용자 친화적인 표현으로 변환
+        String bodyPartKr = formatBodyPartForMessage(bodyPart);
+        
+        // 4. intensity에 따른 통증 강도 표현
+        String intensityDescription = formatIntensityForMessage(intensity);
+        
+        // 5. 오늘 루틴과 관련된 통증인지에 따라 응답 메시지 구성
         StringBuilder response = new StringBuilder();
         
         if (actualIsRelated) {
-            // 오늘 루틴의 운동과 관련된 통증
-            response.append("오늘 수행한 운동과 관련된 통증이 감지되었습니다.\n\n");
+            // 오늘 루틴의 운동과 관련된 통증 - 친근하고 공감적인 톤
+            response.append("오늘 운동 후 ").append(bodyPartKr).append("에 ");
+            if (intensity >= 7) {
+                response.append("통증이 ").append(intensityDescription).append(" 느껴지시는군요. ");
+                response.append("운동 강도가 높아서 그럴 수 있습니다. 😟\n");
+            } else {
+                response.append("통증이 느껴지시는군요. 😊\n");
+            }
+            response.append("운동으로 인한 일시적인 통증일 가능성이 높습니다.\n\n");
+            response.append("다음과 같은 방법을 시도해보세요:\n");
+            response.append(replaceBodyPartTerms(advice.getAdvice()));
+            if (intensity >= 7) {
+                response.append("\n\n통증이 심하시다면 운동을 잠시 쉬시고, ");
+                response.append("통증이 완전히 사라질 때까지 휴식을 취하시는 것을 권장드립니다.");
+            } else {
+                response.append("\n\n통증이 계속되거나 심해지면 운동 강도를 조절하거나 휴식을 취하는 것도 좋은 방법입니다.");
+            }
         } else {
-            // 오늘 루틴과 관련 없는 통증
-            response.append("오늘 수행한 운동과는 직접적인 관련이 없는 통증으로 보입니다.\n");
-            response.append("자세 교정이나 일상생활 습관 개선이 도움이 될 수 있습니다.\n\n");
+            // 오늘 루틴과 관련 없는 통증 - 걱정을 이해하고 조언 제공
+            response.append(bodyPartKr).append(" 통증이 ");
+            if (intensity >= 7) {
+                response.append(intensityDescription).append(" 걱정되시는군요. ");
+            } else {
+                response.append("걱정되시는군요. ");
+            }
+            response.append("오늘 운동과는 직접적인 관련이 없어 보이지만, ");
+            response.append("일상생활에서의 자세나 습관이 원인일 수 있습니다.\n\n");
+            response.append("다음과 같은 방법을 시도해보세요:\n");
+            response.append(replaceBodyPartTerms(advice.getAdvice()));
+            if (intensity >= 7) {
+                response.append("\n\n통증이 심하시다면 가능한 한 빨리 전문의 상담을 받아보시는 것을 강력히 권장드립니다.");
+            } else {
+                response.append("\n\n통증이 지속되면 전문의 상담을 받아보시는 것을 권장드립니다.");
+            }
         }
-        
-        // 4. RAG 기반 조언 추가
-        response.append(advice.getAdvice());
         
         // 5. 주에 3회 이상 같은 부위 통증 시 추가 경고 (운동과 연관 없는 통증만 카운트)
         if (escalationCount >= 3) {
-            response.append("\n\n⚠️ 경고: 최근 7일 내 같은 부위 통증이 ");
-            response.append(escalationCount);
-            response.append("회 발생했습니다. ");
-            response.append("지속적인 통증이 있다면 정형외과나 신경외과 전문의의 진료를 받으시기 바랍니다.");
+            response.append("\n\n⚠️ ").append(bodyPartKr).append(" 통증이 최근 7일 동안 ");
+            response.append(escalationCount).append("회 발생했네요.\n\n");
+            response.append("이런 빈도는 일상적인 통증보다는 주의가 필요합니다. ");
+            response.append("정형외과나 신경외과 전문의의 진료를 받아보시는 것을 강력히 권장드립니다.\n\n");
+            response.append("건강이 최우선이니, 통증이 계속되면 운동을 잠시 중단하고 ");
+            response.append("전문의의 조언을 구하시기 바랍니다. 🙏");
         }
         
         return response.toString();
+    }
+    
+    /**
+     * 통증 강도를 사용자 친화적인 표현으로 변환합니다.
+     */
+    private String formatIntensityForMessage(int intensity) {
+        if (intensity >= 8) {
+            return "심하게";
+        } else if (intensity >= 6) {
+            return "꽤";
+        } else if (intensity >= 4) {
+            return "조금";
+        } else {
+            return "살짝";
+        }
+    }
+    
+    /**
+     * 통증 부위를 사용자 친화적인 한국어 표현으로 변환합니다.
+     * ENUM 형식(BACK, CHEST 등)이면 한국어로, 이미 한글이면 그대로 반환.
+     */
+    private String formatBodyPartForMessage(String bodyPart) {
+        if (bodyPart == null || bodyPart.trim().isEmpty()) {
+            return "해당 부위";
+        }
+        
+        // ENUM 형식인 경우 한국어로 변환
+        String upper = bodyPart.toUpperCase();
+        return switch (upper) {
+            case "BACK" -> "등";
+            case "CHEST" -> "가슴";
+            case "SHOULDER" -> "어깨";
+            case "ARM" -> "팔";
+            case "CORE" -> "코어";
+            case "ABS" -> "복근";
+            case "GLUTE" -> "둔근";
+            case "THIGH" -> "허벅지";
+            case "CALF" -> "종아리";
+            default -> bodyPart; // 이미 한글이거나 다른 형식이면 그대로 반환
+        };
+    }
+    
+    /**
+     * AI 응답 텍스트에서 영어 부위 용어를 한글로 치환합니다.
+     * 예: "글루트", "GLUTE" -> "둔근"
+     */
+    private String replaceBodyPartTerms(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return text;
+        }
+        
+        String result = text;
+        
+        // 영어 ENUM 형식 치환 (대소문자 구분 없이)
+        result = result.replaceAll("(?i)\\bGLUTE\\b", "둔근");
+        result = result.replaceAll("(?i)\\bBACK\\b", "등");
+        result = result.replaceAll("(?i)\\bCHEST\\b", "가슴");
+        result = result.replaceAll("(?i)\\bSHOULDER\\b", "어깨");
+        result = result.replaceAll("(?i)\\bARM\\b", "팔");
+        result = result.replaceAll("(?i)\\bCORE\\b", "코어");
+        result = result.replaceAll("(?i)\\bABS\\b", "복근");
+        result = result.replaceAll("(?i)\\bTHIGH\\b", "허벅지");
+        result = result.replaceAll("(?i)\\bCALF\\b", "종아리");
+        
+        // 한글 음성 표기 치환
+//        result = result.replace("글루트", "둔근");
+//        result = result.replace("글루티", "둔근");
+        
+        return result;
     }
     
     /**
