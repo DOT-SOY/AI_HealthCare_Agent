@@ -252,7 +252,7 @@ const ProductDetail = () => {
                 />
               </div>
             ) : (
-              <div className="w-full aspect-square bg-bg-surface rounded-lg flex items-center justify-center">
+              <div className="w-full aspect-square bg-bg-surface rounded-token flex items-center justify-center">
                 <span className="text-text-muted">이미지 없음</span>
               </div>
             )}
@@ -282,7 +282,7 @@ const ProductDetail = () => {
           </div>
 
           <div>
-            <h1 className="text-3xl font-bold text-text-main mb-4">{product.name}</h1>
+            <h1 className="text-3xl font-bold text-text-main font-emphasis mb-4">{product.name}</h1>
 
             <div className="mb-6">
               <span
@@ -297,7 +297,7 @@ const ProductDetail = () => {
             </div>
 
             <div className="mb-6">
-              <div className="text-4xl font-bold text-primary-500 mb-2">
+              <div className="text-4xl font-bold text-primary-500 font-emphasis mb-2">
                 {displayPrice != null ? displayPrice.toLocaleString() : '-'}원
               </div>
               {hasVariants && selectedVariant && (
@@ -306,7 +306,7 @@ const ProductDetail = () => {
             </div>
 
             <div className="mb-6">
-              <h2 className="text-xl font-semibold text-text-main mb-2">상품 설명</h2>
+              <h2 className="text-xl font-semibold text-text-main font-emphasis mb-2">상품 설명</h2>
               <p className="text-text-sub whitespace-pre-wrap">{product.description}</p>
             </div>
 
@@ -324,7 +324,7 @@ const ProductDetail = () => {
                           key={v.id}
                           type="button"
                           onClick={() => setSelectedVariant(isSelected ? null : v)}
-                          className={`px-4 py-2 rounded-lg font-medium transition border-2 ${
+                          className={`px-4 py-2 rounded-token font-medium transition border-2 ${
                             isSelected
                               ? 'bg-primary-500 text-bg-root border-primary-500'
                               : 'bg-bg-card text-text-main border-border-default hover:border-primary-500'
@@ -339,7 +339,7 @@ const ProductDetail = () => {
             )}
 
             <div className="mb-6 border-t border-border-default pt-6">
-              <h2 className="text-xl font-semibold text-text-main mb-3">수량 선택</h2>
+              <h2 className="text-xl font-semibold text-text-main font-emphasis mb-3">수량 선택</h2>
               <div className="flex items-center gap-4 mb-4">
                 <QtyStepper
                   value={qty}
@@ -381,7 +381,7 @@ const ProductDetail = () => {
       <Card className="mt-8 overflow-hidden p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <h2 className="text-xl font-semibold text-text-main">상품 리뷰</h2>
+            <h2 className="text-xl font-semibold text-text-main font-emphasis">상품 리뷰</h2>
             {product.reviewSummary != null && product.reviewSummary.count > 0 && (
               <span className="text-text-sub text-sm">
                 평점 {Number(product.reviewSummary.average_rating ?? product.reviewSummary.averageRating).toFixed(1)} (리뷰 {product.reviewSummary.count}개)

@@ -1,35 +1,99 @@
 /**
- * 전역 디자인 토큰
- * - CSS 변수: :root, [data-theme="dark"] 동시 정의
- * - Tailwind v4 @theme로 유틸리티 클래스 생성 (bg-bg-root, text-primary-500 등)
- * - 쇼핑몰은 data-theme="dark" 래퍼에서만 적용; 다른 페이지는 기존 스타일 유지
+ * 전역 디자인 토큰 — High Energy Performance Gym
+ * - Background: #0B0D10 / 계층형 에너지 팔레트
+ * - Primary: 라임·일렉트릭 그린 / Secondary: 레드·오렌지(강도·주의)
+ * - Typography: Pretendard 통일
  */
 
 :root,
 [data-theme="dark"] {
-  /* Background (Dark) - 순서: root → surface → card */
-  --bg-root: #0B0B0B;
-  --bg-surface: #242424;
-  --bg-card: #1E1E1E;
+  color-scheme: dark; /* 네이티브 폼(날짜 달력 등) 다크 스타일 */
+  /* Background (Dark) — 무채색 블랙·그레이 */
+  --bg-root: #0c0c0c;
+  --bg-surface: #171717;
+  --bg-card: #1a1a1a;
 
-  /* Primary (Lime) */
+  /* Primary (Lime / Electric Green) */
   --primary-500: #B6FF00;
   --primary-400: #C8FF33;
-  --primary-glow: rgba(182, 255, 0, 0.4);
+  --primary-600: #8FCC00;
+  --primary-glow: rgba(182, 255, 0, 0.6);
 
-  /* Typography - 한글 가독·헬스 사이트에 맞춘 산세리프 */
-  --font-sans: "Noto Sans KR", "Plus Jakarta Sans", system-ui, sans-serif;
+  /* Secondary Accent (강도·주의) */
+  --accent-secondary: #FF4D2E;
+  --accent-secondary-soft: rgba(255, 77, 46, 0.2);
+  --accent-orange: #FF8C42;
 
-  /* Text */
-  --text-main: #E5E7EB;
-  --text-sub: #9CA3AF;
-  --text-muted: #6B7280;
+  /* CTA Gradient */
+  --gradient-cta: linear-gradient(135deg, #8FCC00 0%, #B6FF00 50%, #C8FF33 100%);
+  --gradient-cta-hover: linear-gradient(135deg, #9fdc00 0%, #c6ff20 50%, #d8ff43 100%);
 
-  /* Border / Divider */
-  --border-default: #1F2937;
+  /* Gray Scale — 무채색 (파란 톤 제거) */
+  --gray-100: #262626;
+  --gray-200: #404040;
+  --gray-300: #525252;
+
+  /* Typography — Pretendard 통일 */
+  --font-sans: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-emphasis: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-display: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 15px;
+
+  /* Text — 무채색 */
+  --text-main: #e5e5e5;
+  --text-sub: #a3a3a3;
+  --text-muted: #737373;
+
+  /* Border / Divider — 무채색 */
+  --border-default: #262626;
+  --gray-default: #404040;
+
+  /* Easing — 속도감 */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+
+  /* Spacing */
+  --spacing-token-2: 0.5rem;
+  --spacing-token-4: 1rem;
+  --spacing-token-6: 1.5rem;
+  --spacing-token-8: 2rem;
+  --gap-grid: 1.5rem;
+  --gap-section: 2rem;
 }
 
-/* Tailwind v4: @theme로 유틸리티 클래스 노출 (bg-bg-root, text-primary-500 등) */
+/* Light theme — 라이트 모드 */
+[data-theme="light"] {
+  color-scheme: light; /* 네이티브 폼(날짜 달력 등) 라이트 스타일 */
+  --bg-root: #f5f5f5;
+  --bg-surface: #ffffff;
+  --bg-card: #ffffff;
+
+  --primary-500: #8FCC00;
+  --primary-400: #7ab800;
+  --primary-600: #6b9a00;
+  --primary-glow: rgba(143, 204, 0, 0.4);
+
+  --gray-100: #e5e5e5;
+  --gray-200: #d4d4d4;
+  --gray-300: #a3a3a3;
+
+  --text-main: #171717;
+  --text-sub: #525252;
+  --text-muted: #737373;
+
+  --border-default: #e5e5e5;
+  --gray-default: #d4d4d4;
+
+  --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+  --shadow-card-hover: 0 8px 16px -4px rgba(0, 0, 0, 0.12), 0 0 14px rgba(143, 204, 0, 0.25), 0 0 20px rgba(143, 204, 0, 0.15);
+  --shadow-glow: 0 0 32px var(--primary-glow);
+}
+
+/* Tailwind v4: @theme로 유틸리티 클래스 노출 */
 @theme {
   /* Background */
   --color-bg-root: var(--bg-root);
@@ -39,7 +103,15 @@
   /* Primary */
   --color-primary-500: var(--primary-500);
   --color-primary-400: var(--primary-400);
+  --color-primary-600: var(--primary-600);
   --color-primary-glow: var(--primary-glow);
+
+  /* Secondary / Gray */
+  --color-accent-secondary: var(--accent-secondary);
+  --color-accent-orange: var(--accent-orange);
+  --color-gray-100: var(--gray-100);
+  --color-gray-200: var(--gray-200);
+  --color-gray-300: var(--gray-300);
 
   /* Text */
   --color-text-main: var(--text-main);
@@ -48,9 +120,23 @@
 
   /* Border */
   --color-border-default: var(--border-default);
+  --color-gray-default: var(--gray-default);
 
-  /* Shadow: Card용 soft shadow (토큰) */
-  --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
-  --shadow-card-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.35), 0 4px 6px -4px rgba(0, 0, 0, 0.2);
-  --shadow-glow: 0 0 20px var(--primary-glow);
+  /* Radius */
+  --radius-token-sm: 8px;
+  --radius-token: 12px;
+  --radius-token-lg: 15px;
+
+  /* Spacing */
+  --spacing-token-2: 0.5rem;
+  --spacing-token-4: 1rem;
+  --spacing-token-6: 1.5rem;
+  --spacing-token-8: 2rem;
+  --gap-grid: 1.5rem;
+  --gap-section: 2rem;
+
+  /* Shadow — 카드 호버: 네온 영역 좁게, 더 진하게 */
+  --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.35), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
+  --shadow-card-hover: 0 8px 16px -4px rgba(0, 0, 0, 0.4), 0 0 14px rgba(182, 255, 0, 0.7), 0 0 20px rgba(182, 255, 0, 0.35);
+  --shadow-glow: 0 0 32px var(--primary-glow);
 }

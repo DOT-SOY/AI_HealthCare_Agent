@@ -6,7 +6,7 @@
 const Card = ({ children, className = '', as: Component = 'div', ...rest }) => {
   return (
     <Component
-      className={`bg-bg-card text-text-main rounded-lg shadow-card border border-border-default ${className}`.trim()}
+      className={`bg-bg-card text-text-main rounded-token shadow-card border border-border-default ${className}`.trim()}
       {...rest}
     >
       {children}

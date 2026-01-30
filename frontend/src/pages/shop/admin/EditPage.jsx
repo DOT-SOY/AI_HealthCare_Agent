@@ -182,6 +182,7 @@ const ProductEditPage = () => {
         status: formData.status,
         imageFilePaths: allImageFilePaths.length > 0 ? allImageFilePaths : [],
         variants: variants.length > 0 ? variants.map(v => ({
+          id: v.id ?? undefined,
           optionText: (v.optionDisplay ?? '').trim(),
           price: v.price ? parseFloat(v.price) : null,
           stockQty: parseInt(v.stockQty) || 0,

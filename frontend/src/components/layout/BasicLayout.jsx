@@ -1,11 +1,12 @@
 import BasicMenu from "../menu/BasicMenu";
 import { Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
+import { Lock, LogOut } from "lucide-react";
 import { logout } from "../../slices/loginSlice";
 import AIChatOverlay from '../../pages/AIChatOverlay';
 import ResetStyles from '../common/ResetStyles';
 
-const BasicLayout = ({ children }) => {
+const BasicLayout = ({ children, containerClassName = "page-container" }) => {
   const dispatch = useDispatch();
   const loginState = useSelector((state) => state.loginSlice);
   const isLogin = !!loginState?.email;
@@ -18,31 +19,32 @@ const BasicLayout = ({ children }) => {
     <>
       <BasicMenu />
       <div className="lg:ml-64">
-        {/* 상단 헤더 (오른쪽 위: 이름/로그아웃) */}
-        <header className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-gray-200">
+        {/* 상단 헤더 (오른쪽: 로그인/로그아웃 아이콘) */}
+        <header className="sticky top-0 z-40 bg-bg-root border-b border-border-default">
           <div className="h-14 px-4 flex items-center justify-end">
             {!isLogin ? (
-              <Link to="/member/login" className="ui-btn-primary text-sm px-4 py-2">
-                Login
+              <Link to="/member/login" className="p-2 rounded-token-sm text-primary-500 hover:text-primary-400 hover:bg-bg-surface/50 transition-colors" aria-label="로그인">
+                <Lock className="w-5 h-5" strokeWidth={2} />
               </Link>
             ) : (
-              <div className="flex items-center gap-3">
-                <div className="hidden sm:flex flex-col items-end leading-tight">
-                  <span className="text-xs text-gray-500">Welcome</span>
-                  <span className="text-sm font-semibold text-gray-900">
-                    {(loginState?.name || loginState?.email) ? `${loginState?.name || loginState?.email}님` : ""}
-                  </span>
-                </div>
-                <button onClick={handleClickLogout} className="ui-btn-ghost text-xs px-3 py-2">
-                  Logout
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={handleClickLogout}
+                className="p-2 rounded-token-sm text-primary-500 hover:text-primary-400 hover:bg-bg-surface/50 transition-colors"
+                aria-label="로그아웃"
+              >
+                <LogOut className="w-5 h-5" strokeWidth={2} />
+              </button>
             )}
           </div>
         </header>
 
-        <main className="pt-4">
-          {children}
+        <main>
+          <div className="page-root">
+            <div className={containerClassName}>
+              {children}
+            </div>
+          </div>
         </main>
       </div>
       <AIChatOverlay />

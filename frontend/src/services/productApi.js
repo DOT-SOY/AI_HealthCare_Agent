@@ -14,6 +14,7 @@ export const getProductList = async (params = {}) => {
     page = 1,
     page_size = 20,
     keyword = '',
+    searchType = 'all', // name(상품명), description(상품내용), all(전체)
     categoryId = null,
     minPrice = null,
     maxPrice = null,
@@ -31,6 +32,7 @@ export const getProductList = async (params = {}) => {
   });
 
   if (keyword) queryParams.append('keyword', keyword);
+  if (searchType) queryParams.append('searchType', searchType);
   if (categoryId) queryParams.append('categoryId', categoryId.toString());
   if (minPrice) queryParams.append('minPrice', minPrice.toString());
   if (maxPrice) queryParams.append('maxPrice', maxPrice.toString());

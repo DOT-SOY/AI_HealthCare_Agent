@@ -166,11 +166,12 @@ const beforeRes = async (res) => {
 const responseFail = async (err) => {
   // 에러 응답 처리
   console.log("response fail error.............");
-  if (err.response && err.response.data) {
-    const errorData = err.response.data;
-    const errorType = errorData.error;
-    const originalRequest = err.config;
+  const status = err.response?.status;
+  const errorData = err.response?.data;
+  const errorType = errorData?.error;
+  const originalRequest = err.config;
 
+  if (err.response && errorData) {
     // Refresh Token 관련 에러는 로그인 필요로 처리
     if (errorType === "UNKNOWN_REFRESH" || errorType === "NULL_REFRESH" ||
         errorType === "REFRESH_REPLAY_DETECTED" || errorType === "REFRESH_TAMPERED" ||
@@ -178,9 +179,13 @@ const responseFail = async (err) => {
         errorType === "REFRESH_BINDING_MISMATCH" || errorType === "INVALID_REFRESH_CLAIMS") {
       return Promise.reject({ response: { data: { error: "REQUIRE_LOGIN" } } });
     }
+  }
 
-    // ERROR_ACCESS_TOKEN, Expired, MalFormed 등의 JWT 에러 처리
-    if (errorType === "ERROR_ACCESS_TOKEN" || errorType === "Expired" || errorType === "MalFormed" || errorType === "Invalid") {
+  // 401이면 토큰 만료/누락 가능 → 리프레시 시도 (ERROR_ACCESS_TOKEN / Expired / UNAUTHORIZED 등)
+  const isAuthError = status === 401 ||
+    (errorType === "ERROR_ACCESS_TOKEN" || errorType === "Expired" || errorType === "MalFormed" || errorType === "Invalid" || errorType === "UNAUTHORIZED");
+
+  if (isAuthError && originalRequest) {
       // 무한 루프 방지
       if (originalRequest && originalRequest._retry) {
         return Promise.reject({ response: { data: { error: "REQUIRE_LOGIN" } } });
@@ -249,7 +254,6 @@ const responseFail = async (err) => {
           return Promise.reject({ response: { data: { error: "REQUIRE_LOGIN" } } });
         }
       }
-    }
   }
 
   return Promise.reject(err);

@@ -1,5 +1,6 @@
 import { Suspense, lazy } from "react";
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Outlet } from "react-router-dom";
+import ShopLayout from "../components/layout/ShopLayout";
 import shopRouter from "./shopRouter";
 import routineRouter from "./routineRouter";
 import recordRouter from "./recordRouter";
@@ -13,7 +14,6 @@ import adminRouter from "./adminRouter";
 const Loading = <LoadingModal isOpen={true} message="로딩 중입니다" />;
 
 const Main = lazy(() => import("../pages/MainPage"));
-const ShopIndex = lazy(() => import("../pages/shop/ShopIndex"));
 const RoutineIndex = lazy(() => import("../pages/routine/RoutineIndex"));
 const RecordIndex = lazy(() => import("../pages/record/RecordIndex"));
 const MealIndex = lazy(() => import("../pages/meal/MealIndex"));
@@ -62,7 +62,9 @@ const root = createBrowserRouter([
     path: "/shop",
     element: (
       <Suspense fallback={Loading}>
-        <ShopIndex />
+        <ShopLayout>
+          <Outlet />
+        </ShopLayout>
       </Suspense>
     ),
     children: shopRouter(),

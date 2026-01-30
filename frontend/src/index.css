@@ -1,7 +1,9 @@
 @import "tailwindcss";
 @import "./styles/design-tokens.css";
+@import "./styles/app-tokens.css";
+@import "./styles/components.css";
 
-/* 전역 폰트는 index.html에서 로드 (Plus Jakarta Sans) */
+/* 전역 폰트: index.html에서 Pretendard 로드, design-tokens에서 Pretendard 통일 */
 :root {
   font-family: var(--font-sans);
   line-height: 1.5;
@@ -19,5 +21,42 @@ body {
   padding: 0;
   min-width: 320px;
   min-height: 100vh;
+}
+
+/* 스크롤바: 배경 0B0B0B, 스크롤(thumb) 네온그린 */
+* {
+  scrollbar-color: var(--primary-500) var(--bg-root);
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--bg-root);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--primary-500);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-400);
+}
+
+/* .pt-4: calc(var(--spacing)*4) 제거, 고정값 사용 */
+@layer utilities {
+  .pt-4 {
+    padding-top: 1rem;
+  }
 }
 

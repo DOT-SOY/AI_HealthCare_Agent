@@ -1,16 +1,28 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { Search, RotateCcw, LayoutGrid, UtensilsCrossed, Pill, Dumbbell, Shirt, Package } from 'lucide-react';
 import { getProductList } from '../../services/productApi';
-import { useCart } from '../../components/layout/ShopLayout';
 import ProductCard from '../../components/shop/ProductCard';
 import Button from '../../components/common/Button';
 
+/** 카테고리: 전체, 음식, 보충제, 헬스용품, 의류, 기타 (아이콘 포함) */
+const SEGMENT_CARDS = [
+  { id: null, label: '전체', Icon: LayoutGrid },
+  { id: 1, label: '음식', Icon: UtensilsCrossed },
+  { id: 2, label: '보충제', Icon: Pill },
+  { id: 3, label: '헬스용품', Icon: Dumbbell },
+  { id: 4, label: '의류', Icon: Shirt },
+  { id: 5, label: '기타', Icon: Package },
+];
+
+/**
+ * 상품 목록 페이지 — 클릭 시 상세 이동, 장바구니 담기는 상세에서만
+ */
 const ProductList = () => {
   const navigate = useNavigate();
   const loginState = useSelector((state) => state.loginSlice);
   const isAdmin = !!loginState?.roleNames?.includes('ADMIN');
-  const { addToCart } = useCart();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -21,26 +33,9 @@ const ProductList = () => {
   const [hasPrevious, setHasPrevious] = useState(false);
   const [keyword, setKeyword] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const [searchType, setSearchType] = useState('all'); // 'name' | 'description' | 'all'
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
-  const [productQtys, setProductQtys] = useState({});
-  const [selectedVariants, setSelectedVariants] = useState({});
-  const isAddingToCartRef = useRef(false);
-
-  const categoryTypes = [
-    { type: 'FOOD', name: '음식' },
-    { type: 'SUPPLEMENT', name: '보충제' },
-    { type: 'HEALTH_GOODS', name: '헬스용품' },
-    { type: 'CLOTHING', name: '의류' },
-    { type: 'ETC', name: '기타' },
-  ];
-
-  const categoryTypeToIdMap = {
-    FOOD: 1,
-    SUPPLEMENT: 2,
-    HEALTH_GOODS: 3,
-    CLOTHING: 4,
-    ETC: 5,
-  };
+  const productsRef = useRef(null);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -53,6 +48,7 @@ const ProductList = () => {
           page,
           page_size: pageSize,
           keyword,
+          searchType,
           categoryId: selectedCategoryId,
           signal: abortController.signal,
         });
@@ -79,7 +75,11 @@ const ProductList = () => {
     return () => {
       abortController.abort();
     };
-  }, [page, keyword, selectedCategoryId]);
+  }, [page, keyword, searchType, selectedCategoryId]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [page]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -87,50 +87,26 @@ const ProductList = () => {
     setPage(1);
   };
 
+  const handleResetSearch = () => {
+    setSearchInput('');
+    setKeyword('');
+    setSearchType('all');
+    setPage(1);
+  };
+
+  const hasActiveSearch = keyword || searchType !== 'all';
+
   const handleCategoryFilter = (categoryId) => {
     setSelectedCategoryId(categoryId === selectedCategoryId ? null : categoryId);
     setPage(1);
   };
 
+  const handleScrollToProducts = () => {
+    productsRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   const handlePageChange = (newPage) => {
     setPage(newPage);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleAddToCart = (e, product) => {
-    if (isAddingToCartRef.current) return;
-    e.preventDefault();
-    e.stopPropagation();
-    isAddingToCartRef.current = true;
-
-    const hasVariants = product.variants && product.variants.length > 0;
-    const selectedVariant = hasVariants ? selectedVariants[product.id] : null;
-
-    if (hasVariants && !selectedVariant) {
-      isAddingToCartRef.current = false;
-      return;
-    }
-
-    const currentQty = productQtys[product.id] ?? 1;
-    addToCart(product, selectedVariant, currentQty);
-
-    setTimeout(() => {
-      isAddingToCartRef.current = false;
-    }, 0);
-  };
-
-  const handleQtyChange = (productId, newQty) => {
-    setProductQtys((prev) => ({
-      ...prev,
-      [productId]: newQty,
-    }));
-  };
-
-  const handleVariantChange = (productId, variant) => {
-    setSelectedVariants((prev) => ({
-      ...prev,
-      [productId]: variant,
-    }));
   };
 
   const getPrimaryImageUrl = (product) => {
@@ -141,149 +117,273 @@ const ProductList = () => {
     return primaryImage ? primaryImage.url : product.images[0].url;
   };
 
-  const getDisplayPrice = (product) => {
-    const selectedVariant = selectedVariants[product.id];
-    if (selectedVariant && selectedVariant.price != null) {
-      return Number(selectedVariant.price);
-    }
-    return product.basePrice;
-  };
-
   if (loading && products.length === 0) {
     return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <div className="text-lg text-text-main">로딩 중...</div>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-token-4 bg-bg-root">
+        <div className="spinner-token" />
+        <p className="text-text-sub font-medium">로딩 중...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <div className="text-primary-400">{error}</div>
+      <div className="flex flex-col items-center justify-center min-h-[40vh] gap-token-4">
+        <p className="text-accent-secondary font-medium">{error}</p>
+        <Button variant="ghost" onClick={() => window.location.reload()}>
+          다시 시도
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="w-full">
-      <div className="mb-8">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-          <h1 className="text-3xl font-bold text-text-main">상품 목록</h1>
-          {isAdmin && (
-            <Button
-              type="button"
-              variant="primary"
-              onClick={() => navigate('/shop/admin/create')}
-            >
-              상품 등록
-            </Button>
-          )}
-        </div>
+    <div className="w-full bg-bg-root">
+      {/* 히어로: 강한 카피 + 그래픽 배경 + CTA */}
+      <section className="relative min-h-0 flex flex-col justify-center py-8 sm:py-10 lg:py-12 overflow-hidden">
+        {/* 배경: 그라데이션 + 그리드 패턴 */}
+        <div
+          className="absolute inset-0 bg-gradient-to-br from-bg-root via-gray-100/30 to-bg-root"
+          aria-hidden
+        />
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: `linear-gradient(var(--primary-500) 1px, transparent 1px),
+              linear-gradient(90deg, var(--primary-500) 1px, transparent 1px)`,
+            backgroundSize: '48px 48px',
+          }}
+          aria-hidden
+        />
+        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-bg-root to-transparent" aria-hidden />
 
-        <form onSubmit={handleSearch} className="mb-6">
-          <div className="flex gap-2">
+        <div className="relative z-10 container-token">
+          <div className="flex flex-wrap items-start justify-between gap-token-6">
+            <div>
+              <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl tracking-tighter text-text-main uppercase">
+                TRAIN.
+              </h1>
+              <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl tracking-tighter text-primary-500 uppercase">
+                FUEL.
+              </h1>
+              <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl tracking-tighter text-text-main uppercase">
+                PERFORM.
+              </h1>
+              <p className="mt-2 text-text-sub text-base sm:text-lg max-w-md tracking-wide">
+                지금 필요한 보충제로 퍼포먼스를 올려보세요.
+              </p>
+              <Button
+                type="button"
+                variant="primary"
+                size="md"
+                onClick={handleScrollToProducts}
+                className="mt-4 bg-transparent hover:scale-[1.02] border-primary-500"
+                style={{
+                  backgroundImage: 'var(--gradient-cta)',
+                  backgroundSize: '200% 100%',
+                  backgroundPosition: '0% 50%',
+                }}
+              >
+                지금 필요한 보충제 찾기
+              </Button>
+            </div>
+            {isAdmin && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate('/shop/admin/create')}
+              >
+                상품 등록
+              </Button>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* 카테고리: 전체, 음식, 보충제, 헬스용품, 의류, 기타 */}
+      <section className="relative z-10 container-token -mt-2 mb-token-4">
+        <div className="flex flex-wrap items-center gap-2">
+          {SEGMENT_CARDS.map(({ id, label, Icon }) => {
+            const isSelected = selectedCategoryId === id;
+            return (
+              <button
+                key={id ?? 'all'}
+                type="button"
+                onClick={() => handleCategoryFilter(id)}
+                className={`segment-btn ${isSelected ? 'segment-btn-active' : ''}`}
+              >
+                <Icon className="w-5 h-5 shrink-0" strokeWidth={2} />
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* 검색 바 — 검색 타입 드롭다운 + 검색어 + 검색 초기화 */}
+      <section className="container-token mb-token-8">
+        <form onSubmit={handleSearch} className="max-w-2xl flex flex-wrap items-stretch gap-2">
+          <select
+            value={searchType}
+            onChange={(e) => setSearchType(e.target.value)}
+            className="select-token w-auto min-w-[140px] h-11"
+            aria-label="검색 대상"
+          >
+            <option value="all">전체</option>
+            <option value="name">상품명</option>
+            <option value="description">상품내용</option>
+          </select>
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted pointer-events-none" aria-hidden />
             <input
+              id="product-search"
               type="text"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="상품명으로 검색..."
-              className="flex-1 px-4 py-2 border border-border-default rounded-lg bg-bg-card text-text-main placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-primary-500"
+              placeholder="상품 검색..."
+              className="input-token input-token-with-icon pr-24 w-full h-11"
+              aria-label="상품 검색"
             />
-            <Button type="submit" variant="primary">
+            <Button
+              type="submit"
+              variant="primary"
+              size="md"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 h-9 bg-gradient-to-r from-primary-600 to-primary-500 hover:shadow-glow transition-all duration-200 ease-out-quart"
+            >
               검색
             </Button>
           </div>
-        </form>
-
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold text-text-main mb-3">카테고리</h2>
-          <div className="flex flex-wrap gap-2">
-            <button
+          {hasActiveSearch && (
+            <Button
               type="button"
-              onClick={() => handleCategoryFilter(null)}
-              className={`px-4 py-2 rounded-lg font-medium transition ${
-                selectedCategoryId === null
-                  ? 'bg-primary-500 text-bg-root hover:shadow-glow'
-                  : 'bg-bg-card text-text-main border border-border-default hover:border-primary-500'
-              }`}
+              variant="ghost"
+              size="md"
+              onClick={handleResetSearch}
+              className="shrink-0 h-11 gap-1.5 text-text-sub hover:text-text-main"
+              aria-label="검색 초기화"
             >
-              전체
-            </button>
-            {categoryTypes.map((category) => {
-              const categoryId = categoryTypeToIdMap[category.type];
-              return (
-                <button
-                  key={category.type}
-                  type="button"
-                  onClick={() => handleCategoryFilter(categoryId)}
-                  className={`px-4 py-2 rounded-lg font-medium transition ${
-                    selectedCategoryId === categoryId
-                      ? 'bg-primary-500 text-bg-root hover:shadow-glow'
-                      : 'bg-bg-card text-text-main border border-border-default hover:border-primary-500'
-                  }`}
-                >
-                  {category.name}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {products.length === 0 ? (
-        <div className="text-center py-12 text-text-muted">상품이 없습니다.</div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
-            {products.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                displayPrice={getDisplayPrice(product)}
-                selectedVariant={selectedVariants[product.id]}
-                onVariantChange={handleVariantChange}
-                qty={productQtys[product.id] ?? 1}
-                onQtyChange={handleQtyChange}
-                onAddToCart={handleAddToCart}
-                isAddingDisabled={
-                  product.status !== 'ACTIVE' ||
-                  (product.variants &&
-                    product.variants.filter((v) => v.active).length > 0 &&
-                    !selectedVariants[product.id])
-                }
-                getPrimaryImageUrl={getPrimaryImageUrl}
-              />
-            ))}
-          </div>
-
-          {total > 0 && (
-            <div className="flex justify-center items-center gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => handlePageChange(page - 1)}
-                disabled={!hasPrevious}
-              >
-                이전
-              </Button>
-              <span className="px-4 py-2 text-text-main">
-                {page} / {Math.ceil(total / pageSize)}
-              </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => handlePageChange(page + 1)}
-                disabled={!hasNext}
-              >
-                다음
-              </Button>
-            </div>
+              <RotateCcw className="w-4 h-4" strokeWidth={2} />
+              검색 초기화
+            </Button>
           )}
-        </>
-      )}
+        </form>
+      </section>
+
+      {/* 상품 그리드 — 루틴·기록·식사와 동일 섹션 톤 */}
+      <section ref={productsRef} className="container-token pb-14">
+        {products.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-token-4 text-center">
+            <p className="text-text-muted text-lg">등록된 상품이 없습니다.</p>
+          </div>
+        ) : (
+          <>
+            <header className="section-header-token">
+              <h2 className="section-title text-text-main">
+                상품 목록
+              </h2>
+              <p className="section-desc">{total}개의 상품</p>
+            </header>
+
+            <div
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
+              role="list"
+              aria-label="상품 목록"
+            >
+              {products.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  displayPrice={product.basePrice ?? 0}
+                  getPrimaryImageUrl={getPrimaryImageUrl}
+                />
+              ))}
+            </div>
+
+            {total > 0 && (() => {
+              const totalPages = Math.ceil(total / pageSize);
+              const getDisplayPages = () => {
+                if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+                const pages = [1];
+                if (page > 3) pages.push('ellipsis-start');
+                const midStart = Math.max(2, page - 1);
+                const midEnd = Math.min(totalPages - 1, page + 1);
+                for (let p = midStart; p <= midEnd; p++) pages.push(p);
+                if (page < totalPages - 2) pages.push('ellipsis-end');
+                if (totalPages > 1) pages.push(totalPages);
+                return pages;
+              };
+              return (
+                <nav
+                  className="flex flex-wrap justify-center items-center gap-1 sm:gap-2 pt-token-8 border-t border-border-default"
+                  aria-label="페이지 네비게이션"
+                >
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handlePageChange(1)}
+                    disabled={page <= 1}
+                    aria-label="맨 앞"
+                  >
+                    맨 앞
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handlePageChange(page - 1)}
+                    disabled={!hasPrevious}
+                    aria-label="이전 페이지"
+                  >
+                    이전
+                  </Button>
+                  <div className="flex items-center gap-1 mx-1">
+                    {getDisplayPages().map((p, i) =>
+                      p === 'ellipsis-start' || p === 'ellipsis-end' ? (
+                        <span key={`ellipsis-${i}`} className="px-1 text-text-muted">
+                          …
+                        </span>
+                      ) : (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => handlePageChange(p)}
+                          className={`page-btn ${page === p ? 'page-btn-active' : ''}`}
+                          aria-label={`${p}페이지`}
+                          aria-current={page === p ? 'page' : undefined}
+                        >
+                          {p}
+                        </button>
+                      )
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handlePageChange(page + 1)}
+                    disabled={!hasNext}
+                    aria-label="다음 페이지"
+                  >
+                    다음
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handlePageChange(totalPages)}
+                    disabled={page >= totalPages}
+                    aria-label="맨 뒤"
+                  >
+                    맨 뒤
+                  </Button>
+                </nav>
+              );
+            })()}
+          </>
+        )}
+      </section>
     </div>
   );
 };
