@@ -13,12 +13,17 @@ import com.backend.domain.order.OrderShipToSnapshot;
 import com.backend.domain.order.OrderStatus;
 import com.backend.domain.shop.ProductStatus;
 import com.backend.domain.shop.ProductVariant;
+import com.backend.common.dto.PageResponse;
 import com.backend.dto.order.request.OrderCreateFromCartRequest;
+import com.backend.dto.order.request.OrderListRequest;
 import com.backend.dto.order.response.OrderCreateFromCartResponse;
 import com.backend.dto.order.response.OrderDetailResponse;
+import com.backend.dto.order.response.OrderSummaryResponse;
 import com.backend.repository.cart.CartRepository;
 import com.backend.repository.member.MemberRepository;
+import com.backend.repository.order.OrderItemSummaryProjection;
 import com.backend.repository.order.OrderRepository;
+import com.backend.repository.order.OrderSummaryBaseProjection;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,7 +31,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import org.springframework.data.domain.Page;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Slf4j
@@ -142,6 +152,56 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    public PageResponse<OrderSummaryResponse> getMyOrders(Long memberId, OrderListRequest request) {
+        ZoneId zone = ZoneId.systemDefault();
+        Instant fromDateStart = request.getFromDate() == null
+                ? null
+                : request.getFromDate().atStartOfDay(zone).toInstant();
+        Instant toDateEnd = request.getToDate() == null
+                ? null
+                : request.getToDate().plusDays(1).atStartOfDay(zone).toInstant();
+
+        Page<OrderSummaryBaseProjection> page = orderRepository.findSummaryByMemberId(
+                memberId,
+                fromDateStart,
+                toDateEnd,
+                request.getStatus(),
+                request.toPageable());
+
+        List<OrderSummaryBaseProjection> content = page.getContent();
+        if (content.isEmpty()) {
+            return PageResponse.<OrderSummaryResponse>builder()
+                    .items(List.of())
+                    .page(request.getPage())
+                    .pageSize(page.getSize())
+                    .total(page.getTotalElements())
+                    .pages(page.getTotalPages())
+                    .hasNext(page.hasNext())
+                    .hasPrevious(page.hasPrevious())
+                    .build();
+        }
+
+        List<Long> orderIds = content.stream().map(OrderSummaryBaseProjection::getId).toList();
+        List<OrderItemSummaryProjection> itemSummaries = orderRepository.findOrderItemSummaryByOrderIds(orderIds);
+        Map<Long, OrderItemSummaryProjection> itemSummaryByOrderId = itemSummaries.stream()
+                .collect(Collectors.toMap(OrderItemSummaryProjection::getOrderId, s -> s));
+
+        List<OrderSummaryResponse> items = content.stream()
+                .map(base -> OrderSummaryResponse.from(base, itemSummaryByOrderId.get(base.getId())))
+                .toList();
+
+        return PageResponse.<OrderSummaryResponse>builder()
+                .items(items)
+                .page(request.getPage())
+                .pageSize(page.getSize())
+                .total(page.getTotalElements())
+                .pages(page.getTotalPages())
+                .hasNext(page.hasNext())
+                .hasPrevious(page.hasPrevious())
+                .build();
+    }
+
+    @Override
     public OrderDetailResponse getOrderDetailForGuest(String orderNo, String guestPhone, String guestPassword) {
         Order order = orderRepository.findDetailByOrderNo(orderNo)
                 .orElseThrow(() -> new BusinessException(ErrorCode.SHOP_ORDER_NOT_FOUND, orderNo));
@@ -161,6 +221,30 @@ public class OrderServiceImpl implements OrderService {
         }
 
         return OrderDetailResponse.from(order);
+    }
+
+    @Override
+    @Transactional
+    public void updateShipToForMember(String orderNo, Long memberId, OrderCreateFromCartRequest.ShipToDto shipToDto) {
+        Order order = orderRepository.findWithDetailsByOrderNo(orderNo)
+                .orElseThrow(() -> new BusinessException(ErrorCode.SHOP_ORDER_NOT_FOUND, orderNo));
+
+        if (order.getMember() == null || !order.getMember().getId().equals(memberId)) {
+            throw new BusinessException(ErrorCode.SHOP_ORDER_ACCESS_DENIED, orderNo);
+        }
+
+        if (order.isShippedOrLater()) {
+            throw new BusinessException(ErrorCode.SHOP_ORDER_SHIPTO_UPDATE_NOT_ALLOWED, orderNo);
+        }
+
+        OrderShipToSnapshot shipTo = order.getShipToSnapshot();
+        shipTo.update(
+                shipToDto.getRecipientName(),
+                shipToDto.getRecipientPhone(),
+                shipToDto.getZipcode(),
+                shipToDto.getAddress1(),
+                shipToDto.getAddress2()
+        );
     }
 }
 

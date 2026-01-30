@@ -12,6 +12,7 @@ const ProductEdit = lazy(() => import("../pages/shop/admin/EditPage")); // 관�
 const CheckoutPage = lazy(() => import("../pages/shop/CheckoutPage")); // 결제하기(주문/결제 준비)
 const PaymentSuccessPage = lazy(() => import("../pages/shop/PaymentSuccessPage")); // 결제 성공
 const PaymentFailPage = lazy(() => import("../pages/shop/PaymentFailPage")); // 결제 실패
+const OrderListPage = lazy(() => import("../pages/shop/OrderListPage")); // 내 주문 내역
 const OrderDetailPage = lazy(() => import("../pages/shop/OrderDetailPage")); // 주문 상세
 
 const shopRouter = () => {
@@ -69,6 +70,14 @@ const shopRouter = () => {
       element: (
         <Suspense fallback={Loading}>
           <PaymentFailPage />
+        </Suspense>
+      ),
+    },
+    {
+      path: "orders",
+      element: (
+        <Suspense fallback={Loading}>
+          <OrderListPage />
         </Suspense>
       ),
     },

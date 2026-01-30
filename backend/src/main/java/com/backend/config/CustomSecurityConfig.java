@@ -89,8 +89,8 @@ public class CustomSecurityConfig {
                 .requestMatchers("/api/member/**").permitAll()
                 /* 공개: 파일 조회 */
                 .requestMatchers("/api/files/view/**").permitAll()
-                /* 공개(예정: ADMIN 전용으로 조정 가능) */
-                .requestMatchers("/api/files/upload").permitAll()
+                /* 파일 업로드: ADMIN 전용 */
+                .requestMatchers(HttpMethod.POST, "/api/files/upload").hasRole("ADMIN")
                 /* 상품: 조회만 공개, 등록/수정/삭제는 ADMIN */
                 .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/products").hasRole("ADMIN")

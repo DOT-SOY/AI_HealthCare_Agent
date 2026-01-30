@@ -23,6 +23,5 @@ public class ErrorResponse {
     public static class FieldError {
         private final String field;
         private final String message;
-        private final Object value;
     }
 }

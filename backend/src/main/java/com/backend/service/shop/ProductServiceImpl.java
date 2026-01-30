@@ -14,13 +14,19 @@ import com.backend.dto.shop.response.CategoryResponse;
 import com.backend.dto.shop.response.ProductImageResponse;
 import com.backend.dto.shop.response.ProductResponse;
 import com.backend.dto.shop.response.ProductVariantResponse;
+import com.backend.dto.shop.response.ReviewSummaryResponse;
+import com.backend.domain.order.OrderItemStatus;
+import com.backend.domain.order.OrderStatus;
 import com.backend.repository.member.MemberRepository;
+import com.backend.repository.order.OrderItemRepository;
 import com.backend.repository.shop.*;
 import com.backend.service.file.FileStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.support.PageableExecutionUtils;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,6 +50,8 @@ public class ProductServiceImpl implements ProductService {
 
     private final CategoryRepository categoryRepository;
     private final ProductCategoryRepository productCategoryRepository;
+    private final ProductReviewRepository productReviewRepository;
+    private final OrderItemRepository orderItemRepository;
 
     // ===========================
     // Public APIs
@@ -94,12 +102,43 @@ public class ProductServiceImpl implements ProductService {
         List<ProductImage> images = productImageRepository.findByProductIdAndDeletedAtIsNull(id);
         List<ProductVariant> variants = productVariantRepository.findByProductId(id);
 
-        return toFullResponse(product, images, variants);
+        ProductResponse response = toFullResponse(product, images, variants);
+        long reviewCount = productReviewRepository.countByProductId(id);
+        Double avgRating = productReviewRepository.getAverageRatingByProductId(id);
+        response.setReviewSummary(ReviewSummaryResponse.builder()
+                .averageRating(avgRating != null ? avgRating : 0.0)
+                .count(reviewCount)
+                .build());
+        return response;
+    }
+
+    private static final List<OrderStatus> PAID_OR_LATER = List.of(OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.DELIVERED);
+
+    @Override
+    @Transactional(readOnly = true)
+    public void setCanReview(ProductResponse response, Long productId, Long memberId) {
+        boolean purchased = orderItemRepository.existsByMemberIdAndProductIdAndOrderStatusInAndItemStatus(
+                memberId, productId, PAID_OR_LATER, OrderItemStatus.ORDERED);
+        boolean alreadyReviewed = productReviewRepository.existsByProductIdAndMemberId(productId, memberId);
+        response.setCanReview(purchased && !alreadyReviewed);
     }
 
     @Override
     public PageResponse<ProductResponse> findAll(PageRequest pageRequest, ProductSearchRequest searchRequest) {
-        Page<Product> products = productSearch.search(searchRequest.toCondition(), pageRequest.toPageable());
+        boolean isAdmin = isCurrentUserAdmin();
+        ProductSearchCondition condition = isAdmin
+                ? searchRequest.toCondition()
+                : ProductSearchCondition.builder()
+                        .keyword(searchRequest.getKeyword())
+                        .categoryId(searchRequest.getCategoryId())
+                        .minPrice(searchRequest.getMinPrice())
+                        .maxPrice(searchRequest.getMaxPrice())
+                        .status(ProductStatus.ACTIVE)
+                        .sortBy(searchRequest.getSortBy())
+                        .direction(searchRequest.getDirection())
+                        .excludeOutOfStock(true)
+                        .build();
+        Page<Product> products = productSearch.search(condition, pageRequest.toPageable());
         List<Product> content = products.getContent();
 
         if (content.isEmpty()) {
@@ -135,6 +174,15 @@ public class ProductServiceImpl implements ProductService {
         );
 
         return PageResponse.of(responsePage, pageRequest.getPage());
+    }
+
+    private boolean isCurrentUserAdmin() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || auth.getAuthorities() == null) {
+            return false;
+        }
+        return auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
     }
 
     @Override

@@ -48,13 +48,22 @@ public enum ErrorCode {
     SHOP_ORDER_NOT_FOUND("SHOP_ORDER_001", "주문을 찾을 수 없습니다. (주문번호: %s)", HttpStatus.NOT_FOUND),
     SHOP_ORDER_ACCESS_DENIED("SHOP_ORDER_002", "주문에 접근할 권한이 없습니다. (주문번호: %s)", HttpStatus.FORBIDDEN),
     SHOP_ORDER_GUEST_AUTH_FAILED("SHOP_ORDER_003", "비회원 주문 조회 정보가 일치하지 않습니다.", HttpStatus.UNAUTHORIZED),
+    SHOP_ORDER_SHIPTO_UPDATE_NOT_ALLOWED("SHOP_ORDER_004", "해당 주문 상태에서는 배송지를 수정할 수 없습니다. (주문번호: %s)", HttpStatus.BAD_REQUEST),
     SHOP_PAYMENT_INVALID_ORDER_STATE("SHOP_PAYMENT_001", "결제를 진행할 수 없는 주문 상태입니다. (주문번호: %s, 상태: %s)", HttpStatus.BAD_REQUEST),
     SHOP_PAYMENT_AMOUNT_MISMATCH("SHOP_PAYMENT_002", "결제 금액이 주문 금액과 일치하지 않습니다. (요청: %s, 주문: %s)", HttpStatus.BAD_REQUEST),
     SHOP_PAYMENT_CONFIRM_FAILED("SHOP_PAYMENT_003", "결제 승인에 실패했습니다. (상세: %s)", HttpStatus.BAD_REQUEST),
     /** 토스 [S008] 기존 요청 처리 중 — 잠시 후 재시도 안내 */
     SHOP_PAYMENT_PROCESSING_RETRY("SHOP_PAYMENT_005", "결제가 처리 중입니다. 잠시 후 다시 시도해 주세요. (토스: [S008])", HttpStatus.SERVICE_UNAVAILABLE),
     SHOP_PAYMENT_CONFIG_NOT_FOUND("SHOP_PAYMENT_004", "결제 설정을 찾을 수 없습니다. (toss.payments.secret-key)", HttpStatus.INTERNAL_SERVER_ERROR),
-    
+
+    // ========== 상품 리뷰 ==========
+    SHOP_REVIEW_NOT_FOUND("SHOP_REVIEW_001", "리뷰를 찾을 수 없습니다. (ID: %s)", HttpStatus.NOT_FOUND),
+    SHOP_REVIEW_ALREADY_EXISTS("SHOP_REVIEW_002", "이미 해당 상품에 리뷰를 작성하셨습니다.", HttpStatus.CONFLICT),
+    SHOP_REVIEW_NOT_ELIGIBLE("SHOP_REVIEW_003", "구매한 상품에만 리뷰를 작성할 수 있습니다.", HttpStatus.FORBIDDEN),
+    SHOP_REVIEW_FORBIDDEN("SHOP_REVIEW_004", "본인의 리뷰만 수정/삭제할 수 있습니다.", HttpStatus.FORBIDDEN),
+    SHOP_REVIEW_REPLY_NOT_FOUND("SHOP_REVIEW_REPLY_001", "대댓글을 찾을 수 없습니다. (ID: %s)", HttpStatus.NOT_FOUND),
+    SHOP_REVIEW_REPLY_FORBIDDEN("SHOP_REVIEW_REPLY_002", "관리자만 대댓글을 작성/삭제할 수 있습니다.", HttpStatus.FORBIDDEN),
+
     // ========== 파일 업로드 ==========
     FILE_EMPTY("FILE_001", "업로드할 파일이 없습니다.", HttpStatus.BAD_REQUEST),
     FILE_TOO_LARGE("FILE_002", "파일 크기가 너무 큽니다. (최대: %s MB)", HttpStatus.PAYLOAD_TOO_LARGE),

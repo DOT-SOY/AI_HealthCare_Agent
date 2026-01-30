@@ -15,6 +15,22 @@ const getAuthHeaders = () => {
 };
 
 /**
+ * [조회] 내 배송지 목록 조회 (토큰 기반, memberId 불필요)
+ */
+export const getMyAddressList = async () => {
+  try {
+    const response = await fetchAPI(`${BASE_URL}/me`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+    return response || [];
+  } catch (error) {
+    console.error("내 배송지 목록 조회 실패:", error);
+    throw error;
+  }
+};
+
+/**
  * [조회] 배송지 목록 조회
  */
 export const getMemberInfoAddrList = async (memberId) => {

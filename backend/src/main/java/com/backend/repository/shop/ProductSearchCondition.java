@@ -16,4 +16,7 @@ public class ProductSearchCondition {
     private ProductStatus status;
     private String sortBy;
     private String direction;
+    /** true면 품절 상품( variant가 있으면서 모두 재고 0 ) 제외 */
+    @Builder.Default
+    private boolean excludeOutOfStock = false;
 }

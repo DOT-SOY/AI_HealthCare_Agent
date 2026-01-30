@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { getOrderDetail } from '../../services/orderApi';
+import { getOrderDetail, updateOrderShipTo } from '../../services/orderApi';
 
 const statusLabels = {
   CREATED: '주문 생성',
@@ -17,6 +17,9 @@ const OrderDetailPage = () => {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [editingShipTo, setEditingShipTo] = useState(false);
+  const [shipToForm, setShipToForm] = useState(null);
+  const [savingShipTo, setSavingShipTo] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -27,6 +30,13 @@ const OrderDetailPage = () => {
         const res = await getOrderDetail(orderNo);
         if (cancelled) return;
         setOrder(res);
+        setShipToForm({
+          recipientName: res.shipTo?.recipientName || '',
+          recipientPhone: res.shipTo?.recipientPhone || '',
+          zipcode: res.shipTo?.zipcode || '',
+          address1: res.shipTo?.address1 || '',
+          address2: res.shipTo?.address2 || '',
+        });
       } catch (err) {
         if (cancelled) return;
         setError(err?.message || '주문 정보를 불러오는데 실패했습니다.');
@@ -73,14 +83,68 @@ const OrderDetailPage = () => {
     return (
       <div className="max-w-2xl mx-auto text-center py-16">
         <p className="text-gray-600">주문 정보를 찾을 수 없습니다.</p>
-        <Link to="/shop/list" className="text-blue-500 hover:underline">
-          쇼핑 계속하기
+        <Link to="/shop/orders" className="text-blue-500 hover:underline">
+          내 주문 내역
         </Link>
       </div>
     );
   }
 
   const statusLabel = statusLabels[order.status] || order.status;
+  const canEditShipTo =
+    order &&
+    (order.status === 'CREATED' ||
+      order.status === 'PAYMENT_PENDING' ||
+      order.status === 'PAID');
+
+  const handleShipToChange = (e) => {
+    const { name, value } = e.target;
+    setShipToForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const resetShipToFormFromOrder = () => {
+    setShipToForm({
+      recipientName: order.shipTo?.recipientName || '',
+      recipientPhone: order.shipTo?.recipientPhone || '',
+      zipcode: order.shipTo?.zipcode || '',
+      address1: order.shipTo?.address1 || '',
+      address2: order.shipTo?.address2 || '',
+    });
+  };
+
+  const handleStartEditShipTo = () => {
+    resetShipToFormFromOrder();
+    setEditingShipTo(true);
+  };
+
+  const handleCancelEditShipTo = () => {
+    resetShipToFormFromOrder();
+    setEditingShipTo(false);
+  };
+
+  const handleSaveShipTo = async () => {
+    if (!shipToForm) return;
+    try {
+      setSavingShipTo(true);
+      setError('');
+      await updateOrderShipTo(order.orderNo, shipToForm);
+      setOrder((prev) => ({
+        ...prev,
+        shipTo: {
+          ...prev.shipTo,
+          ...shipToForm,
+        },
+      }));
+      setEditingShipTo(false);
+    } catch (err) {
+      setError(err?.message || '배송지 정보를 저장하는 데 실패했습니다.');
+    } finally {
+      setSavingShipTo(false);
+    }
+  };
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -125,25 +189,144 @@ const OrderDetailPage = () => {
       </section>
 
       <section className="mb-6 border rounded-lg bg-white p-4">
-        <h2 className="text-lg font-semibold mb-3">배송지 정보</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-          <div>
-            <p className="text-gray-500">수령인</p>
-            <p className="font-medium text-gray-900">{order.shipTo?.recipientName || '-'}</p>
-          </div>
-          <div>
-            <p className="text-gray-500">연락처</p>
-            <p className="font-medium text-gray-900">{order.shipTo?.recipientPhone || '-'}</p>
-          </div>
-          <div className="sm:col-span-2">
-            <p className="text-gray-500">주소</p>
-            <p className="font-medium text-gray-900">
-              {order.shipTo?.zipcode ? `[${order.shipTo.zipcode}] ` : ''}
-              {order.shipTo?.address1 || ''}
-              {order.shipTo?.address2 ? `, ${order.shipTo.address2}` : ''}
-            </p>
-          </div>
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="text-lg font-semibold">배송지 정보</h2>
+          {canEditShipTo && !editingShipTo && (
+            <button
+              type="button"
+              onClick={handleStartEditShipTo}
+              className="px-3 py-1 text-sm border rounded-md hover:bg-gray-50"
+            >
+              배송지 수정
+            </button>
+          )}
         </div>
+
+        {editingShipTo && shipToForm ? (
+          <form
+            className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSaveShipTo();
+            }}
+          >
+            <div>
+              <label className="block text-gray-500 mb-1" htmlFor="recipientName">
+                수령인
+              </label>
+              <input
+                id="recipientName"
+                name="recipientName"
+                type="text"
+                className="w-full border rounded px-2 py-1 text-sm"
+                value={shipToForm.recipientName}
+                onChange={handleShipToChange}
+                disabled={savingShipTo}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-gray-500 mb-1" htmlFor="recipientPhone">
+                연락처
+              </label>
+              <input
+                id="recipientPhone"
+                name="recipientPhone"
+                type="text"
+                className="w-full border rounded px-2 py-1 text-sm"
+                value={shipToForm.recipientPhone}
+                onChange={handleShipToChange}
+                disabled={savingShipTo}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-gray-500 mb-1" htmlFor="zipcode">
+                우편번호
+              </label>
+              <input
+                id="zipcode"
+                name="zipcode"
+                type="text"
+                className="w-full border rounded px-2 py-1 text-sm"
+                value={shipToForm.zipcode}
+                onChange={handleShipToChange}
+                disabled={savingShipTo}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-gray-500 mb-1" htmlFor="address1">
+                주소
+              </label>
+              <input
+                id="address1"
+                name="address1"
+                type="text"
+                className="w-full border rounded px-2 py-1 text-sm"
+                value={shipToForm.address1}
+                onChange={handleShipToChange}
+                disabled={savingShipTo}
+                required
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-gray-500 mb-1" htmlFor="address2">
+                상세 주소
+              </label>
+              <input
+                id="address2"
+                name="address2"
+                type="text"
+                className="w-full border rounded px-2 py-1 text-sm"
+                value={shipToForm.address2}
+                onChange={handleShipToChange}
+                disabled={savingShipTo}
+              />
+            </div>
+            <div className="sm:col-span-2 flex justify-end gap-2 mt-2">
+              <button
+                type="button"
+                onClick={handleCancelEditShipTo}
+                className="px-3 py-1 text-sm border rounded-md hover:bg-gray-50"
+                disabled={savingShipTo}
+              >
+                취소
+              </button>
+              <button
+                type="submit"
+                className="px-3 py-1 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+                disabled={savingShipTo}
+              >
+                {savingShipTo ? '저장 중...' : '저장'}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            <div>
+              <p className="text-gray-500">수령인</p>
+              <p className="font-medium text-gray-900">{order.shipTo?.recipientName || '-'}</p>
+            </div>
+            <div>
+              <p className="text-gray-500">연락처</p>
+              <p className="font-medium text-gray-900">{order.shipTo?.recipientPhone || '-'}</p>
+            </div>
+            <div className="sm:col-span-2">
+              <p className="text-gray-500">주소</p>
+              <p className="font-medium text-gray-900">
+                {order.shipTo?.zipcode ? `[${order.shipTo.zipcode}] ` : ''}
+                {order.shipTo?.address1 || ''}
+                {order.shipTo?.address2 ? `, ${order.shipTo.address2}` : ''}
+              </p>
+            </div>
+            {!canEditShipTo && (
+              <div className="sm:col-span-2 text-xs text-gray-500">
+                발송 이후에는 배송지 수정이 불가능합니다.
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       <section className="mb-6 border rounded-lg bg-white p-4">
@@ -202,10 +385,10 @@ const OrderDetailPage = () => {
       <div className="flex gap-3">
         <button
           type="button"
-          onClick={() => navigate('/shop/list')}
+          onClick={() => navigate('/shop/orders')}
           className="px-4 py-2 border rounded-lg hover:bg-gray-50"
         >
-          쇼핑 계속하기
+          내 주문 내역
         </button>
       </div>
     </div>

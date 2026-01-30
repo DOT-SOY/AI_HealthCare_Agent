@@ -51,8 +51,20 @@ public class OrderShipToSnapshot {
         this.address2 = address2;
     }
 
-    void setOrder(Order order) {
+    public void setOrder(Order order) {
         this.order = order;
+    }
+
+    public void update(String recipientName,
+                       String recipientPhone,
+                       String zipcode,
+                       String address1,
+                       String address2) {
+        this.recipientName = recipientName;
+        this.recipientPhone = recipientPhone;
+        this.zipcode = zipcode;
+        this.address1 = address1;
+        this.address2 = address2;
     }
 }
 

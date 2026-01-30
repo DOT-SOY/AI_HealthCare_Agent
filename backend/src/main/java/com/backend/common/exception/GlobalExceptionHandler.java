@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
  *   <li>MethodArgumentNotValidException: @Valid 검증 실패 (JSON 요청)</li>
  *   <li>BindException: @Valid 검증 실패 (폼 요청)</li>
  *   <li>IllegalArgumentException: 잘못된 인자 예외</li>
+ *   <li>HttpMessageNotReadableException: 요청 본문(JSON) 파싱 실패</li>
  *   <li>Exception: 기타 예상치 못한 예외</li>
  * </ul>
  */
@@ -218,7 +219,6 @@ public class GlobalExceptionHandler {
                 .map(error -> ErrorResponse.FieldError.builder()
                         .field(error.getField())
                         .message(error.getDefaultMessage())
-                        .value(error.getRejectedValue())
                         .build())
                 .collect(Collectors.toList());
 

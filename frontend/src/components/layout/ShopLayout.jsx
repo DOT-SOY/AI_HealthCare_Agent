@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import BasicLayout from './BasicLayout';
 import FloatingCartButton from '../cart/FloatingCartButton';
 import CartDrawer from '../cart/CartDrawer';
-import { addCartItem, getCart, updateCartItemQty, removeCartItem } from '../../services/cartApi';
+import { addCartItem, getCart, updateCartItemQty, removeCartItem, clearCart } from '../../services/cartApi';
 
 // 장바구니 Context 생성
 const CartContext = createContext(null);
@@ -32,6 +32,23 @@ const ShopLayout = ({ children }) => {
       setCartState(emptyCart);
     }
   }, []);
+
+  const resetCart = useCallback(
+    async (reason = 'unknown') => {
+      try {
+        await clearCart();
+      } catch (e) {
+        console.error('Failed to clear cart:', e);
+      } finally {
+        try {
+          await refreshCart();
+        } catch {
+          // ignore
+        }
+      }
+    },
+    [refreshCart],
+  );
 
   useEffect(() => {
     refreshCart();
@@ -92,6 +109,7 @@ const ShopLayout = ({ children }) => {
     addToCart,
     updateQty,
     removeItem,
+    resetCart,
     isDrawerOpen,
     openDrawer: () => setIsDrawerOpen(true),
     closeDrawer: () => setIsDrawerOpen(false),

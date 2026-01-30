@@ -1,4 +1,4 @@
-import jwtAxios from '../services/jwtAxios';
+import jwtAxios from '../util/jwtUtil';
 
 export const painApi = {
   report: async (bodyPart, note) => {

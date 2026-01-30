@@ -1,4 +1,4 @@
-import jwtAxios from './jwtAxios';
+import jwtAxios from '../util/jwtUtil';
 
 /**
  * 상품 관련 API

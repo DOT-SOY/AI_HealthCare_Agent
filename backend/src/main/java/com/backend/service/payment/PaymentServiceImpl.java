@@ -189,7 +189,7 @@ public class PaymentServiceImpl implements PaymentService {
         // 여기서 CartItem 등 동시성/낙관락 이슈가 나더라도,
         // 결제/주문 자체는 이미 PAID 로 반영된 상태이므로 승인 트랜잭션까지 롤백시키지 않는다.
         try {
-            finalizeAfterPaid(order);
+            finalizeAfterPaid(orderNo);
         } catch (ObjectOptimisticLockingFailureException |
                  jakarta.persistence.OptimisticLockException |
                  org.hibernate.StaleObjectStateException e) {
@@ -224,10 +224,27 @@ public class PaymentServiceImpl implements PaymentService {
      * - 장바구니 정리
      * 멱등 요구사항에 따라, 이미 PAID/APPROVED인 경우라도 이 메서드를 재호출하지 않도록
      * 호출부에서 제어한다(Confirm 경로에서만 1회 호출).
+     *
+     * 동시성 제어:
+     * - Order 테이블의 finalized/finalizing 플래그와 CAS UPDATE를 이용해
+     *   한 시점에 하나의 트랜잭션만 재고/카트 후처리를 수행하도록 한다.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    protected void finalizeAfterPaid(Order order) {
-        // 재고 재검증 + 차감 (락)
+    protected void finalizeAfterPaid(String orderNo) {
+        // 1) 결제 완료 & 미-finalize 상태인 주문만 선점 시도
+        int updated = orderRepository.markFinalizingForPaidOrder(orderNo, OrderStatus.PAID);
+        if (updated == 0) {
+            // 이미 다른 트랜잭션이 finalizing 중이거나, finalized 되었거나, 아직 PAID가 아닌 경우
+            // -> 이 요청은 조용히 종료 (중복 요청 또는 상태 불일치)
+            log.info("Skip finalizeAfterPaid: not eligible or already handled. orderNo={}", orderNo);
+            return;
+        }
+
+        // 2) 상세 정보 조회 (items, member 등)
+        Order order = orderRepository.findDetailByOrderNo(orderNo)
+                .orElseThrow(() -> new BusinessException(ErrorCode.SHOP_ORDER_NOT_FOUND, orderNo));
+
+        // 3) 재고 재검증 + 차감 (락)
         for (OrderItem oi : order.getItems()) {
             var variant = productVariantRepository.findByIdForUpdate(oi.getVariant().getId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.SHOP_VARIANT_NOT_FOUND, oi.getVariant().getId()));
@@ -240,10 +257,13 @@ public class PaymentServiceImpl implements PaymentService {
             variant.decreaseStock(oi.getQty());
         }
 
-        // 서버에서 장바구니 비우기
+        // 4) 서버에서 장바구니 비우기
         if (order.getMember() != null) {
             cartService.clearCart(CartKey.ofMember(order.getMember().getId()));
         }
+
+        // 5) 후처리 완료 플래그 설정 (멱등 보장)
+        order.markFinalized();
     }
 
     /**

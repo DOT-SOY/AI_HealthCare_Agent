@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { confirmTossPayment } from '../../services/orderApi';
+import { useCart } from '../../components/layout/ShopLayout';
 
 const MAX_RETRY = 5;
 
@@ -10,6 +11,7 @@ const PaymentSuccessPage = () => {
   const [detail, setDetail] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [retryCount, setRetryCount] = useState(0);
+  const { resetCart } = useCart();
 
   useEffect(() => {
     const paymentKey = searchParams.get('paymentKey');
@@ -40,6 +42,13 @@ const PaymentSuccessPage = () => {
         if (cancelled) return;
         setDetail(res);
         setStatus('success');
+        if (typeof resetCart === 'function') {
+          try {
+            await resetCart('payment_success_confirmed');
+          } catch (e) {
+            console.error('Failed to reset cart after payment success', e);
+          }
+        }
       } catch (err) {
         if (cancelled) return;
         const msg = err?.message ?? '';
@@ -50,6 +59,13 @@ const PaymentSuccessPage = () => {
           // 프론트에서도 동일하게 간주해서 주문서 상세 페이지로 이동할 수 있게 한다.
           setDetail({ orderId, amount: amountNum, orderStatus: 'PAID' });
           setStatus('success');
+          if (typeof resetCart === 'function') {
+            try {
+              await resetCart('payment_already_processed');
+            } catch (e) {
+              console.error('Failed to reset cart after already-processed payment', e);
+            }
+          }
           return;
         }
 

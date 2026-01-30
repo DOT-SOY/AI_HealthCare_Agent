@@ -29,6 +29,9 @@ public class ProductResponse {
     private List<ProductImageResponse> images;
     private List<ProductVariantResponse> variants;
     private List<CategoryResponse> categories;
+    private ReviewSummaryResponse reviewSummary;
+    /** 로그인 회원이 해당 상품을 구매했고 아직 리뷰를 쓰지 않았을 때만 true (미로그인/비구매/이미 작성 시 false 또는 null) */
+    private Boolean canReview;
     
     /**
      * Product 엔티티로부터 ProductResponse를 생성하는 정적 팩토리 메서드

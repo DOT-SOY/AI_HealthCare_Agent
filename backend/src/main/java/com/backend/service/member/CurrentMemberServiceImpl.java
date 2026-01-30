@@ -10,6 +10,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 /**
  * SecurityContext 기반 현재 회원 조회 구현체.
  * Controller 에서는 이 클래스를 통해서만 현재 로그인 회원을 조회한다.
@@ -40,6 +42,19 @@ public class CurrentMemberServiceImpl implements CurrentMemberService {
         }
 
         return member;
+    }
+
+    @Override
+    public Optional<Long> getCurrentMemberIdOptional() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof String)) {
+            return Optional.empty();
+        }
+        String email = (String) authentication.getPrincipal();
+        return memberRepository.findByEmail(email)
+                .filter(m -> !m.isDeleted())
+                .map(Member::getId);
     }
 }
 

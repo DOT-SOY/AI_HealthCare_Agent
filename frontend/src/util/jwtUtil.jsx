@@ -3,7 +3,13 @@ import { getCookie, setCookie } from "./cookieUtil";
 const API_SERVER_HOST =
   import.meta.env.VITE_API_SERVER_HOST || "http://localhost:8080";
 
-const jwtAxios = axios.create({ withCredentials: true });
+const jwtAxios = axios.create({
+  baseURL: `${API_SERVER_HOST}/api`,
+  withCredentials: true,
+  headers: {
+    "Content-Type": "application/json; charset=UTF-8",
+  },
+});
 
 
 // [추가] 리프레시 진행 상태와 대기열 관리
@@ -51,30 +57,21 @@ const refreshJWT = async (accessToken) => {
   }
 }; // Map.of("accessToken", newAccessToken) 반환 (refresh는 HttpOnly 쿠키로만 관리)
 
-//before request - async로 변경하여 accessToken이 없을 때 Refresh Token으로 재발급 시도
+// before request: 토큰이 있으면 Authorization 추가, 없으면 그대로 진행 (공개 API 호출 허용)
 const beforeReq = async (config) => {
-  console.log("before request.............");
   const memberInfoRaw = getCookie("member");
-  // 쿠키에서 member 조회, 없으면 로그인 필요 에러 반환
-  if (!memberInfoRaw) {
-    console.log("Member NOT FOUND");
-    return Promise.reject({ response: { data: { error: "REQUIRE_LOGIN" } } });
+  if (memberInfoRaw) {
+    let obj;
+    try {
+      obj = typeof memberInfoRaw === "string" ? JSON.parse(memberInfoRaw) : memberInfoRaw;
+    } catch {
+      obj = null;
+    }
+    const accessToken = obj?.accessToken;
+    if (accessToken) {
+      config.headers.Authorization = `Bearer ${accessToken}`;
+    }
   }
-
-  // getCookie가 이미 객체를 준다면 바로 구조분해 할당
-  const { accessToken } = memberInfoRaw;
-
-  if (accessToken) {
-    config.headers.Authorization = `Bearer ${accessToken}`;
-  } else {
-    // 토큰이 없어도 일단 보냅니다. (어차피 인터셉터에서 잡기 때문에)
-    console.log("No accessToken found in cookie, proceeding to let interceptor handle it.");
-  }
-
-//  console.log("accessToken:", accessToken);
-
-  // Authorization 헤더 설정
-  config.headers.Authorization = `Bearer ${accessToken}`;
   return config;
 };
 

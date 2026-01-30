@@ -1,7 +1,6 @@
 package com.backend.controller.shop;
 
 import com.backend.domain.member.Member;
-import com.backend.domain.member.MemberRole;
 import com.backend.domain.shop.*;
 import com.backend.dto.shop.request.ProductCreateRequest;
 import com.backend.dto.shop.request.ProductUpdateRequest;
@@ -22,15 +21,13 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
-@AutoConfigureMockMvc
 @DisplayName("Product Controller 테스트")
+@AutoConfigureMockMvc(addFilters = false)
 class ProductControllerTest {
 
     @Autowired
@@ -61,59 +58,41 @@ class ProductControllerTest {
 
     @BeforeEach
     void setUp() {
-        // 멤버가 이미 생성되어 있는지 확인 (멤버 생성 테스트에서 생성됨)
-        // 여러 멤버가 있을 수 있으므로 첫 번째만 가져옴
-        testMember = memberRepository.findAll().stream()
-                .filter(m -> "test@example.com".equals(m.getEmail()))
-                .findFirst()
-                .orElse(null);
-        
-        // 멤버가 없으면 생성하고 피트니스 관련 더미 데이터 생성
-        if (testMember == null) {
-            testMember = getOrCreateTestMember();
-        }
+        // Admin 멤버(id=1)가 미리 생성되어 있어야 함 (AdminMemberCreateTest에서 생성)
+        testMember = memberRepository.findById(1L)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Admin member(id=1) not found. 먼저 AdminMemberCreateTest를 실행해 관리자 계정을 생성하세요."));
+
         // 피트니스 관련 더미 데이터 생성 (이미 있으면 재생성하지 않음)
         if (fitnessProduct1 == null || fitnessProduct2 == null || fitnessCategory == null) {
             createFitnessDummyData();
         }
     }
 
-    private Member getOrCreateTestMember() {
-        if (testMember == null) {
-            testMember = memberRepository.findAll().stream()
-                    .filter(m -> "test@example.com".equals(m.getEmail()))
-                    .findFirst()
-                    .orElseGet(() -> {
-                        Member member = Member.builder()
-                                .email("test@example.com")
-                                .pw("password")
-                                .name("테스트유저")
-                                .build();
-                        member.addRole(MemberRole.ADMIN);
-                        return memberRepository.save(member);
-                    });
-        }
-        return testMember;
-    }
-
     private void createFitnessDummyData() {
-        Member member = getOrCreateTestMember();
-        // 카테고리 생성
+        Member member = testMember;
+        // 카테고리 생성 (헬스용품 루트 카테고리)
         fitnessCategory = Category.builder()
                 .categoryType(CategoryType.HEALTH_GOODS)
                 .sortOrder(1)
                 .build();
         fitnessCategory = categoryRepository.save(fitnessCategory);
 
-        // 조정 가능 덤벨 세트
-        fitnessProduct1 = Product.builder()
+        // 1. 조정 가능 덤벨 세트
+        Product dumbbell = Product.builder()
                 .name("아이언맥스 조정 가능 덤벨 세트 20kg")
                 .description("한 쌍으로 2kg부터 20kg까지 조정 가능한 프리웨이트 덤벨 세트입니다. 공간 효율적이고 다양한 근력 운동에 활용할 수 있습니다. 고품질 철제 재질과 안전한 잠금 장치로 구성되어 있습니다.")
                 .status(ProductStatus.ACTIVE)
                 .basePrice(new BigDecimal("89000"))
                 .createdBy(member)
                 .build();
-        fitnessProduct1 = productRepository.save(fitnessProduct1);
+        // 대표 이미지 자동 생성
+        dumbbell.getImages().add(ProductImage.builder()
+                .product(dumbbell)
+                .filePath("products/fitness-dumbbell-1.jpg")
+                .primaryImage(true)
+                .build());
+        fitnessProduct1 = productRepository.save(dumbbell);
 
         // 상품에 카테고리 연결
         ProductCategory productCategory1 = ProductCategory.builder()
@@ -132,15 +111,21 @@ class ProductControllerTest {
                 .build();
         productVariantRepository.save(variant1);
 
-        // 요가 매트
-        fitnessProduct2 = Product.builder()
+        // 2. 요가 매트
+        Product yogaMat = Product.builder()
                 .name("나이키 요가 매트 프리미엄 10mm")
                 .description("미끄럼 방지 처리가 된 두꺼운 요가 매트입니다. 10mm 두께로 충격 흡수에 탁월하며, 요가, 필라테스, 스트레칭 등 다양한 운동에 적합합니다. 세척이 쉬운 소재로 위생적입니다.")
                 .status(ProductStatus.ACTIVE)
                 .basePrice(new BigDecimal("125000"))
                 .createdBy(member)
                 .build();
-        fitnessProduct2 = productRepository.save(fitnessProduct2);
+        // 대표 이미지 자동 생성
+        yogaMat.getImages().add(ProductImage.builder()
+                .product(yogaMat)
+                .filePath("products/fitness-yogamat-1.jpg")
+                .primaryImage(true)
+                .build());
+        fitnessProduct2 = productRepository.save(yogaMat);
 
         // 상품에 카테고리 연결
         ProductCategory productCategory2 = ProductCategory.builder()
@@ -148,32 +133,29 @@ class ProductControllerTest {
                 .category(fitnessCategory)
                 .build();
         productCategoryRepository.save(productCategory2);
-    }
 
-    // ========== Member 테스트 ==========
+        // 3~5. 추가 피트니스 더미 상품 생성 (총 5개 상품)
+        for (int i = 3; i <= 5; i++) {
+            Product dummy = Product.builder()
+                    .name("피트니스 더미 상품 " + i)
+                    .description("테스트용 피트니스 관련 더미 상품입니다.")
+                    .status(ProductStatus.ACTIVE)
+                    .basePrice(new BigDecimal("10000"))
+                    .createdBy(member)
+                    .build();
+            dummy.getImages().add(ProductImage.builder()
+                    .product(dummy)
+                    .filePath("products/fitness-dummy-" + i + ".jpg")
+                    .primaryImage(true)
+                    .build());
+            Product savedDummy = productRepository.save(dummy);
 
-    @Test
-    @DisplayName("멤버 생성 성공")
-    void createMember_Success() {
-        // given
-        Member member = Member.builder()
-                .email("test@example.com")
-                .pw("password")
-                .name("테스트유저")
-                .build();
-        member.addRole(MemberRole.ADMIN);
-
-        // when
-        Member saved = memberRepository.save(member);
-
-        // then
-        assertThat(saved.getId()).isNotNull();
-        assertThat(saved.getEmail()).isEqualTo("test@example.com");
-        assertThat(saved.getName()).isEqualTo("테스트유저");
-        assertThat(saved.getRoleList()).contains(MemberRole.ADMIN);
-        
-        // testMember에 저장하여 다른 테스트에서 사용할 수 있도록 함
-        testMember = saved;
+            ProductCategory pc = ProductCategory.builder()
+                    .product(savedDummy)
+                    .category(fitnessCategory)
+                    .build();
+            productCategoryRepository.save(pc);
+        }
     }
 
     // ========== Product 테스트 ==========
@@ -181,12 +163,8 @@ class ProductControllerTest {
     @Test
     @DisplayName("상품 등록 성공")
     void createProduct_Success() throws Exception {
-        // given - 멤버가 생성되어 있어야 함
-        if (testMember == null) {
-            // 멤버가 없으면 생성
-            testMember = getOrCreateTestMember();
-        }
-        
+        // given - Admin 멤버(id=1)가 이미 생성되어 있다고 가정 (AdminMemberCreateTest)
+
         // given - 고유한 이름 사용 (이전 테스트 데이터와 충돌 방지)
         String uniqueName = "옵티멈 골드 스탠다드 휘핑 프로틴 2.27kg " + System.currentTimeMillis();
         ProductCreateRequest request = new ProductCreateRequest();
