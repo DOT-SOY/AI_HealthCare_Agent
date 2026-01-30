@@ -94,6 +94,9 @@ const loginSlice = createSlice({
 
         return payload;
       })
+      .addCase(loginPostAsync.pending, (state, action) => {
+        // pending 처리
+      })
       .addCase(loginPostAsync.rejected, (state, action) => {
         // 에러 응답 데이터를 state에 저장 (LoginComponent에서 catch로 받을 수 있도록)
         // action.payload에 { error, message, remainingMinutes } 등이 포함됨
@@ -101,6 +104,18 @@ const loginSlice = createSlice({
           return action.payload;
         }
         return { ...initState, error: "로그인에 실패했습니다.", message: "로그인에 실패했습니다." };
+      })
+      .addCase(logoutPostAsync.fulfilled, (state, action) => {
+        // 1. 우리 서비스 쿠키 삭제
+        removeCookie("member");
+        removeCookie("refreshToken");
+
+        // 2. 로컬/세션 스토리지 정리 (혹시 모를 토큰/정보 제거)
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("member");
+        sessionStorage.clear();
+
+        return { ...initState };
       })
       .addCase(logoutPostAsync.rejected, (state, action) => {
         // 로그아웃 API 실패해도 프론트엔드 로그아웃은 진행

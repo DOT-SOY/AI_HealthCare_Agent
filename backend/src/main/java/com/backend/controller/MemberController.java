@@ -31,7 +31,7 @@ import java.util.Map;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/member")
+@RequestMapping("/api/member") // API 버전 관리를 위해 /api/v1/member 권장하지만 일단 유지
 @RequiredArgsConstructor
 public class MemberController {
 
@@ -64,7 +64,6 @@ public class MemberController {
         ));
     }
 
-
     @PostMapping("/join")
     public ResponseEntity<?> join(@Valid @RequestBody MemberDTO memberDTO,
                                   BindingResult bindingResult) {
@@ -82,6 +81,7 @@ public class MemberController {
             return ResponseEntity.badRequest().body(errorMap);
         }
 
+        // 2. 정상 로직 실행 (중복 이메일 시 BusinessException → GlobalExceptionHandler에서 400 + code: "DELETED_ACCOUNT" 처리)
         memberService.join(memberDTO);
         return ResponseEntity.ok().body(Map.of(
                 "result", "success",
@@ -108,6 +108,7 @@ public class MemberController {
             log.error("회원 탈퇴 중 시스템 오류 발생", e);
             return ResponseEntity.internalServerError().body(Map.of("error", "회원 탈퇴 처리 중 오류가 발생했습니다."));
         }
+
     }
 
     /**
@@ -135,6 +136,7 @@ public class MemberController {
         try {
             memberService.modify(email, memberModifyDTO);
 
+            // Refresh Token Family 폐기 + 쿠키 삭제(비밀번호 변경 시 전기기 로그아웃)
             refreshTokenService.revokeAllFamiliesForUser(email);
             RefreshCookieUtil.clear(request, response);
 
@@ -169,16 +171,19 @@ public class MemberController {
                     log.info("Revoked refresh token family: {}", familyId);
                 }
             } catch (Exception e) {
+                // Refresh Token 파싱/검증 실패해도 쿠키는 삭제해야 함
                 log.warn("Failed to revoke refresh token during logout: {}", e.getMessage());
             }
         }
 
+        // Refresh Token 쿠키 삭제 (HttpOnly 쿠키는 서버에서만 삭제 가능)
         RefreshCookieUtil.clear(request, response);
         log.info("Refresh token cookie cleared");
 
         response.setContentType("application/json; charset=UTF-8");
         response.setCharacterEncoding("UTF-8");
 
+        // 응답 전송 전에 쿠키 헤더가 적용되도록 flush
         try {
             response.flushBuffer();
         } catch (IOException e) {
