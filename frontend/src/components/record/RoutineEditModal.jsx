@@ -48,7 +48,7 @@ export default function RoutineEditModal({ routine, isOpen, onClose, onSave }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto">
       <div className="bg-neutral-800 rounded-lg p-6 w-full max-w-2xl my-8">
         <h2 className="text-xl font-bold text-neutral-50 mb-4">루틴 수정</h2>
         
@@ -59,7 +59,10 @@ export default function RoutineEditModal({ routine, isOpen, onClose, onSave }) {
               type="text"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              className="w-full bg-neutral-700 text-neutral-50 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-neon-green"
+              className="w-full bg-neutral-700 text-neutral-50 px-4 py-2 rounded-lg focus:outline-none focus:ring-2"
+              style={{ '--tw-ring-color': '#88ce02' }}
+              onFocus={(e) => e.target.style.boxShadow = '0 0 0 2px #88ce02'}
+              onBlur={(e) => e.target.style.boxShadow = ''}
               required
             />
           </div>
@@ -70,7 +73,10 @@ export default function RoutineEditModal({ routine, isOpen, onClose, onSave }) {
               <button
                 type="button"
                 onClick={handleAddExercise}
-                className="px-3 py-1 bg-neon-green text-neutral-950 rounded-lg text-sm font-medium hover:bg-neon-green/80"
+                className="px-3 py-1 text-neutral-950 rounded-lg text-sm font-medium"
+                style={{ backgroundColor: '#88ce02' }}
+                onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(136, 206, 2, 0.8)'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = '#88ce02'}
               >
                 + 운동 추가
               </button>
@@ -97,7 +103,10 @@ export default function RoutineEditModal({ routine, isOpen, onClose, onSave }) {
                         type="text"
                         value={exercise.name || ''}
                         onChange={(e) => handleExerciseChange(index, 'name', e.target.value)}
-                        className="w-full bg-neutral-600 text-neutral-50 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neon-green"
+                        className="w-full bg-neutral-600 text-neutral-50 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2"
+                        style={{ '--tw-ring-color': '#88ce02' }}
+                        onFocus={(e) => e.target.style.boxShadow = '0 0 0 2px #88ce02'}
+                        onBlur={(e) => e.target.style.boxShadow = ''}
                         required
                       />
                     </div>
@@ -110,7 +119,10 @@ export default function RoutineEditModal({ routine, isOpen, onClose, onSave }) {
                         type="number"
                         value={exercise.sets || 0}
                         onChange={(e) => handleExerciseChange(index, 'sets', e.target.value)}
-                        className="w-full bg-neutral-600 text-neutral-50 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neon-green"
+                        className="w-full bg-neutral-600 text-neutral-50 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2"
+                        style={{ '--tw-ring-color': '#88ce02' }}
+                        onFocus={(e) => e.target.style.boxShadow = '0 0 0 2px #88ce02'}
+                        onBlur={(e) => e.target.style.boxShadow = ''}
                         min="0"
                         required
                       />
@@ -121,7 +133,10 @@ export default function RoutineEditModal({ routine, isOpen, onClose, onSave }) {
                         type="text"
                         value={exercise.reps || ''}
                         onChange={(e) => handleExerciseChange(index, 'reps', e.target.value)}
-                        className="w-full bg-neutral-600 text-neutral-50 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neon-green"
+                        className="w-full bg-neutral-600 text-neutral-50 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2"
+                        style={{ '--tw-ring-color': '#88ce02' }}
+                        onFocus={(e) => e.target.style.boxShadow = '0 0 0 2px #88ce02'}
+                        onBlur={(e) => e.target.style.boxShadow = ''}
                         placeholder="10-12"
                         required
                       />
@@ -132,7 +147,10 @@ export default function RoutineEditModal({ routine, isOpen, onClose, onSave }) {
                         type="number"
                         value={exercise.weight || 0}
                         onChange={(e) => handleExerciseChange(index, 'weight', e.target.value)}
-                        className="w-full bg-neutral-600 text-neutral-50 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neon-green"
+                        className="w-full bg-neutral-600 text-neutral-50 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2"
+                        style={{ '--tw-ring-color': '#88ce02' }}
+                        onFocus={(e) => e.target.style.boxShadow = '0 0 0 2px #88ce02'}
+                        onBlur={(e) => e.target.style.boxShadow = ''}
                         min="0"
                         step="0.5"
                         required
@@ -154,7 +172,10 @@ export default function RoutineEditModal({ routine, isOpen, onClose, onSave }) {
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-neon-green text-neutral-950 rounded-lg hover:bg-neon-green/80 transition-colors font-medium"
+              className="px-4 py-2 text-neutral-950 rounded-lg transition-colors font-medium"
+              style={{ backgroundColor: '#88ce02' }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(136, 206, 2, 0.8)'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = '#88ce02'}
             >
               저장
             </button>
