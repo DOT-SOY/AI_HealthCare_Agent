@@ -1,8 +1,9 @@
 @import "tailwindcss";
+@import "./styles/design-tokens.css";
 
-/* 최소한의 전역 스타일만 유지 */
+/* 전역 폰트는 index.html에서 로드 (Plus Jakarta Sans) */
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: var(--font-sans);
   line-height: 1.5;
   font-weight: 400;
   -webkit-font-smoothing: antialiased;

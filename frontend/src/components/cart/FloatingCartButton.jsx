@@ -15,7 +15,7 @@ const FloatingCartButton = ({ itemCount, onClick, animate = false }) => {
     <button
       type="button"
       onClick={onClick}
-      className={`fixed bottom-6 right-6 z-40 w-16 h-16 bg-blue-500 text-white rounded-full shadow-lg hover:bg-blue-600 transition-all duration-300 flex items-center justify-center ${
+      className={`fixed bottom-6 right-6 z-40 w-16 h-16 bg-primary-500 text-bg-root rounded-full shadow-glow hover:shadow-glow transition-all duration-300 flex items-center justify-center ${
         isAnimating ? 'animate-bounce scale-110' : ''
       }`}
     >
@@ -35,7 +35,7 @@ const FloatingCartButton = ({ itemCount, onClick, animate = false }) => {
           />
         </svg>
         {itemCount > 0 && (
-          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+          <span className="absolute -top-2 -right-2 bg-primary-400 text-bg-root text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
             {itemCount > 99 ? '99+' : itemCount}
           </span>
         )}

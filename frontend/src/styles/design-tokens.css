@@ -1,0 +1,56 @@
+/**
+ * 전역 디자인 토큰
+ * - CSS 변수: :root, [data-theme="dark"] 동시 정의
+ * - Tailwind v4 @theme로 유틸리티 클래스 생성 (bg-bg-root, text-primary-500 등)
+ * - 쇼핑몰은 data-theme="dark" 래퍼에서만 적용; 다른 페이지는 기존 스타일 유지
+ */
+
+:root,
+[data-theme="dark"] {
+  /* Background (Dark) - 순서: root → surface → card */
+  --bg-root: #0B0B0B;
+  --bg-surface: #242424;
+  --bg-card: #1E1E1E;
+
+  /* Primary (Lime) */
+  --primary-500: #B6FF00;
+  --primary-400: #C8FF33;
+  --primary-glow: rgba(182, 255, 0, 0.4);
+
+  /* Typography - 한글 가독·헬스 사이트에 맞춘 산세리프 */
+  --font-sans: "Noto Sans KR", "Plus Jakarta Sans", system-ui, sans-serif;
+
+  /* Text */
+  --text-main: #E5E7EB;
+  --text-sub: #9CA3AF;
+  --text-muted: #6B7280;
+
+  /* Border / Divider */
+  --border-default: #1F2937;
+}
+
+/* Tailwind v4: @theme로 유틸리티 클래스 노출 (bg-bg-root, text-primary-500 등) */
+@theme {
+  /* Background */
+  --color-bg-root: var(--bg-root);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-card: var(--bg-card);
+
+  /* Primary */
+  --color-primary-500: var(--primary-500);
+  --color-primary-400: var(--primary-400);
+  --color-primary-glow: var(--primary-glow);
+
+  /* Text */
+  --color-text-main: var(--text-main);
+  --color-text-sub: var(--text-sub);
+  --color-text-muted: var(--text-muted);
+
+  /* Border */
+  --color-border-default: var(--border-default);
+
+  /* Shadow: Card용 soft shadow (토큰) */
+  --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
+  --shadow-card-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.35), 0 4px 6px -4px rgba(0, 0, 0, 0.2);
+  --shadow-glow: 0 0 20px var(--primary-glow);
+}

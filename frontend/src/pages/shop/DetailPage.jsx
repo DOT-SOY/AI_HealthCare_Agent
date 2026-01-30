@@ -12,6 +12,8 @@ import {
 } from '../../services/reviewApi';
 import { useCart } from '../../components/layout/ShopLayout';
 import QtyStepper from '../../components/cart/QtyStepper';
+import Card from '../../components/common/Card';
+import Button from '../../components/common/Button';
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -181,7 +183,7 @@ const ProductDetail = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
-        <div className="text-lg">로딩 중...</div>
+        <div className="text-lg text-text-main">로딩 중...</div>
       </div>
     );
   }
@@ -189,8 +191,8 @@ const ProductDetail = () => {
   if (error) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
-        <div className="text-red-500">{error}</div>
-        <Link to="/shop/list" className="ml-4 text-blue-500 hover:underline">
+        <div className="text-primary-400">{error}</div>
+        <Link to="/shop/list" className="ml-4 text-primary-500 hover:underline">
           목록으로 돌아가기
         </Link>
       </div>
@@ -200,8 +202,8 @@ const ProductDetail = () => {
   if (!product) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
-        <div>상품을 찾을 수 없습니다.</div>
-        <Link to="/shop/list" className="ml-4 text-blue-500 hover:underline">
+        <div className="text-text-main">상품을 찾을 수 없습니다.</div>
+        <Link to="/shop/list" className="ml-4 text-primary-500 hover:underline">
           목록으로 돌아가기
         </Link>
       </div>
@@ -225,26 +227,18 @@ const ProductDetail = () => {
   return (
     <div className="w-full">
       <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-        <Link 
-          to="/shop/list" 
-          className="text-blue-500 hover:underline"
-        >
+        <Link to="/shop/list" className="text-primary-500 hover:underline">
           ← 목록으로 돌아가기
         </Link>
         {isAdmin && (
-          <button
-            type="button"
-            onClick={() => navigate(`/shop/admin/edit/${id}`)}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium"
-          >
+          <Button type="button" variant="primary" onClick={() => navigate(`/shop/admin/edit/${id}`)}>
             상품 수정
-          </button>
+          </Button>
         )}
       </div>
 
-      <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+      <Card className="overflow-hidden">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-8">
-          {/* 이미지 섹션 */}
           <div>
             {selectedImage ? (
               <div className="mb-4">
@@ -258,12 +252,11 @@ const ProductDetail = () => {
                 />
               </div>
             ) : (
-              <div className="w-full aspect-square bg-gray-100 rounded-lg flex items-center justify-center">
-                <span className="text-gray-400">이미지 없음</span>
+              <div className="w-full aspect-square bg-bg-surface rounded-lg flex items-center justify-center">
+                <span className="text-text-muted">이미지 없음</span>
               </div>
             )}
 
-            {/* 썸네일 목록 */}
             {product.images && product.images.length > 1 && (
               <div className="flex gap-2 overflow-x-auto">
                 {product.images.map((image, index) => (
@@ -271,9 +264,7 @@ const ProductDetail = () => {
                     key={image.uuid}
                     onClick={() => setSelectedImageIndex(index)}
                     className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 ${
-                      selectedImageIndex === index 
-                        ? 'border-blue-500' 
-                        : 'border-gray-200'
+                      selectedImageIndex === index ? 'border-primary-500' : 'border-border-default'
                     }`}
                   >
                     <img
@@ -290,39 +281,38 @@ const ProductDetail = () => {
             )}
           </div>
 
-          {/* 상품 정보 섹션 */}
           <div>
-            <h1 className="text-3xl font-bold mb-4">{product.name}</h1>
-            
+            <h1 className="text-3xl font-bold text-text-main mb-4">{product.name}</h1>
+
             <div className="mb-6">
-              <span className={`inline-block px-3 py-1 rounded text-sm ${
-                product.status === 'ACTIVE' 
-                  ? 'bg-green-100 text-green-800' 
-                  : 'bg-gray-100 text-gray-800'
-              }`}>
+              <span
+                className={`inline-block px-3 py-1 rounded text-sm ${
+                  product.status === 'ACTIVE'
+                    ? 'bg-primary-500/20 text-primary-400'
+                    : 'bg-bg-surface text-text-muted'
+                }`}
+              >
                 {product.status === 'ACTIVE' ? '판매중' : '품절'}
               </span>
             </div>
 
             <div className="mb-6">
-              <div className="text-4xl font-bold text-blue-600 mb-2">
+              <div className="text-4xl font-bold text-primary-500 mb-2">
                 {displayPrice != null ? displayPrice.toLocaleString() : '-'}원
               </div>
               {hasVariants && selectedVariant && (
-                <p className="text-sm text-gray-600">
-                  선택된 옵션: {selectedVariant.optionText}
-                </p>
+                <p className="text-sm text-text-sub">선택된 옵션: {selectedVariant.optionText}</p>
               )}
             </div>
 
             <div className="mb-6">
-              <h2 className="text-xl font-semibold mb-2">상품 설명</h2>
-              <p className="text-gray-700 whitespace-pre-wrap">{product.description}</p>
+              <h2 className="text-xl font-semibold text-text-main mb-2">상품 설명</h2>
+              <p className="text-text-sub whitespace-pre-wrap">{product.description}</p>
             </div>
 
             {hasVariants && (
               <div className="mb-6">
-                <h2 className="text-xl font-semibold mb-3">옵션 (변형)</h2>
+                <h2 className="text-xl font-semibold text-text-main mb-3">옵션 (변형)</h2>
                 <div className="flex flex-wrap gap-2">
                   {product.variants
                     .filter((v) => v.active)
@@ -336,8 +326,8 @@ const ProductDetail = () => {
                           onClick={() => setSelectedVariant(isSelected ? null : v)}
                           className={`px-4 py-2 rounded-lg font-medium transition border-2 ${
                             isSelected
-                              ? 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600'
-                              : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:bg-blue-50'
+                              ? 'bg-primary-500 text-bg-root border-primary-500'
+                              : 'bg-bg-card text-text-main border-border-default hover:border-primary-500'
                           }`}
                         >
                           {label}
@@ -348,33 +338,37 @@ const ProductDetail = () => {
               </div>
             )}
 
-            <div className="mb-6 border-t pt-6">
-              <h2 className="text-xl font-semibold mb-3">수량 선택</h2>
+            <div className="mb-6 border-t border-border-default pt-6">
+              <h2 className="text-xl font-semibold text-text-main mb-3">수량 선택</h2>
               <div className="flex items-center gap-4 mb-4">
                 <QtyStepper
                   value={qty}
                   onChange={setQty}
                   disabled={product.status !== 'ACTIVE'}
+                  buttonClassName="border-border-default bg-bg-card text-text-main hover:bg-bg-surface disabled:opacity-50"
+                  valueClassName="text-text-main"
                 />
               </div>
-              <button
+              <Button
                 type="button"
+                variant="primary"
+                size="lg"
+                className="w-full"
                 onClick={handleAddToCart}
                 disabled={product.status !== 'ACTIVE' || (hasVariants && !selectedVariant)}
-                className="w-full py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition font-medium text-lg"
               >
                 장바구니에 담기
-              </button>
+              </Button>
             </div>
 
-            <div className="border-t pt-6">
-              <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+            <div className="border-t border-border-default pt-6">
+              <div className="grid grid-cols-2 gap-4 text-sm text-text-sub">
                 <div>
                   <span className="font-semibold">상품 ID:</span> {product.id}
                 </div>
                 <div>
                   <span className="font-semibold">등록일:</span>{' '}
-                  {product.createdAt 
+                  {product.createdAt
                     ? new Date(product.createdAt).toLocaleDateString('ko-KR')
                     : '-'}
                 </div>
@@ -382,46 +376,43 @@ const ProductDetail = () => {
             </div>
           </div>
         </div>
-      </div>
+      </Card>
 
-      {/* 상품 리뷰 섹션 */}
-      <div className="mt-8 bg-white rounded-lg shadow-lg overflow-hidden p-6">
+      <Card className="mt-8 overflow-hidden p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <h2 className="text-xl font-semibold">상품 리뷰</h2>
+            <h2 className="text-xl font-semibold text-text-main">상품 리뷰</h2>
             {product.reviewSummary != null && product.reviewSummary.count > 0 && (
-              <span className="text-gray-600 text-sm">
+              <span className="text-text-sub text-sm">
                 평점 {Number(product.reviewSummary.average_rating ?? product.reviewSummary.averageRating).toFixed(1)} (리뷰 {product.reviewSummary.count}개)
               </span>
             )}
           </div>
           {reviewsData.total !== undefined && product.reviewSummary == null && (
-            <span className="text-gray-500 text-sm">총 {reviewsData.total}개</span>
+            <span className="text-text-muted text-sm">총 {reviewsData.total}개</span>
           )}
           {isLoggedIn && (
-            <button
+            <Button
               type="button"
+              variant={product.canReview === false ? 'ghost' : 'primary'}
+              size="sm"
               onClick={() => product.canReview !== false && setReviewFormOpen((prev) => !prev)}
               disabled={product.canReview === false}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                product.canReview === false
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : 'bg-blue-500 text-white hover:bg-blue-600'
-              }`}
+              className={product.canReview === false ? 'opacity-50 cursor-not-allowed' : ''}
             >
               {product.canReview === false ? '구매 후 작성 가능' : (reviewFormOpen ? '취소' : '리뷰 작성')}
-            </button>
+            </Button>
           )}
         </div>
 
         {reviewFormOpen && (
-          <form onSubmit={handleSubmitReview} className="mb-6 p-4 bg-gray-50 rounded-lg">
+          <form onSubmit={handleSubmitReview} className="mb-6 p-4 bg-bg-surface rounded-lg">
             <div className="mb-3">
-              <label className="block text-sm font-medium text-gray-700 mb-1">평점</label>
+              <label className="block text-sm font-medium text-text-main mb-1">평점</label>
               <select
                 value={reviewForm.rating}
                 onChange={(e) => setReviewForm((prev) => ({ ...prev, rating: Number(e.target.value) }))}
-                className="border border-gray-300 rounded px-3 py-2 w-full max-w-[120px]"
+                className="border border-border-default rounded px-3 py-2 w-full max-w-[120px] bg-bg-card text-text-main"
               >
                 {[1, 2, 3, 4, 5].map((n) => (
                   <option key={n} value={n}>{n}점</option>
@@ -429,54 +420,51 @@ const ProductDetail = () => {
               </select>
             </div>
             <div className="mb-3">
-              <label className="block text-sm font-medium text-gray-700 mb-1">내용 (선택)</label>
+              <label className="block text-sm font-medium text-text-main mb-1">내용 (선택)</label>
               <textarea
                 value={reviewForm.content}
                 onChange={(e) => setReviewForm((prev) => ({ ...prev, content: e.target.value }))}
                 rows={3}
-                className="border border-gray-300 rounded px-3 py-2 w-full"
+                className="border border-border-default rounded px-3 py-2 w-full bg-bg-card text-text-main placeholder-text-muted"
                 placeholder="리뷰를 입력하세요"
               />
             </div>
-            <button type="submit" disabled={submitting} className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 text-sm font-medium">
+            <Button type="submit" variant="primary" size="sm" disabled={submitting}>
               등록
-            </button>
+            </Button>
           </form>
         )}
 
         {!isLoggedIn && (
-          <p className="text-gray-500 text-sm mb-4">로그인 후 리뷰를 작성할 수 있습니다.</p>
+          <p className="text-text-muted text-sm mb-4">로그인 후 리뷰를 작성할 수 있습니다.</p>
         )}
 
         {reviewsLoading ? (
-          <div className="py-8 text-center text-gray-500">리뷰 로딩 중...</div>
+          <div className="py-8 text-center text-text-muted">리뷰 로딩 중...</div>
         ) : reviewsData.items.length === 0 ? (
-          <div className="py-8 text-center text-gray-500">아직 리뷰가 없습니다.</div>
+          <div className="py-8 text-center text-text-muted">아직 리뷰가 없습니다.</div>
         ) : (
           <>
-            <ul className="divide-y divide-gray-200">
+            <ul className="divide-y divide-border-default">
               {reviewsData.items.map((review) => (
                 <li key={review.id} className="py-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-yellow-500" aria-hidden>
+                        <span className="text-primary-500" aria-hidden>
                           {'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}
                         </span>
-                        <span className="text-sm font-medium text-gray-700">{review.displayName ?? '회원'}</span>
-                        <span className="text-xs text-gray-400">
+                        <span className="text-sm font-medium text-text-main">{review.displayName ?? '회원'}</span>
+                        <span className="text-xs text-text-muted">
                           {review.created_at ? new Date(review.created_at).toLocaleDateString('ko-KR') : ''}
                         </span>
                       </div>
                       {editingReviewId === review.id ? (
-                        <form
-                          onSubmit={(e) => handleUpdateReview(e, review.id)}
-                          className="mt-2"
-                        >
+                        <form onSubmit={(e) => handleUpdateReview(e, review.id)} className="mt-2">
                           <select
                             value={editReviewForm.rating}
                             onChange={(e) => setEditReviewForm((prev) => ({ ...prev, rating: Number(e.target.value) }))}
-                            className="border border-gray-300 rounded px-2 py-1 text-sm mb-2"
+                            className="border border-border-default rounded px-2 py-1 text-sm mb-2 bg-bg-card text-text-main"
                           >
                             {[1, 2, 3, 4, 5].map((n) => (
                               <option key={n} value={n}>{n}점</option>
@@ -486,15 +474,15 @@ const ProductDetail = () => {
                             value={editReviewForm.content}
                             onChange={(e) => setEditReviewForm((prev) => ({ ...prev, content: e.target.value }))}
                             rows={2}
-                            className="border border-gray-300 rounded px-2 py-1 w-full text-sm block mb-2"
+                            className="border border-border-default rounded px-2 py-1 w-full text-sm block mb-2 bg-bg-card text-text-main"
                           />
                           <div className="flex gap-2">
-                            <button type="submit" disabled={submitting} className="text-sm text-blue-600 hover:underline">저장</button>
-                            <button type="button" onClick={() => setEditingReviewId(null)} className="text-sm text-gray-500 hover:underline">취소</button>
+                            <button type="submit" disabled={submitting} className="text-sm text-primary-500 hover:underline">저장</button>
+                            <button type="button" onClick={() => setEditingReviewId(null)} className="text-sm text-text-muted hover:underline">취소</button>
                           </div>
                         </form>
                       ) : (
-                        <p className="text-gray-700 text-sm whitespace-pre-wrap">{review.content || '(내용 없음)'}</p>
+                        <p className="text-text-sub text-sm whitespace-pre-wrap">{review.content || '(내용 없음)'}</p>
                       )}
                     </div>
                     {!editingReviewId && currentMemberId != null && Number(review.memberId) === Number(currentMemberId) && (
@@ -505,55 +493,50 @@ const ProductDetail = () => {
                             setEditingReviewId(review.id);
                             setEditReviewForm({ rating: review.rating, content: review.content ?? '' });
                           }}
-                          className="text-xs text-blue-600 hover:underline"
+                          className="text-xs text-primary-500 hover:underline"
                         >
                           수정
                         </button>
-                        <button type="button" onClick={() => handleDeleteReview(review.id)} className="text-xs text-red-600 hover:underline">
+                        <button type="button" onClick={() => handleDeleteReview(review.id)} className="text-xs text-primary-400 hover:underline">
                           삭제
                         </button>
                       </div>
                     )}
                   </div>
-                  {/* 대댓글 목록 */}
                   {review.replies && review.replies.length > 0 && (
-                    <ul className="ml-4 mt-2 pl-4 border-l-2 border-gray-100 space-y-2">
+                    <ul className="ml-4 mt-2 pl-4 border-l-2 border-border-default space-y-2">
                       {review.replies.map((reply) => (
                         <li key={reply.id} className="text-sm">
-                          <span className="font-medium text-gray-600">{reply.author_display_name ?? '관리자'}</span>
-                          <span className="text-gray-400 text-xs ml-2">
+                          <span className="font-medium text-text-sub">{reply.author_display_name ?? '관리자'}</span>
+                          <span className="text-text-muted text-xs ml-2">
                             {reply.created_at ? new Date(reply.created_at).toLocaleDateString('ko-KR') : ''}
                           </span>
                           {isAdmin && (
                             <button
                               type="button"
                               onClick={() => handleDeleteReply(review.id, reply.id)}
-                              className="ml-2 text-xs text-red-600 hover:underline"
+                              className="ml-2 text-xs text-primary-400 hover:underline"
                             >
                               삭제
                             </button>
                           )}
-                          <p className="text-gray-700 mt-0.5">{reply.content}</p>
+                          <p className="text-text-sub mt-0.5">{reply.content}</p>
                         </li>
                       ))}
                     </ul>
                   )}
-                  {/* 관리자 대댓글 작성 */}
                   {isAdmin && (
-                    <form
-                      onSubmit={(e) => handleSubmitReply(e, review.id)}
-                      className="ml-4 mt-2 flex gap-2 items-end"
-                    >
+                    <form onSubmit={(e) => handleSubmitReply(e, review.id)} className="ml-4 mt-2 flex gap-2 items-end">
                       <input
                         type="text"
                         value={replyFormByReviewId[review.id] ?? ''}
                         onChange={(e) => setReplyFormByReviewId((prev) => ({ ...prev, [review.id]: e.target.value }))}
                         placeholder="대댓글 입력..."
-                        className="flex-1 border border-gray-300 rounded px-3 py-1.5 text-sm"
+                        className="flex-1 border border-border-default rounded px-3 py-1.5 text-sm bg-bg-card text-text-main placeholder-text-muted"
                       />
-                      <button type="submit" disabled={submitting} className="px-3 py-1.5 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 disabled:opacity-50">
+                      <Button type="submit" variant="ghost" size="sm" disabled={submitting}>
                         등록
-                      </button>
+                      </Button>
                     </form>
                   )}
                 </li>
@@ -561,30 +544,32 @@ const ProductDetail = () => {
             </ul>
             {reviewsData.pages > 1 && (
               <div className="flex justify-center gap-2 mt-4">
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   disabled={reviewPage <= 1}
                   onClick={() => setReviewPage((p) => Math.max(1, p - 1))}
-                  className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 text-sm"
                 >
                   이전
-                </button>
-                <span className="py-1 text-sm text-gray-600">
+                </Button>
+                <span className="py-1 text-sm text-text-sub">
                   {reviewPage} / {reviewsData.pages}
                 </span>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   disabled={reviewPage >= reviewsData.pages}
                   onClick={() => setReviewPage((p) => Math.min(reviewsData.pages, p + 1))}
-                  className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 text-sm"
                 >
                   다음
-                </button>
+                </Button>
               </div>
             )}
           </>
         )}
-      </div>
+      </Card>
     </div>
   );
 };
