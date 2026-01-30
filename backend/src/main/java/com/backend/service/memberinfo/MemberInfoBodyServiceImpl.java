@@ -13,8 +13,12 @@ import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -93,13 +97,73 @@ public class MemberInfoBodyServiceImpl implements MemberInfoBodyService {
         log.info("최신 신체 정보 조회 요청: memberId={}", memberId);
 
         MemberInfoBody entity = memberInfoBodyRepository
-                .findTopByMemberIdAndNotDeletedOrderByMeasuredTimeDesc(memberId)
+                .findFirstByMemberIdAndDeletedAtIsNullOrderByMeasuredTimeDescCreatedAtDesc(memberId)
                 .orElse(null);
 
         // Member 정보 조회
         Member member = memberRepository.findById(memberId).orElse(null);
 
         return MemberInfoBodyResponseDTO.fromEntityWithMember(entity, member);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public MemberInfoBodyResponseDTO getBodyInfoByDateAndMetric(Long memberId, LocalDate date, String metric) {
+        log.info("인바디 조회 요청: memberId={}, date={}, metric={}", memberId, date, metric);
+
+        LocalDate targetDate = date != null ? date : LocalDate.now();
+        
+        // 날짜의 시작과 끝 시간 계산
+        Instant dateStart = targetDate.atStartOfDay(ZoneId.systemDefault()).toInstant();
+        Instant dateEnd = targetDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
+        
+        Optional<MemberInfoBody> entityOpt = memberInfoBodyRepository.findByMemberIdAndDate(
+            memberId, dateStart, dateEnd
+        );
+        
+        if (entityOpt.isEmpty()) {
+            log.info("해당 날짜의 인바디 기록이 없습니다: memberId={}, date={}", memberId, targetDate);
+            return null;
+        }
+        
+        MemberInfoBody entity = entityOpt.get();
+        Member member = memberRepository.findById(memberId).orElse(null);
+        MemberInfoBodyResponseDTO dto = MemberInfoBodyResponseDTO.fromEntityWithMember(entity, member);
+        
+        // 특정 항목만 조회하는 경우 필터링
+        if (metric != null && !metric.trim().isEmpty()) {
+            MemberInfoBodyResponseDTO filteredDto = MemberInfoBodyResponseDTO.builder()
+                .id(dto.getId())
+                .memberId(dto.getMemberId())
+                .measuredTime(dto.getMeasuredTime())
+                .createdAt(dto.getCreatedAt())
+                .updatedAt(dto.getUpdatedAt())
+                .memberName(dto.getMemberName())
+                .gender(dto.getGender())
+                .birthDate(dto.getBirthDate())
+                .build();
+            
+            switch (metric.toUpperCase()) {
+                case "BODY_FAT":
+                    filteredDto.setBodyFatPercent(dto.getBodyFatPercent());
+                    filteredDto.setBodyFatMass(dto.getBodyFatMass());
+                    break;
+                case "SKELETAL_MUSCLE":
+                    filteredDto.setSkeletalMuscleMass(dto.getSkeletalMuscleMass());
+                    break;
+                case "WEIGHT":
+                    filteredDto.setWeight(dto.getWeight());
+                    break;
+                default:
+                    log.warn("알 수 없는 metric: {}, 모든 항목 반환", metric);
+                    return dto;
+            }
+            
+            return filteredDto;
+        }
+        
+        // 모든 항목 반환
+        return dto;
     }
 }
 

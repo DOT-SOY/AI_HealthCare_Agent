@@ -196,11 +196,11 @@ export default function AIChatOverlay() {
           </div>
 
           {/* 입력 영역 */}
-          <div className="p-4 border-t border-neutral-700">
-            <div className="flex gap-2">
+          <div className="px-4 py-3 border-t border-neutral-700">
+            <div className="flex gap-2 items-center">
               <button
                 onClick={isListening ? stopListening : startListening}
-                className={`p-2 rounded-lg transition-colors ${
+                className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
                   isListening
                     ? 'bg-red-500 text-white'
                     : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
@@ -217,7 +217,7 @@ export default function AIChatOverlay() {
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="메시지를 입력하세요..."
-                className="flex-1 bg-neutral-800 text-neutral-50 px-4 py-2 rounded-lg focus:outline-none focus:ring-2"
+                className="flex-1 bg-neutral-800 text-neutral-50 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 h-10"
                 style={{ '--tw-ring-color': '#88ce02' }}
                 onFocus={(e) => e.target.style.boxShadow = '0 0 0 2px #88ce02'}
                 onBlur={(e) => e.target.style.boxShadow = ''}
@@ -226,7 +226,7 @@ export default function AIChatOverlay() {
               <button
                 onClick={handleSend}
                 disabled={!inputText.trim() || loading}
-                className="text-neutral-950 px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="text-neutral-950 px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed h-10 flex-shrink-0"
                 style={{ backgroundColor: '#88ce02' }}
                 onMouseEnter={(e) => {
                   if (!e.currentTarget.disabled) {
@@ -247,7 +247,6 @@ export default function AIChatOverlay() {
             )}
           </div>
         </div>
-        </>
       )}
     </>
   );

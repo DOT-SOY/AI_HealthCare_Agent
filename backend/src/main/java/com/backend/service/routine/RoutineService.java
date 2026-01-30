@@ -20,6 +20,13 @@ public interface RoutineService {
      */
     RoutineResponse getRoutineByDate(Long memberId, java.time.LocalDate date);
     
+    /**
+     * 특정 날짜의 루틴을 필터링하여 조회합니다.
+     * - exerciseName: 특정 운동 이름으로 필터링 (null이면 필터링 안 함)
+     * - completed: 완료 여부로 필터링 (null이면 필터링 안 함, true면 완료된 운동만, false면 미완료 운동만)
+     */
+    RoutineResponse getRoutineByDateWithFilters(Long memberId, java.time.LocalDate date, String exerciseName, Boolean completed);
+    
     List<RoutineResponse> getWeeklyRoutines(Long memberId);
     
     List<RoutineResponse> getHistory(Long memberId, String bodyPart);

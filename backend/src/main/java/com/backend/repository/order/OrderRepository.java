@@ -75,4 +75,26 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             """,
             nativeQuery = true)
     List<OrderItemSummaryProjection> findOrderItemSummaryByOrderIds(@Param("orderIds") List<Long> orderIds);
+
+    /**
+     * 날짜, 상품명, 배송 상태로 주문 필터링 조회
+     * - 날짜가 null이면 필터링 안 함
+     * - 상품명이 null이면 필터링 안 함 (LIKE 검색, %는 파라미터에 포함되어야 함)
+     * - 배송 상태가 null이면 필터링 안 함
+     */
+    @EntityGraph(attributePaths = {"items"})
+    @Query("SELECT o FROM Order o " +
+           "WHERE o.member.id = :memberId " +
+           "AND (:dateStart IS NULL OR o.createdAt >= :dateStart) " +
+           "AND (:dateEnd IS NULL OR o.createdAt < :dateEnd) " +
+           "AND (:productName IS NULL OR EXISTS (SELECT 1 FROM OrderItem i WHERE i.order.id = o.id AND i.productNameSnapshot LIKE :productName)) " +
+           "AND (:status IS NULL OR o.status = :status) " +
+           "ORDER BY o.createdAt DESC")
+    List<Order> findByFilters(
+        @Param("memberId") Long memberId,
+        @Param("dateStart") Instant dateStart,
+        @Param("dateEnd") Instant dateEnd,
+        @Param("productName") String productName,
+        @Param("status") OrderStatus status
+    );
 }
