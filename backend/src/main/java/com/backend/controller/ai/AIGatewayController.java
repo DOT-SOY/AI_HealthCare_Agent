@@ -57,6 +57,7 @@ public class AIGatewayController {
             case "PAIN_REPORT" -> handlePainReport(classification);
             case "GENERAL_CHAT" -> handleGeneralChat(classification);
             case "WORKOUT" -> handleWorkout(classification);
+            case "OPEN_OCR" -> handleOpenOcr(classification);
             // TODO: 향후 추가 예정
             // case "FOOD_ANALYSIS" -> handleFoodAnalysis(classification);
             // case "EXERCISE_ANALYSIS" -> handleExerciseAnalysis(classification);
@@ -126,6 +127,24 @@ public class AIGatewayController {
         return AIChatResponse.builder()
             .message(aiAnswer)
             .intent("GENERAL_CHAT")
+            .build();
+    }
+
+    /**
+     * OPEN_OCR 의도 처리 (인바디 OCR UI 열기)
+     *
+     * 채팅에서 "OCR 자동분석해줘", "자동분석해줘" 등 요청 시 프론트엔드가 프로필 OCR UI를 열도록
+     * intent OPEN_OCR과 안내 메시지를 반환합니다.
+     */
+    private AIChatResponse handleOpenOcr(IntentClassificationResult classification) {
+        String aiAnswer = classification.getAiAnswer();
+        String message = (aiAnswer != null && !aiAnswer.isBlank())
+            ? aiAnswer
+            : "프로필 페이지에서 인바디 OCR을 열어드릴게요. 이미지를 선택해 주세요.";
+        log.info("OPEN_OCR 응답: intent=OPEN_OCR");
+        return AIChatResponse.builder()
+            .message(message)
+            .intent("OPEN_OCR")
             .build();
     }
 

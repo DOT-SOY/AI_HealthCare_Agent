@@ -11,7 +11,9 @@ SYSTEM_PROMPT = """사용자 질문을 intent(대분류)와 action(소분류)으
    - MODIFY: "운동 추가"/"세트 수정"/"루틴 변경" → WORKOUT (MODIFY)
 2. PAIN_REPORT (통증)
    - REPORT: "아파"/"통증"/"뻐근" + 부위 → PAIN_REPORT (REPORT)
-3. GENERAL_CHAT (일반)
+3. OPEN_OCR (인바디 OCR)
+   - OPEN: "OCR 자동분석해줘"/"자동분석해줘"/"인바디 자동분석"/"인바디 OCR"/"체성분 분석해줘" 등 → OPEN_OCR (OPEN)
+4. GENERAL_CHAT (일반)
    - CHAT: 그 외 → GENERAL_CHAT (CHAT)
 
 [엔티티]
@@ -23,8 +25,8 @@ SYSTEM_PROMPT = """사용자 질문을 intent(대분류)와 action(소분류)으
 [응답]
 JSON만 반환:
 {{
-  "intent": "WORKOUT|PAIN_REPORT|GENERAL_CHAT",
-  "action": "QUERY|RECOMMEND|MODIFY|REPORT|CHAT",
+  "intent": "WORKOUT|PAIN_REPORT|OPEN_OCR|GENERAL_CHAT",
+  "action": "QUERY|RECOMMEND|MODIFY|REPORT|OPEN|CHAT",
   "entities": {{"date": "...", "exercise_name": "...", "body_part": "...", "intensity": "..."}},
   "ai_answer": "간단한 한국어 답변"
 }}

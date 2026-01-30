@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import "../../styles/Profile.css";
 import BasicLayout from "../../components/layout/BasicLayout";
 import { Home, User, Moon, Sun, X, Plus, Edit, Trash2 } from "lucide-react";
@@ -16,6 +17,8 @@ import {
 import { extractOcrText } from "../../services/ocrApi";
 
 const ProfileIndex = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [isDark, setIsDark] = useState(false);
   const toggleDarkMode = () => setIsDark((prev) => !prev);
 
@@ -44,6 +47,7 @@ const ProfileIndex = () => {
   const [ocrResult, setOcrResult] = useState(null);
   const [ocrError, setOcrError] = useState(null);
   const ocrFileInputRef = useRef(null);
+  const lastOcrLocationKeyRef = useRef(null);
 
   const fetchData = async () => {
     try {
@@ -79,6 +83,15 @@ const ProfileIndex = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // 채팅에서 "OCR 자동분석해줘" 등으로 진입 시 OCR 파일 선택창 자동 오픈 (명령할 때마다 동작, StrictMode 중복 실행 방지)
+  useEffect(() => {
+    if (!location.state?.openOcr) return;
+    if (location.key === lastOcrLocationKeyRef.current) return;
+    lastOcrLocationKeyRef.current = location.key;
+    handleOcrClick();
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [location.state, location.key]);
 
   const handleEditClick = () => {
     if (!latestInfo) {

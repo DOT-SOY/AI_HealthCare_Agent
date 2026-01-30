@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { toggleChat, addMessage, setLoading, incrementNotification, clearNotification } from '../store/aiSlice';
 import { useAI } from '../hooks/useAI';
 import { useSTT } from '../hooks/useSTT';
@@ -7,6 +8,7 @@ import { useWebSocket } from '../hooks/useWebSocket';
 
 export default function AIChatOverlay() {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { isChatOpen, messages, loading, notificationCount } = useSelector((state) => state.ai);
   const { sendAIMessage } = useAI();
   const { isListening, transcript, startListening, stopListening } = useSTT();
@@ -95,7 +97,12 @@ export default function AIChatOverlay() {
 
     const text = inputText.trim();
     setInputText('');
-    await sendAIMessage(text);
+    const response = await sendAIMessage(text);
+    // OPEN_OCR: 채팅에서 "OCR 자동분석해줘" 등 요청 시 프로필 OCR UI로 이동
+    if (response?.intent === 'OPEN_OCR') {
+      dispatch(toggleChat());
+      navigate('/profile', { state: { openOcr: true } });
+    }
   };
 
   const handleKeyPress = (e) => {
