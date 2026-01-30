@@ -70,6 +70,10 @@ public enum ErrorCode {
     FILE_INVALID_TYPE("FILE_003", "지원하지 않는 파일 타입입니다. (허용: %s)", HttpStatus.BAD_REQUEST),
     FILE_INVALID_DIRECTORY("FILE_004", "유효하지 않은 디렉토리입니다.", HttpStatus.BAD_REQUEST),
     FILE_UPLOAD_FAILED("FILE_005", "파일 업로드에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+
+    // ========== OCR ==========
+    OCR_SERVICE_UNAVAILABLE("OCR_001", "OCR 서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.", HttpStatus.SERVICE_UNAVAILABLE),
+    OCR_EXTRACT_FAILED("OCR_002", "이미지에서 텍스트를 추출하지 못했습니다.", HttpStatus.BAD_REQUEST),
     
     // ========== JWT 인증/보안 ==========
     JWT_MALFORMED("JWT_001", "잘못된 JWT 형식입니다.", HttpStatus.UNAUTHORIZED),
