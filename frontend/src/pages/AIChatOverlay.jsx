@@ -247,7 +247,6 @@ export default function AIChatOverlay() {
             )}
           </div>
         </div>
-        </>
       )}
     </>
   );
