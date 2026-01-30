@@ -35,6 +35,7 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     intent: str
+    action: str
     entities: Optional[Dict[str, Any]] = None
     ai_answer: str
     requires_db_check: bool = False
@@ -65,19 +66,23 @@ async def health():
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     """의도 분류 및 기본 답변 생성"""
-    # 의도 분류
+    # 1. 의도 분류 (intent, action, entities, ai_answer 포함)
     intent_result = classify_intent(request.text)
     intent = intent_result.get("intent", "GENERAL_CHAT")
-    entities = intent_result.get("entities", {})
-    
-    # AI 답변 생성
-    ai_answer = generate_ai_answer(request.text, intent, entities)
-    
-    # DB 체크 필요 여부
-    requires_db_check = intent == "PAIN_REPORT"
-    
+    action = intent_result.get("action", "CHAT")
+    entities = intent_result.get("entities", {}) or {}
+    ai_answer = intent_result.get("ai_answer") or ""
+
+    # 2. ai_answer가 비어 있으면 기존 방식대로 답변 생성 (하위 호환)
+    if not ai_answer.strip():
+        ai_answer = generate_ai_answer(request.text, intent, entities)
+
+    # 3. DB 체크 필요 여부 플래그 (백엔드 오케스트레이션 참고용)
+    requires_db_check = intent in ["PAIN_REPORT", "WORKOUT"]
+
     return ChatResponse(
         intent=intent,
+        action=action,
         entities=entities,
         ai_answer=ai_answer,
         requires_db_check=requires_db_check

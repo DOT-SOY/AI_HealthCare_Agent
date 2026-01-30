@@ -30,9 +30,10 @@ export default function DateSelector({ selectedDate, onDateChange }) {
           onClick={() => onDateChange(date)}
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
             isSelected(date)
-              ? 'bg-neon-green text-neutral-950'
+              ? 'text-neutral-950'
               : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
           }`}
+          style={isSelected(date) ? { backgroundColor: '#88ce02' } : {}}
         >
           {formatDate(date)}
         </button>

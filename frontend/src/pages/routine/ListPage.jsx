@@ -93,11 +93,13 @@ export default function TodayRoutinePage() {
           <div>
             <h1 className="text-4xl font-bold mb-2">
               <span className="text-neutral-50">Today's </span>
-              <span className="text-neon-green">Routine</span>
+              <span style={{ color: '#88ce02' }}>Routine</span>
             </h1>
-            <p className="text-neutral-400 text-lg">
-              {displayRoutine?.title || 'HYPERTROPHY PUSH DAY'}
-            </p>
+            {displayRoutine?.title && (
+              <p className="text-neutral-400 text-lg">
+                {displayRoutine.title}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -128,7 +130,9 @@ export default function TodayRoutinePage() {
           {/* 운동 추가 버튼 */}
           <button
             onClick={() => setIsAddExerciseModalOpen(true)}
-            className="w-full bg-neutral-700 hover:bg-neutral-600 border-2 border-dashed border-neutral-600 hover:border-neon-green rounded-lg p-6 transition-colors"
+            className="w-full bg-neutral-700 hover:bg-neutral-600 border-2 border-dashed border-neutral-600 rounded-lg p-6 transition-colors"
+            onMouseEnter={(e) => e.target.style.borderColor = '#88ce02'}
+            onMouseLeave={(e) => e.target.style.borderColor = ''}
           >
             <div className="flex items-center justify-center gap-3">
               <svg className="w-6 h-6 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -178,7 +182,9 @@ export default function TodayRoutinePage() {
             {/* 운동 추가 버튼 */}
             <button
               onClick={() => setIsAddExerciseModalOpen(true)}
-              className="w-full bg-neutral-700 hover:bg-neutral-600 border-2 border-dashed border-neutral-600 hover:border-neon-green rounded-lg p-6 transition-colors"
+              className="w-full bg-neutral-700 hover:bg-neutral-600 border-2 border-dashed border-neutral-600 rounded-lg p-6 transition-colors"
+            onMouseEnter={(e) => e.target.style.borderColor = '#88ce02'}
+            onMouseLeave={(e) => e.target.style.borderColor = ''}
             >
               <div className="flex items-center justify-center gap-3">
                 <svg className="w-6 h-6 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -1,33 +1,94 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { gsap } from 'gsap';
+import { routineApi } from '../../api/routineApi';
 
-export default function ExerciseDetailModal({ exerciseName, routines, isOpen, onClose }) {
-  const [filteredRoutines, setFilteredRoutines] = useState([]);
+export default function ExerciseDetailModal({ exerciseName, isOpen, onClose }) {
+  const [routines, setRoutines] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(false);
   const cardsRef = useRef(null);
   const containerRef = useRef(null);
+  const observerRef = useRef(null);
 
+  // 초기 5개 로드
   useEffect(() => {
-    if (exerciseName && routines) {
-      const filtered = routines
-        .filter(routine => 
-          routine.exercises?.some(ex => ex.name === exerciseName && ex.completed === true)
-        )
-        .map(routine => ({
-          ...routine,
-          exercises: routine.exercises?.filter(ex => ex.name === exerciseName && ex.completed === true)
-        }))
-        .sort((a, b) => {
-          const dateA = typeof a.date === 'string' ? new Date(a.date) : a.date;
-          const dateB = typeof b.date === 'string' ? new Date(b.date) : b.date;
-          return dateB - dateA; // 최신순 정렬 (첫 번째가 최신)
-        });
-      
-      setFilteredRoutines(filtered);
-    } else {
-      setFilteredRoutines([]);
+    if (isOpen && exerciseName) {
+      loadInitialRoutines();
     }
-  }, [exerciseName, routines]);
+    return () => {
+      setRoutines([]);
+      setCurrentIndex(0);
+      setPage(0);
+      setHasMore(true);
+    };
+  }, [isOpen, exerciseName]);
+
+  const loadInitialRoutines = async () => {
+    try {
+      setLoading(true);
+      // 첫 5개 로드
+      const data = await routineApi.getRoutinesByExercise(exerciseName, 0, 5);
+      const routinesList = data.content || [];
+      setRoutines(routinesList);
+      setHasMore(!data.last);
+      setPage(1);
+    } catch (err) {
+      console.error('루틴 로드 실패:', err);
+      setRoutines([]);
+      setHasMore(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 무한 스크롤: 마지막 카드가 보이면 다음 페이지 로드
+  const loadMore = useCallback(async () => {
+    if (loading || !hasMore || !exerciseName) return;
+    
+    try {
+      setLoading(true);
+      const data = await routineApi.getRoutinesByExercise(exerciseName, page, 1);
+      
+      if (data.content && data.content.length > 0) {
+        setRoutines(prev => [...prev, ...data.content]);
+        setPage(prev => prev + 1);
+        setHasMore(!data.last);
+      } else {
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.error('추가 루틴 로드 실패:', err);
+      setHasMore(false);
+    } finally {
+      setLoading(false);
+    }
+  }, [exerciseName, page, hasMore, loading]);
+
+  // Intersection Observer로 마지막 카드 감지
+  useEffect(() => {
+    if (!isOpen || !hasMore || routines.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !loading) {
+          loadMore();
+        }
+      },
+      { threshold: 0.5 }
+    );
+
+    if (observerRef.current) {
+      observer.observe(observerRef.current);
+    }
+
+    return () => {
+      if (observerRef.current) {
+        observer.unobserve(observerRef.current);
+      }
+    };
+  }, [isOpen, hasMore, routines.length, loading, loadMore]);
 
   // 모달이 열릴 때마다 항상 최신 기록(첫 번째 카드)으로 리셋
   useEffect(() => {
@@ -38,7 +99,7 @@ export default function ExerciseDetailModal({ exerciseName, routines, isOpen, on
 
   // 카드 애니메이션
   useEffect(() => {
-    if (!isOpen || !cardsRef.current || filteredRoutines.length === 0) {
+    if (!isOpen || !cardsRef.current || routines.length === 0) {
       return;
     }
 
@@ -95,11 +156,11 @@ export default function ExerciseDetailModal({ exerciseName, routines, isOpen, on
         });
       }
     });
-  }, [currentIndex, isOpen, filteredRoutines.length]);
+  }, [currentIndex, isOpen, routines.length]);
 
   // 스크롤 이벤트 처리
   useEffect(() => {
-    if (!isOpen || !containerRef.current || filteredRoutines.length === 0) {
+    if (!isOpen || !containerRef.current || routines.length === 0) {
       return;
     }
 
@@ -113,21 +174,18 @@ export default function ExerciseDetailModal({ exerciseName, routines, isOpen, on
       isScrolling = true;
 
       if (e.deltaY > 0) {
-        // 아래로 스크롤 = 과거 기록으로 (Prev)
+        // 아래로 스크롤 = 과거 기록으로
         setCurrentIndex(prev => {
-          if (prev < filteredRoutines.length - 1) {
-            return prev + 1;
+          const nextIndex = prev + 1;
+          // 마지막에서 2개 전일 때 다음 페이지 로드
+          if (nextIndex >= routines.length - 2 && hasMore && !loading) {
+            loadMore();
           }
-          return prev;
+          return Math.min(nextIndex, routines.length - 1);
         });
       } else {
-        // 위로 스크롤 = 최신 기록으로 (Next)
-        setCurrentIndex(prev => {
-          if (prev > 0) {
-            return prev - 1;
-          }
-          return prev;
-        });
+        // 위로 스크롤 = 최신 기록으로
+        setCurrentIndex(prev => Math.max(prev - 1, 0));
       }
 
       setTimeout(() => {
@@ -135,12 +193,12 @@ export default function ExerciseDetailModal({ exerciseName, routines, isOpen, on
       }, 500);
     };
 
-    container.addEventListener('wheel', handleWheel, { passive: false });
+    container?.addEventListener('wheel', handleWheel, { passive: false });
 
     return () => {
-      container.removeEventListener('wheel', handleWheel);
+      container?.removeEventListener('wheel', handleWheel);
     };
-  }, [isOpen, filteredRoutines.length]);
+  }, [isOpen, routines.length, hasMore, loading, loadMore]);
 
   const handleNext = () => {
     if (currentIndex > 0) {
@@ -149,8 +207,12 @@ export default function ExerciseDetailModal({ exerciseName, routines, isOpen, on
   };
 
   const handlePrev = () => {
-    if (currentIndex < filteredRoutines.length - 1) {
+    if (currentIndex < routines.length - 1) {
       setCurrentIndex(currentIndex + 1);
+      // 마지막에서 2개 전일 때 다음 페이지 로드
+      if (currentIndex >= routines.length - 2 && hasMore && !loading) {
+        loadMore();
+      }
     }
   };
 
@@ -182,7 +244,7 @@ export default function ExerciseDetailModal({ exerciseName, routines, isOpen, on
         </div>
 
         {/* 캐러셀 */}
-        {filteredRoutines.length > 0 ? (
+        {routines.length > 0 ? (
           <div 
             ref={containerRef}
             className="flex-1 relative overflow-hidden"
@@ -190,7 +252,7 @@ export default function ExerciseDetailModal({ exerciseName, routines, isOpen, on
           >
             {/* 제목 표시 */}
             <div className="absolute top-8 left-1/2 transform -translate-x-1/2 z-50 text-center">
-              <h3 className="text-4xl font-bold text-neon-green">{exerciseName} 기록</h3>
+              <h3 className="text-4xl font-bold" style={{ color: '#88ce02' }}>{exerciseName} 기록</h3>
             </div>
             
             <ul 
@@ -198,7 +260,7 @@ export default function ExerciseDetailModal({ exerciseName, routines, isOpen, on
               className="cards relative w-full h-full"
               style={{ listStyle: 'none', padding: 0, margin: 0 }}
             >
-              {filteredRoutines.map((routine, index) => {
+              {routines.map((routine, index) => {
                 const exercise = routine.exercises?.[0];
                 if (!exercise) return null;
                 const totalVolume = exercise.sets * exercise.reps * (exercise.weight ?? 0);
@@ -206,6 +268,7 @@ export default function ExerciseDetailModal({ exerciseName, routines, isOpen, on
                 return (
                   <li
                     key={`${routine.id}-${index}`}
+                    ref={index === routines.length - 1 ? observerRef : null}
                     style={{
                       position: 'absolute',
                       width: '24rem',
@@ -216,15 +279,16 @@ export default function ExerciseDetailModal({ exerciseName, routines, isOpen, on
                     }}
                   >
                     <div
-                      className="w-full h-full bg-gradient-to-br from-neutral-800 to-neutral-900 rounded-xl p-8 flex flex-col justify-between border-2 border-neon-green/30 shadow-lg"
+                      className="w-full h-full bg-gradient-to-br from-neutral-800 to-neutral-900 rounded-xl p-8 flex flex-col justify-between border-2 shadow-lg"
                       style={{
                         background: `linear-gradient(135deg, rgba(17, 24, 39, 0.95) 0%, rgba(31, 41, 55, 0.95) 100%)`,
+                        borderColor: 'rgba(136, 206, 2, 0.3)',
                         boxShadow: '0 0 30px rgba(136, 206, 2, 0.3)',
                       }}
                     >
                       {/* 날짜 */}
                       <div className="text-center">
-                        <div className="text-5xl font-bold text-neon-green mb-2">
+                        <div className="text-5xl font-bold mb-2" style={{ color: '#88ce02' }}>
                           {formatDate(routine.date)}
                         </div>
                         <div className="text-base text-neutral-400">{routine.title}</div>
@@ -266,31 +330,31 @@ export default function ExerciseDetailModal({ exerciseName, routines, isOpen, on
               <button 
                 className="prev" 
                 onClick={handlePrev}
-                disabled={currentIndex === filteredRoutines.length - 1}
+                disabled={currentIndex === routines.length - 1}
                 style={{ 
                   display: 'inline-block', 
                   outline: 'none', 
                   padding: '12px 30px', 
-                  background: currentIndex === filteredRoutines.length - 1 ? '#333' : '#111', 
+                  background: currentIndex === routines.length - 1 ? '#333' : '#111', 
                   border: 'solid 2px #88ce02', 
                   color: '#88ce02', 
                   textDecoration: 'none', 
                   borderRadius: '99px', 
                   fontWeight: 600, 
-                  cursor: currentIndex === filteredRoutines.length - 1 ? 'not-allowed' : 'pointer', 
+                  cursor: currentIndex === routines.length - 1 ? 'not-allowed' : 'pointer', 
                   lineHeight: '18px', 
                   margin: '0 0.5rem',
                   transition: 'all 0.3s',
-                  opacity: currentIndex === filteredRoutines.length - 1 ? 0.5 : 1
+                  opacity: currentIndex === routines.length - 1 ? 0.5 : 1
                 }}
                 onMouseEnter={(e) => {
-                  if (currentIndex < filteredRoutines.length - 1) {
+                  if (currentIndex < routines.length - 1) {
                     e.target.style.background = '#88ce02';
                     e.target.style.color = '#111';
                   }
                 }}
                 onMouseLeave={(e) => {
-                  if (currentIndex < filteredRoutines.length - 1) {
+                  if (currentIndex < routines.length - 1) {
                     e.target.style.background = '#111';
                     e.target.style.color = '#88ce02';
                   }
@@ -338,7 +402,11 @@ export default function ExerciseDetailModal({ exerciseName, routines, isOpen, on
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center text-neutral-400 py-12">
-              <p className="text-xl">{exerciseName}에 대한 기록이 없습니다.</p>
+              {loading ? (
+                <p className="text-xl">로딩 중...</p>
+              ) : (
+                <p className="text-xl">{exerciseName}에 대한 기록이 없습니다.</p>
+              )}
             </div>
           </div>
         )}

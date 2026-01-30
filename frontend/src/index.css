@@ -1,7 +1,13 @@
 @import "tailwindcss";
 
-/* 최소한의 전역 스타일만 유지 */
+/* Tailwind CSS v4에서 커스텀 색상 정의 */
+@theme {
+  --color-neon-green: #88ce02;
+}
+
+/* CSS 변수로도 정의 (fallback) */
 :root {
+  --neon-green: #88ce02;
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;

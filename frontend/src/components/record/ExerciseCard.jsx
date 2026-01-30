@@ -40,15 +40,15 @@ export default function ExerciseCard({ exercise }) {
       <div className="space-y-2 text-sm">
         <div className="flex justify-between">
           <span className="text-neutral-400">최근 수행</span>
-          <span className="text-neutral-50">{formatDate(exercise.recentDate)}</span>
+          <span className="font-medium" style={{ color: '#88ce02' }}>{formatDate(exercise.recentDate)}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-neutral-400">최고 중량(1RM)</span>
-          <span className="text-neutral-50">{exercise.maxWeight != null ? `${exercise.maxWeight}kg` : '-'}</span>
+          <span className="font-medium" style={{ color: '#88ce02' }}>{exercise.maxWeight != null ? `${exercise.maxWeight}kg` : '-'}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-neutral-400">총 볼륨</span>
-          <span className="text-neutral-50">{formatNumber(exercise.totalVolume)} kg</span>
+          <span className="font-medium" style={{ color: '#88ce02' }}>{formatNumber(exercise.totalVolume)} kg</span>
         </div>
       </div>
     </div>

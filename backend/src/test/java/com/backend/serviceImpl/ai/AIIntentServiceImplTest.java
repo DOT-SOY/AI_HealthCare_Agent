@@ -3,7 +3,7 @@ package com.backend.serviceImpl.ai;
 import com.backend.client.ChatClient;
 import com.backend.dto.response.ChatResponse;
 import com.backend.dto.response.IntentClassificationResult;
-import com.backend.service.ai.AIIntentService;
+import com.backend.service.ai.AIIntentServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,7 +27,7 @@ class AIIntentServiceImplTest {
     private ChatClient chatClient;
     
     @InjectMocks
-    private AIIntentService.AIIntentServiceImpl aiIntentService;
+    private AIIntentServiceImpl aiIntentService;
     
     private ChatResponse chatResponse;
     
