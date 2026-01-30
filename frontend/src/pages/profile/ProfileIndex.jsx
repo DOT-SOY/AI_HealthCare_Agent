@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import "../../styles/Profile.css";
 import BasicLayout from "../../components/layout/BasicLayout";
 import { Home, User, Moon, Sun, X, Plus, Edit, Trash2 } from "lucide-react";
@@ -13,6 +13,7 @@ import {
   deleteMemberInfoAddr,
   setDefaultMemberInfoAddr
 } from "../../services/memberInfoAddrApi";
+import { extractOcrText } from "../../services/ocrApi";
 
 const ProfileIndex = () => {
   const [isDark, setIsDark] = useState(false);
@@ -36,6 +37,13 @@ const ProfileIndex = () => {
     shipAddress2: '',
     isDefault: false
   });
+
+  // OCR 관련 상태
+  const [isOcrModalOpen, setIsOcrModalOpen] = useState(false);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrResult, setOcrResult] = useState(null);
+  const [ocrError, setOcrError] = useState(null);
+  const ocrFileInputRef = useRef(null);
 
   const fetchData = async () => {
     try {
@@ -78,6 +86,66 @@ const ProfileIndex = () => {
       return;
     }
     setEditData({ ...latestInfo });
+    setIsModalOpen(true);
+  };
+
+  // OCR: 버튼 클릭 시 파일 선택
+  const handleOcrClick = () => {
+    setOcrError(null);
+    setOcrResult(null);
+    ocrFileInputRef.current?.click();
+  };
+
+  // OCR: 파일 선택 후 API 호출
+  const handleOcrFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      setOcrError("지원 형식: JPG, PNG, GIF, WEBP");
+      setIsOcrModalOpen(true);
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setOcrError("파일 크기는 10MB 이하여야 합니다.");
+      setIsOcrModalOpen(true);
+      return;
+    }
+
+    setOcrLoading(true);
+    setOcrError(null);
+    setOcrResult(null);
+    setIsOcrModalOpen(true);
+
+    try {
+      const res = await extractOcrText(file);
+      setOcrResult(res?.text ?? "");
+    } catch (err) {
+      setOcrError(err.message || "OCR 처리 중 오류가 발생했습니다.");
+      setOcrResult(null);
+    } finally {
+      setOcrLoading(false);
+    }
+  };
+
+  // OCR 결과를 수정 폼에 반영 (텍스트에서 숫자 추출 시도)
+  const handleApplyOcrToEdit = () => {
+    if (!ocrResult?.trim()) return;
+    if (!latestInfo) {
+      alert("수정할 데이터가 없습니다.");
+      return;
+    }
+    // 간단한 숫자 패턴: "몸무게 70" → weight 등 (실제 파싱은 백엔드/규칙에 맞게 확장 가능)
+    const numbers = ocrResult.match(/\d+\.?\d*/g) || [];
+    const parsed = { ...latestInfo };
+    if (numbers[0] != null) parsed.height = Number(numbers[0]);
+    if (numbers[1] != null) parsed.weight = Number(numbers[1]);
+    setEditData(parsed);
+    setIsOcrModalOpen(false);
+    setOcrResult(null);
+    setOcrError(null);
     setIsModalOpen(true);
   };
 
@@ -304,8 +372,24 @@ const ProfileIndex = () => {
           {/* === 우측 패널 (차트) === */}
           <main className="right-content">
             <div className="badge-row">
-              <span className="lime-badge">인바디 자동분석</span>
+              <span
+                className="lime-badge"
+                role="button"
+                tabIndex={0}
+                onClick={handleOcrClick}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleOcrClick(); } }}
+                style={{ cursor: 'pointer' }}
+              >
+                인바디 자동분석
+              </span>
             </div>
+            <input
+              ref={ocrFileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              onChange={handleOcrFileChange}
+              style={{ display: 'none' }}
+            />
             <div className="charts-container">
               <ChartRow title="체지방률" value={val(latestInfo?.bodyFatPercent, "%")}
                         chartTitle="체지방률 변화" data={chartData} dataKey="fatRate" strokeColor="#4A90E2" isDark={isDark} />
@@ -340,6 +424,69 @@ const ProfileIndex = () => {
             onClose={() => setIsAddressModalOpen(false)}
             onSave={handleAddressSave}
           />
+        )}
+
+        {/* ✅ OCR 결과 모달 */}
+        {isOcrModalOpen && (
+          <div
+            className="modal-overlay"
+            style={{
+              position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+              backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999
+            }}
+            onClick={() => !ocrLoading && setIsOcrModalOpen(false)}
+          >
+            <div
+              className="modal-content"
+              style={{
+                backgroundColor: 'white', padding: '24px', borderRadius: '10px', width: '480px', maxWidth: '90vw',
+                maxHeight: '80vh', overflowY: 'auto', position: 'relative', boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h3 style={{ margin: 0, fontSize: '18px', color: '#333' }}>인바디 OCR 결과</h3>
+                <button
+                  type="button"
+                  onClick={() => !ocrLoading && setIsOcrModalOpen(false)}
+                  style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '4px' }}
+                >
+                  <X size={22} />
+                </button>
+              </div>
+              {ocrLoading && (
+                <p style={{ color: '#666', margin: '20px 0' }}>이미지에서 텍스트를 추출하고 있습니다...</p>
+              )}
+              {ocrError && !ocrLoading && (
+                <p style={{ color: '#c62828', margin: '12px 0', fontSize: '14px' }}>{ocrError}</p>
+              )}
+              {ocrResult != null && !ocrLoading && (
+                <>
+                  <div
+                    style={{
+                      padding: '12px', border: '1px solid #e0e0e0', borderRadius: '8px',
+                      backgroundColor: '#fafafa', minHeight: '120px', maxHeight: '300px', overflowY: 'auto',
+                      whiteSpace: 'pre-wrap', fontSize: '14px', color: '#333'
+                    }}
+                  >
+                    {ocrResult || '(추출된 텍스트 없음)'}
+                  </div>
+                  {ocrResult.trim() && (
+                    <button
+                      type="button"
+                      onClick={handleApplyOcrToEdit}
+                      style={{
+                        marginTop: '16px', padding: '10px 16px', backgroundColor: '#ccff00', color: '#000',
+                        border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px'
+                      }}
+                    >
+                      수정 폼에 반영
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </BasicLayout>
