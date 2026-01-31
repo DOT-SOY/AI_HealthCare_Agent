@@ -72,7 +72,7 @@ dependencies {
 
     // Dev & DB
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
-    runtimeOnly 'org.mariadb.jdbc:mariadb-java-client'
+    implementation 'org.mariadb.jdbc:mariadb-java-client'
 
     // Test
     testImplementation 'org.springframework.boot:spring-boot-starter-test'

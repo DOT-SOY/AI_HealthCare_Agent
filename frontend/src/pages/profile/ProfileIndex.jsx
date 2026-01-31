@@ -2,11 +2,11 @@ import React, { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "../../styles/Profile.css";
 import BasicLayout from "../../components/layout/BasicLayout";
-import { Home, User, Moon, Sun, X, Plus, Edit, Trash2 } from "lucide-react";
+import { Home, User, Moon, Sun, X, Plus, Edit, Trash2, ImagePlus, TrendingUp, TrendingDown } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip,
 } from "recharts";
-import { getMyBodyInfoHistory, updateBodyInfo } from "../../services/bodyInfoApi";
+import { getMyBodyInfoHistory, updateBodyInfo, saveAndCompare } from "../../services/bodyInfoApi";
 import {
   getMemberInfoAddrList,
   createMemberInfoAddr,
@@ -15,6 +15,7 @@ import {
   setDefaultMemberInfoAddr
 } from "../../services/memberInfoAddrApi";
 import { extractOcrText } from "../../services/ocrApi";
+import { parseInbodyOcrText } from "../../utils/inbodyOcrParser";
 
 const ProfileIndex = () => {
   const location = useLocation();
@@ -41,12 +42,15 @@ const ProfileIndex = () => {
     isDefault: false
   });
 
-  // OCR 관련 상태
+  // OCR 관련 상태 (2칸 순서 업로드 → 처리 → 피드백 모달)
   const [isOcrModalOpen, setIsOcrModalOpen] = useState(false);
+  const [ocrStep, setOcrStep] = useState("upload"); // 'upload' | 'processing' | 'feedback'
+  const [ocrImages, setOcrImages] = useState([]); // 최대 2개: [{ file, preview, text?, parsedData? }, ...]
   const [ocrLoading, setOcrLoading] = useState(false);
-  const [ocrResult, setOcrResult] = useState(null);
   const [ocrError, setOcrError] = useState(null);
+  const [comparisonFeedback, setComparisonFeedback] = useState(null);
   const ocrFileInputRef = useRef(null);
+  const ocrSlotToFillRef = useRef(0);
   const lastOcrLocationKeyRef = useRef(null);
 
   const fetchData = async () => {
@@ -84,12 +88,16 @@ const ProfileIndex = () => {
     fetchData();
   }, []);
 
-  // 채팅에서 "OCR 자동분석해줘" 등으로 진입 시 OCR 파일 선택창 자동 오픈 (명령할 때마다 동작, StrictMode 중복 실행 방지)
+  // 채팅에서 "OCR 자동분석해줘" 등으로 진입 시 인바디 업로드 모달만 오픈
   useEffect(() => {
     if (!location.state?.openOcr) return;
     if (location.key === lastOcrLocationKeyRef.current) return;
     lastOcrLocationKeyRef.current = location.key;
-    handleOcrClick();
+    setOcrStep("upload");
+    setOcrImages([]);
+    setComparisonFeedback(null);
+    setOcrError(null);
+    setIsOcrModalOpen(true);
     navigate(location.pathname, { replace: true, state: {} });
   }, [location.state, location.key]);
 
@@ -102,15 +110,24 @@ const ProfileIndex = () => {
     setIsModalOpen(true);
   };
 
-  // OCR: 버튼 클릭 시 파일 선택
+  // OCR: 인바디 자동분석 클릭 → 업로드 모달 오픈
   const handleOcrClick = () => {
     setOcrError(null);
-    setOcrResult(null);
+    setOcrStep("upload");
+    setOcrImages([]);
+    setComparisonFeedback(null);
+    setIsOcrModalOpen(true);
+  };
+
+  // OCR: 1번/2번 칸 클릭 시 해당 칸에 파일 선택
+  const handleOcrSlotClick = (slotIndex) => {
+    if (ocrLoading) return;
+    ocrSlotToFillRef.current = slotIndex;
     ocrFileInputRef.current?.click();
   };
 
-  // OCR: 파일 선택 후 API 호출
-  const handleOcrFileChange = async (e) => {
+  // OCR: 파일 선택 후 한 장만 추가 (항상 0번 칸, OCR은 "분석 시작" 시 수행)
+  const handleOcrFileChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = "";
@@ -118,48 +135,89 @@ const ProfileIndex = () => {
     const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
     if (!allowedTypes.includes(file.type)) {
       setOcrError("지원 형식: JPG, PNG, GIF, WEBP");
-      setIsOcrModalOpen(true);
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
       setOcrError("파일 크기는 10MB 이하여야 합니다.");
-      setIsOcrModalOpen(true);
       return;
     }
-
-    setOcrLoading(true);
     setOcrError(null);
-    setOcrResult(null);
-    setIsOcrModalOpen(true);
+
+    setOcrImages((prev) => {
+      if (prev[0]?.preview) URL.revokeObjectURL(prev[0].preview);
+      return [{ file, preview: URL.createObjectURL(file), text: null, parsedData: null }];
+    });
+  };
+
+  // OCR: 이미지 제거 (한 장만 쓰므로 0번만)
+  const handleOcrImageRemove = () => {
+    setOcrImages((prev) => {
+      if (prev[0]?.preview) URL.revokeObjectURL(prev[0].preview);
+      return [];
+    });
+  };
+
+  // OCR: 분석 시작 (1장 OCR → 파싱 → 백엔드 save-and-compare: DB 저장 후 직전 1 row와 비교)
+  const handleOcrProcess = async () => {
+    const list = ocrImages.filter((item) => item?.file);
+    if (list.length === 0) {
+      setOcrError("이미지를 넣어주세요.");
+      return;
+    }
+    setOcrError(null);
+    setOcrStep("processing");
+    setOcrLoading(true);
 
     try {
-      const res = await extractOcrText(file);
-      setOcrResult(res?.text ?? "");
+      const res = await extractOcrText(list[0].file);
+      const text = res?.text ?? "";
+      const parsedData = parseInbodyOcrText(text);
+      setOcrImages((prev) => [{ ...prev[0], text, parsedData }]);
+
+      const payload = buildBodyInfoPayload(parsedData);
+      const feedback = await saveAndCompare(payload);
+      setComparisonFeedback(feedback);
+      setOcrStep("feedback");
+      fetchData();
     } catch (err) {
       setOcrError(err.message || "OCR 처리 중 오류가 발생했습니다.");
-      setOcrResult(null);
+      setOcrStep("upload");
     } finally {
       setOcrLoading(false);
     }
   };
 
-  // OCR 결과를 수정 폼에 반영 (텍스트에서 숫자 추출 시도)
-  const handleApplyOcrToEdit = () => {
-    if (!ocrResult?.trim()) return;
-    if (!latestInfo) {
-      alert("수정할 데이터가 없습니다.");
-      return;
-    }
-    // 간단한 숫자 패턴: "몸무게 70" → weight 등 (실제 파싱은 백엔드/규칙에 맞게 확장 가능)
-    const numbers = ocrResult.match(/\d+\.?\d*/g) || [];
-    const parsed = { ...latestInfo };
-    if (numbers[0] != null) parsed.height = Number(numbers[0]);
-    if (numbers[1] != null) parsed.weight = Number(numbers[1]);
-    setEditData(parsed);
-    setIsOcrModalOpen(false);
-    setOcrResult(null);
+  // OCR 파싱 결과 → MemberInfoBodyDTO 형태로 변환 (백엔드 save-and-compare 요청용)
+  const buildBodyInfoPayload = (parsed) => {
+    const num = (v) => (v != null && v !== "" ? Number(v) : null);
+    return {
+      height: num(parsed?.height) ?? null,
+      weight: num(parsed?.weight) ?? null,
+      skeletalMuscleMass: num(parsed?.skeletalMuscleMass) ?? null,
+      bodyFatPercent: num(parsed?.bodyFatPercent) ?? null,
+      bodyWater: num(parsed?.bodyWater) ?? null,
+      protein: num(parsed?.protein) ?? null,
+      minerals: num(parsed?.minerals) ?? null,
+      bodyFatMass: num(parsed?.bodyFatMass) ?? null,
+      targetWeight: null,
+      weightControl: null,
+      fatControl: null,
+      muscleControl: null,
+      exercisePurpose: null,
+      measuredTime: new Date().toISOString(),
+    };
+  };
+
+  // OCR: 피드백 모달 닫기 및 초기화
+  const handleOcrFeedbackClose = () => {
+    ocrImages.forEach((item) => {
+      if (item?.preview) URL.revokeObjectURL(item.preview);
+    });
+    setOcrImages([]);
+    setOcrStep("upload");
+    setComparisonFeedback(null);
     setOcrError(null);
-    setIsModalOpen(true);
+    setIsOcrModalOpen(false);
   };
 
   const safeParseFloat = (val) => {
@@ -439,64 +497,147 @@ const ProfileIndex = () => {
           />
         )}
 
-        {/* ✅ OCR 결과 모달 */}
+        {/* ✅ 인바디 자동분석 모달 (2칸 순서 업로드 → 처리 → 피드백) */}
         {isOcrModalOpen && (
           <div
             className="modal-overlay"
             style={{
-              position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-              backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999
+              position: "fixed", top: 0, left: 0, width: "100%", height: "100%",
+              backgroundColor: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999
             }}
-            onClick={() => !ocrLoading && setIsOcrModalOpen(false)}
+            onClick={() => !ocrLoading && handleOcrFeedbackClose()}
           >
             <div
               className="modal-content"
               style={{
-                backgroundColor: 'white', padding: '24px', borderRadius: '10px', width: '480px', maxWidth: '90vw',
-                maxHeight: '80vh', overflowY: 'auto', position: 'relative', boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+                backgroundColor: "white", padding: "24px", borderRadius: "10px", width: "520px", maxWidth: "90vw",
+                maxHeight: "85vh", overflowY: "auto", position: "relative", boxShadow: "0 4px 20px rgba(0,0,0,0.15)"
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <h3 style={{ margin: 0, fontSize: '18px', color: '#333' }}>인바디 OCR 결과</h3>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                <h3 style={{ margin: 0, fontSize: "18px", color: "#333" }}>
+                  {ocrStep === "upload" && "인바디 이미지 업로드"}
+                  {ocrStep === "processing" && "분석 중"}
+                  {ocrStep === "feedback" && "비교 분석 결과"}
+                </h3>
                 <button
                   type="button"
-                  onClick={() => !ocrLoading && setIsOcrModalOpen(false)}
-                  style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '4px' }}
+                  onClick={() => !ocrLoading && handleOcrFeedbackClose()}
+                  style={{ border: "none", background: "none", cursor: "pointer", padding: "4px" }}
                 >
                   <X size={22} />
                 </button>
               </div>
-              {ocrLoading && (
-                <p style={{ color: '#666', margin: '20px 0' }}>이미지에서 텍스트를 추출하고 있습니다...</p>
+
+              {ocrError && (
+                <p style={{ color: "#c62828", margin: "0 0 12px", fontSize: "14px" }}>{ocrError}</p>
               )}
-              {ocrError && !ocrLoading && (
-                <p style={{ color: '#c62828', margin: '12px 0', fontSize: '14px' }}>{ocrError}</p>
-              )}
-              {ocrResult != null && !ocrLoading && (
+
+              {ocrStep === "upload" && (
                 <>
+                  <p style={{ color: "#666", fontSize: "13px", marginBottom: "12px" }}>
+                    인바디 이미지 한 장을 넣어주세요. 이전 기록이 있으면 비교 분석합니다.
+                  </p>
                   <div
                     style={{
-                      padding: '12px', border: '1px solid #e0e0e0', borderRadius: '8px',
-                      backgroundColor: '#fafafa', minHeight: '120px', maxHeight: '300px', overflowY: 'auto',
-                      whiteSpace: 'pre-wrap', fontSize: '14px', color: '#333'
+                      border: "2px dashed #ccc", borderRadius: "8px", padding: "12px", textAlign: "center"
                     }}
                   >
-                    {ocrResult || '(추출된 텍스트 없음)'}
+                    {ocrImages[0] ? (
+                      <>
+                        <img
+                          src={ocrImages[0].preview}
+                          alt="인바디"
+                          style={{ maxWidth: "100%", maxHeight: "160px", objectFit: "contain", borderRadius: "4px" }}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleOcrImageRemove}
+                          style={{
+                            marginTop: "8px", padding: "4px 8px", fontSize: "12px", background: "#ffebee", color: "#c62828",
+                            border: "none", borderRadius: "4px", cursor: "pointer"
+                          }}
+                        >
+                          삭제
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleOcrSlotClick(0)}
+                        style={{
+                          width: "100%", minHeight: "120px", border: "none", background: "#f5f5f5", borderRadius: "6px",
+                          cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "8px"
+                        }}
+                      >
+                        <ImagePlus size={32} color="#999" />
+                        <span style={{ fontSize: "13px", color: "#666" }}>이미지 추가</span>
+                      </button>
+                    )}
                   </div>
-                  {ocrResult.trim() && (
-                    <button
-                      type="button"
-                      onClick={handleApplyOcrToEdit}
-                      style={{
-                        marginTop: '16px', padding: '10px 16px', backgroundColor: '#ccff00', color: '#000',
-                        border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px'
-                      }}
-                    >
-                      수정 폼에 반영
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={handleOcrProcess}
+                    disabled={!ocrImages[0]?.file}
+                    style={{
+                      marginTop: "16px", width: "100%", padding: "12px", backgroundColor: "#ccff00", color: "#000",
+                      border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer", fontSize: "14px"
+                    }}
+                  >
+                    분석 시작
+                  </button>
                 </>
+              )}
+
+              {ocrStep === "processing" && (
+                <p style={{ color: "#666", margin: "20px 0" }}>이미지에서 텍스트를 추출하고 비교 분석 중입니다...</p>
+              )}
+
+              {ocrStep === "feedback" && comparisonFeedback && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  <p style={{ margin: 0, fontSize: "14px", color: "#333" }}>{comparisonFeedback.summary}</p>
+                  {comparisonFeedback.bodyChanges?.length > 0 && (
+                    <div>
+                      <h4 style={{ margin: "0 0 8px", fontSize: "14px", color: "#555" }}>체성분 변화</h4>
+                      <ul style={{ margin: 0, paddingLeft: "20px" }}>
+                        {comparisonFeedback.bodyChanges.map((item, i) => (
+                          <li key={i} style={{ marginBottom: "4px", fontSize: "13px" }}>
+                            {item.message}
+                            {item.change === "증가" && <TrendingUp size={14} style={{ verticalAlign: "middle", color: "#c62828" }} />}
+                            {item.change === "감소" && <TrendingDown size={14} style={{ verticalAlign: "middle", color: "#2e7d32" }} />}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {comparisonFeedback.mealFeedback && (
+                    <p style={{ margin: 0, fontSize: "13px", color: "#555" }}><strong>식단:</strong> {comparisonFeedback.mealFeedback}</p>
+                  )}
+                  {comparisonFeedback.exerciseFeedback && (
+                    <p style={{ margin: 0, fontSize: "13px", color: "#555" }}><strong>운동:</strong> {comparisonFeedback.exerciseFeedback}</p>
+                  )}
+                  {comparisonFeedback.recommendations?.length > 0 && (
+                    <div>
+                      <h4 style={{ margin: "0 0 8px", fontSize: "14px", color: "#555" }}>권장사항</h4>
+                      <ul style={{ margin: 0, paddingLeft: "20px" }}>
+                        {comparisonFeedback.recommendations.map((rec, i) => (
+                          <li key={i} style={{ marginBottom: "4px", fontSize: "13px" }}>{rec}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleOcrFeedbackClose}
+                    style={{
+                      marginTop: "8px", padding: "10px 16px", backgroundColor: "#333", color: "#fff",
+                      border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer", fontSize: "14px"
+                    }}
+                  >
+                    닫기
+                  </button>
+                </div>
               )}
             </div>
           </div>

@@ -31,6 +31,23 @@ export const getMyBodyInfoHistory = async () => {
   }
 };
 /**
+ * OCR 결과 저장 후 직전 1 row와 비교하여 규칙 기반 피드백 반환 (7일 식단/운동 없음)
+ */
+export const saveAndCompare = async (data) => {
+  try {
+    const response = await fetchAPI(`${BASE_URL}/save-and-compare`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return response;
+  } catch (error) {
+    console.error("저장 및 비교 실패:", error);
+    throw error;
+  }
+};
+
+/**
  * 2. 신체 정보 생성
  */
 export const createBodyInfo = async (data) => {

@@ -1,9 +1,9 @@
 package com.backend.controller.memberinfo;
 
 import com.backend.domain.member.Member;
+import com.backend.dto.memberinfo.BodyCompareFeedbackDTO;
 import com.backend.dto.memberinfo.MemberInfoBodyDTO;
 import com.backend.dto.memberinfo.MemberInfoBodyResponseDTO;
-import com.backend.domain.memberinfo.MemberInfoBody;
 import com.backend.repository.member.MemberRepository;
 import com.backend.service.memberinfo.MemberInfoBodyService;
 import jakarta.validation.Valid;
@@ -24,6 +24,18 @@ public class MemberInfoBodyController {
 
     private final MemberInfoBodyService memberInfoBodyService;
     private final MemberRepository memberRepository;
+
+    /**
+     * [생성] OCR 결과 저장 후 직전 1 row와 비교하여 규칙 기반 피드백 반환 (7일 식단/운동 없음)
+     */
+    @PostMapping("/save-and-compare")
+    public ResponseEntity<BodyCompareFeedbackDTO> saveAndCompare(
+            @AuthenticationPrincipal String email,
+            @Valid @RequestBody MemberInfoBodyDTO requestDto) {
+        Long memberId = resolveUserId(email);
+        BodyCompareFeedbackDTO feedback = memberInfoBodyService.saveAndCompare(memberId, requestDto);
+        return ResponseEntity.ok(feedback);
+    }
 
     /**
      * [생성] 신체 정보 생성
