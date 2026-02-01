@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
@@ -14,6 +14,8 @@ load_dotenv(dotenv_path=env_path)
 from services.intent_service import classify_intent
 from services.chat_service import generate_ai_answer
 from services.pain_advice_service import generate_pain_advice
+from services.commerce_orchestration_service import handle_commerce_recommend
+from services.commerce_state_machine import state_machine, CommerceState
 
 app = FastAPI(title="GrowLog AI Server")
 
@@ -78,7 +80,7 @@ async def chat(request: ChatRequest):
         ai_answer = generate_ai_answer(request.text, intent, entities)
 
     # 3. DB 체크 필요 여부 플래그 (백엔드 오케스트레이션 참고용)
-    requires_db_check = intent in ["PAIN_REPORT", "WORKOUT", "MEAL_QUERY", "BODY_QUERY", "DELIVERY_QUERY"]
+    requires_db_check = intent in ["PAIN_REPORT", "WORKOUT", "MEAL_QUERY", "BODY_QUERY", "DELIVERY_QUERY", "PRODUCT_RECOMMEND"]
 
     return ChatResponse(
         intent=intent,
@@ -105,6 +107,63 @@ async def pain_advice(request: PainAdviceRequest):
         advice=result["advice"],
         sources=result["sources"]
     )
+
+
+class CommerceRecommendRequest(BaseModel):
+    text: str
+    session_id: str
+
+
+class CommerceSessionCheckRequest(BaseModel):
+    session_id: str
+
+
+@app.post("/commerce/session/check")
+async def commerce_session_check(request: CommerceSessionCheckRequest):
+    """
+    Commerce 세션 상태 확인 엔드포인트
+    
+    - 세션이 존재하고 상품 추천 플로우 중인지 확인
+    - RECOMMEND 상태가 아니면 플로우 중으로 간주
+    """
+    session = state_machine.get_session(request.session_id)
+    
+    if not session:
+        return {
+            "in_flow": False,
+            "state": None
+        }
+    
+    # RECOMMEND 상태가 아니면 상품 추천 플로우 중으로 간주
+    in_flow = session.state != CommerceState.RECOMMEND
+    
+    return {
+        "in_flow": in_flow,
+        "state": session.state.value if session.state else None
+    }
+
+
+@app.post("/commerce/recommend")
+async def commerce_recommend(
+    request: CommerceRecommendRequest,
+    authorization: Optional[str] = Header(None, alias="Authorization")
+):
+    """
+    Commerce 상품 추천 엔드포인트
+    
+    - 인증 토큰은 Authorization 헤더로만 전달
+    - 상태머신 기반 대화 플로우 처리
+    - Backend에서 내부 호출 시 authorization이 없을 수 있음 (선택적)
+    """
+    auth_token = authorization  # Header에서 받은 값 그대로 사용 (없으면 None)
+    
+    result = handle_commerce_recommend(
+        text=request.text,
+        session_id=request.session_id,
+        auth_token=auth_token
+    )
+    
+    return result
 
 
 if __name__ == "__main__":

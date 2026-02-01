@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useCart } from '../../components/layout/ShopLayout';
 import { getCart } from '../../services/cartApi';
-import { createOrderFromCart, preparePayment } from '../../services/orderApi';
+import { createOrderFromCart, preparePayment, getOrderDetail } from '../../services/orderApi';
 import { getMyAddressList } from '../../services/memberInfoAddrApi';
 
 const TOSS_V1_URL = 'https://js.tosspayments.com/v1/payment.js';
@@ -75,7 +75,11 @@ const loadTossScript = () => {
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
-  const { cartItems, totals } = useCart?.() ?? { cartItems: [], totals: {} };
+  const location = useLocation();
+  // useCart는 ShopLayout 내부에서만 사용 가능 (Context)
+  // ShopLayout은 ShopIndex에서 제공되므로 항상 사용 가능해야 함
+  const cartContext = useCart();
+  const { cartItems = [], totals = {} } = cartContext || {};
   const [cartSummary, setCartSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -96,6 +100,8 @@ const CheckoutPage = () => {
   const [showAddressSelect, setShowAddressSelect] = useState(false);
   /** 기본 배송지 자동 기입 한 번만 수행 */
   const defaultAppliedRef = useRef(false);
+  /** AI에서 온 주문인지 여부 */
+  const fromAIRef = useRef(false);
 
   /** 토스 requestPayment method 코드 ↔ 화면 라벨 (API 개별 연동 키 + 결제창용) */
   const PAYMENT_METHODS = [
@@ -153,6 +159,93 @@ const CheckoutPage = () => {
       defaultAppliedRef.current = true;
     }
   }, [addressList]);
+
+  /** AI에서 온 경우: 주문 정보 자동 처리 및 결제 위젯 렌더링 */
+  useEffect(() => {
+    const state = location.state;
+    if (state?.fromAI && state?.orderNo && state?.paymentReady && !fromAIRef.current) {
+      fromAIRef.current = true;
+      
+      const { orderNo, paymentReady } = state;
+      
+      // 주문 정보 불러와서 폼에 자동 입력
+      const loadOrderAndInitPayment = async () => {
+        try {
+          // 주문 상세 정보 불러오기
+          const orderDetail = await getOrderDetail(orderNo);
+          
+          // 배송지 및 주문자 정보 자동 입력
+          if (orderDetail.shipTo) {
+            setForm((prev) => ({
+              ...prev,
+              shipTo: {
+                recipientName: orderDetail.shipTo.recipientName || '',
+                recipientPhone: orderDetail.shipTo.recipientPhone || '',
+                zipcode: orderDetail.shipTo.zipcode || '',
+                address1: orderDetail.shipTo.address1 || '',
+                address2: orderDetail.shipTo.address2 || '',
+              },
+            }));
+          }
+          
+          if (orderDetail.buyer) {
+            setForm((prev) => ({
+              ...prev,
+              buyer: {
+                buyerName: orderDetail.buyer.name || '',
+                buyerEmail: orderDetail.buyer.email || '',
+                buyerPhone: orderDetail.buyer.phone || '',
+              },
+            }));
+          }
+          
+          // 결제 위젯 렌더링
+          const clientKey = paymentReady?.clientKey ?? '';
+          const customerKey = paymentReady?.customerKey ?? `guest-${orderNo}`;
+          const orderName = paymentReady?.orderName ?? `주문 ${orderNo}`;
+          const amountNumber = typeof paymentReady?.amount === 'number' 
+            ? paymentReady.amount 
+            : Number(paymentReady?.amount || 0);
+          const orderIdStr = typeof orderNo === 'string' ? orderNo : String(orderNo);
+          const baseUrl = window.location.origin + '/shop';
+          const successUrl = `${baseUrl}/payment/success`;
+          const failUrl = `${baseUrl}/payment/fail`;
+
+          const getTossPayments = await loadTossScript();
+          const raw = getTossPayments ? getTossPayments(clientKey) : window.TossPayments?.(clientKey);
+          const sdk = await Promise.resolve(raw);
+
+          if (sdk?.widgets && customerKey) {
+            const widgets = sdk.widgets({ customerKey });
+            await widgets.setAmount({ currency: 'KRW', value: amountNumber });
+            await widgets.renderPaymentMethods({ selector: '#toss-payment-method' });
+            await widgets.renderAgreement({ selector: '#toss-agreement' });
+            widgetInstanceRef.current = widgets;
+            
+            setWidgetOrderPayload({
+              orderId: orderIdStr,
+              orderName,
+              successUrl,
+              failUrl,
+              customerName: orderDetail.buyer?.name || undefined,
+              customerEmail: orderDetail.buyer?.email || undefined,
+              customerMobilePhone: orderDetail.buyer?.phone?.replace(/\D/g, '') || undefined,
+            });
+            setCheckoutPhase('widget_ready');
+            setLoading(false);
+          } else {
+            console.error('결제 위젯을 초기화할 수 없습니다.');
+            setLoading(false);
+          }
+        } catch (err) {
+          console.error('주문 정보 불러오기 또는 결제 위젯 초기화 실패:', err);
+          setLoading(false);
+        }
+      };
+
+      loadOrderAndInitPayment();
+    }
+  }, [location.state]);
 
   const handleChange = (section, field, value) => {
     setForm((prev) => ({
