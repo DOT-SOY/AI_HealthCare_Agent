@@ -317,7 +317,7 @@ const CheckoutPage = () => {
   if (loading && !cartSummary) {
     return (
       <div className="flex items-center justify-center min-h-[200px]">
-        <p className="text-gray-500">장바구니 불러오는 중...</p>
+        <p className="text-text-muted">장바구니 불러오는 중...</p>
       </div>
     );
   }
@@ -327,24 +327,27 @@ const CheckoutPage = () => {
   const totalQty = cartSummary?.totals?.totalQty ?? items.reduce((s, i) => s + (i.qty ?? 0), 0);
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">주문/결제</h1>
+    <div className="max-w-2xl mx-auto text-text-main">
+      <header className="section-header-token mb-8">
+        <h1 className="section-title">주문/결제</h1>
+        <p className="section-desc">배송지와 결제 수단을 확인한 뒤 결제해주세요.</p>
+      </header>
 
       <section className="mb-8">
-        <h2 className="text-lg font-semibold mb-3">주문 요약</h2>
+        <h2 className="text-lg font-semibold mb-3 text-text-main">주문 요약</h2>
         {items.length === 0 ? (
-          <p className="text-gray-500">장바구니가 비어 있습니다. 상품을 담은 뒤 결제해주세요.</p>
+          <p className="text-text-muted">장바구니가 비어 있습니다. 상품을 담은 뒤 결제해주세요.</p>
         ) : (
-          <div className="border rounded-lg p-4 bg-gray-50">
+          <div className="border border-border-default rounded-token p-4 bg-bg-card">
             <ul className="space-y-2 mb-3">
               {items.map((item) => (
-                <li key={item.itemId} className="flex justify-between text-sm">
+                <li key={item.itemId} className="flex justify-between text-sm text-text-main">
                   <span>{item.productName ?? '-'} x {(item.qty ?? 0)}</span>
-                  <span>{(Number(item.price ?? 0) * (item.qty ?? 1)).toLocaleString()}원</span>
+                  <span className="text-text-sub">{(Number(item.price ?? 0) * (item.qty ?? 1)).toLocaleString()}원</span>
                 </li>
               ))}
             </ul>
-            <div className="flex justify-between font-semibold pt-2 border-t">
+            <div className="flex justify-between font-semibold pt-2 border-t border-border-default text-text-main">
               <span>총 수량 {totalQty}개 / 결제 금액</span>
               <span>{Number(totalPrice).toLocaleString()}원</span>
             </div>
@@ -353,33 +356,33 @@ const CheckoutPage = () => {
       </section>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <section>
+        <section className="bg-bg-card border border-border-default rounded-token p-6">
           <div className="flex items-center justify-between gap-2 mb-3">
-            <h2 className="text-lg font-semibold">배송지</h2>
+            <h2 className="text-lg font-semibold text-text-main">배송지</h2>
             <div className="relative">
               <button
                 type="button"
                 disabled={addressList.length === 0}
                 onClick={() => setShowAddressSelect((v) => !v)}
-                className="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 text-sm border border-border-default rounded-token bg-bg-card text-text-main hover:border-primary-500 hover:text-primary-500 hover:bg-primary-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 배송지 불러오기
               </button>
               {showAddressSelect && addressList.length > 0 && (
-                <div className="absolute right-0 top-full mt-1 z-10 min-w-[240px] border rounded-lg bg-white shadow-lg py-1 max-h-48 overflow-auto">
+                <div className="absolute right-0 top-full mt-1 z-10 min-w-[240px] border border-border-default rounded-token bg-bg-card shadow-card py-1 max-h-48 overflow-auto">
                   {addressList.map((addr) => (
                     <button
                       key={addr.id}
                       type="button"
                       onClick={() => applyAddressToForm(addr)}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100"
+                      className="w-full text-left px-3 py-2 text-sm text-text-main hover:bg-gray-100"
                     >
                       <span className="font-medium">{addr.shipToName}</span>
                       {addr.isDefault && (
-                        <span className="ml-1 text-xs text-gray-500">(기본)</span>
+                        <span className="ml-1 text-xs text-text-muted">(기본)</span>
                       )}
                       <br />
-                      <span className="text-gray-600">
+                      <span className="text-text-sub">
                         {[addr.shipAddress1, addr.shipAddress2].filter(Boolean).join(' ')}
                       </span>
                     </button>
@@ -390,50 +393,51 @@ const CheckoutPage = () => {
           </div>
           <div className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">수령인</label>
+              <label className="block text-sm font-medium text-text-main mb-1">수령인</label>
               <input
                 type="text"
                 required
-                className="w-full border rounded-lg px-3 py-2"
+                className="input-token w-full"
                 value={form.shipTo.recipientName}
                 onChange={(e) => handleChange('shipTo', 'recipientName', e.target.value)}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">연락처</label>
+              <label className="block text-sm font-medium text-text-main mb-1">연락처</label>
               <input
                 type="tel"
                 required
-                className="w-full border rounded-lg px-3 py-2"
+                className="input-token w-full"
                 value={form.shipTo.recipientPhone}
                 onChange={(e) => handleChange('shipTo', 'recipientPhone', e.target.value)}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">우편번호</label>
+              <label className="block text-sm font-medium text-text-main mb-1">우편번호</label>
               <input
                 type="text"
                 required
-                className="w-full border rounded-lg px-3 py-2"
+                className="input-token w-full"
                 value={form.shipTo.zipcode}
                 onChange={(e) => handleChange('shipTo', 'zipcode', e.target.value)}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">주소</label>
+              <label className="block text-sm font-medium text-text-main mb-1">주소</label>
               <input
                 type="text"
                 required
-                className="w-full border rounded-lg px-3 py-2"
+                className="input-token w-full"
                 value={form.shipTo.address1}
                 onChange={(e) => handleChange('shipTo', 'address1', e.target.value)}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">상세주소</label>
+              <label className="block text-sm font-medium text-text-main mb-1">상세주소</label>
               <input
                 type="text"
-                className="w-full border rounded-lg px-3 py-2"
+                className="input-token w-full"
+                placeholder="상세주소 (선택)"
                 value={form.shipTo.address2}
                 onChange={(e) => handleChange('shipTo', 'address2', e.target.value)}
               />
@@ -441,34 +445,35 @@ const CheckoutPage = () => {
           </div>
         </section>
 
-        <section>
-          <h2 className="text-lg font-semibold mb-3">주문자 정보</h2>
+        <section className="bg-bg-card border border-border-default rounded-token p-6">
+          <h2 className="text-lg font-semibold mb-3 text-text-main">주문자 정보</h2>
           <div className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">주문자 이름</label>
+              <label className="block text-sm font-medium text-text-main mb-1">주문자 이름</label>
               <input
                 type="text"
                 required
-                className="w-full border rounded-lg px-3 py-2"
+                className="input-token w-full"
                 value={form.buyer.buyerName}
                 onChange={(e) => handleChange('buyer', 'buyerName', e.target.value)}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">이메일</label>
+              <label className="block text-sm font-medium text-text-main mb-1">이메일</label>
               <input
                 type="email"
-                className="w-full border rounded-lg px-3 py-2"
+                className="input-token w-full"
+                placeholder="선택 (영수증 발송용)"
                 value={form.buyer.buyerEmail}
                 onChange={(e) => handleChange('buyer', 'buyerEmail', e.target.value)}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">연락처</label>
+              <label className="block text-sm font-medium text-text-main mb-1">연락처</label>
               <input
                 type="tel"
                 required
-                className="w-full border rounded-lg px-3 py-2"
+                className="input-token w-full"
                 value={form.buyer.buyerPhone}
                 onChange={(e) => handleChange('buyer', 'buyerPhone', e.target.value)}
               />
@@ -476,22 +481,22 @@ const CheckoutPage = () => {
           </div>
         </section>
 
-        <section>
-          <label className="block text-sm font-medium text-gray-700 mb-1">배송 메모</label>
+        <section className="bg-bg-card border border-border-default rounded-token p-6">
+          <label className="block text-sm font-medium text-text-main mb-1">배송 메모</label>
           <input
             type="text"
-            className="w-full border rounded-lg px-3 py-2"
-            placeholder="선택"
+            className="input-token w-full"
+            placeholder="배송 시 요청사항 (선택)"
             value={form.memo}
             onChange={(e) => setForm((p) => ({ ...p, memo: e.target.value }))}
           />
         </section>
 
-        {/* 결제 수단: 결제위젯 연동 키(문서 테스트키) 시 위젯 렌더, API 개별 연동 키 시 라디오 선택 */}
-        <section aria-label="결제 수단">
-          <h2 className="text-lg font-semibold mb-3">결제 수단</h2>
+        {/* 결제 수단 */}
+        <section aria-label="결제 수단" className="bg-bg-card border border-border-default rounded-token p-6">
+          <h2 className="text-lg font-semibold mb-3 text-text-main">결제 수단</h2>
           {checkoutPhase === 'widget_ready' && (
-            <p className="text-sm text-gray-500 mb-2">토스 결제 위젯에서 결제 수단을 선택하고 약관에 동의한 뒤 아래 결제하기를 눌러주세요.</p>
+            <p className="text-sm text-text-muted mb-2">토스 결제 위젯에서 결제 수단을 선택하고 약관에 동의한 뒤 아래 결제하기를 눌러주세요.</p>
           )}
           <div id="toss-payment-method" className="min-h-[80px]" />
           <div id="toss-agreement" className="min-h-[60px] mt-3" />
@@ -508,14 +513,14 @@ const CheckoutPage = () => {
                 navigate(-1);
               }
             }}
-            className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+            className="px-4 py-2 border border-border-default rounded-token bg-bg-card text-text-main hover:border-primary-500 hover:text-primary-500 hover:bg-primary-500/10 transition-colors"
           >
             {checkoutPhase === 'widget_ready' ? '결제 수단 다시 선택' : '이전'}
           </button>
           <button
             type="submit"
             disabled={submitting || (checkoutPhase === 'form' && items.length === 0)}
-            className="flex-1 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            className="flex-1 py-3 bg-primary-500 text-bg-root rounded-token hover:shadow-glow disabled:opacity-50 disabled:cursor-not-allowed font-medium border border-primary-500 transition-all"
           >
             {submitting ? '처리 중...' : '결제하기'}
           </button>

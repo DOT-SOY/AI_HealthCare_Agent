@@ -68,7 +68,8 @@ public class APILoginSuccessHandler implements AuthenticationSuccessHandler {
         claims.put("auth_time", Instant.now().getEpochSecond());
         String amr = (String) request.getAttribute("amr");
         claims.put("amr", amr == null ? "pwd" : amr);
-        String accessToken = JWTUtil.generateToken(claims, 15);
+        // Access Token 만료: 15분
+        String accessToken = JWTUtil.generateToken(claims, 15 * 60L);
 
         // 로그인 성공 시 실패 횟수 초기화
         loginLockService.resetFailureCount(email);

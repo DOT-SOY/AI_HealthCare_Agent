@@ -117,20 +117,25 @@ const ProductCreatePage = () => {
       setIsSubmitting(true);
       setError(null);
 
+      // variants 배열 구성 (빈 배열도 명시적으로 전송)
+      const variantsPayload = variants.map(v => ({
+        optionText: (v.optionDisplay ?? '').trim() || '기본 옵션',
+        price: v.price !== '' && v.price != null ? parseFloat(v.price) : null,
+        stockQty: v.stockQty != null ? Number(v.stockQty) : 0,
+        active: v.active !== undefined ? v.active : true,
+      }));
+
       const productData = {
         name: formData.name.trim(),
         description: formData.description.trim(),
         basePrice: parseFloat(formData.basePrice),
         status: formData.status || 'DRAFT',
         imageFilePaths: uploadedFiles.map(file => file.filePath),
-        variants: variants.length > 0 ? variants.map(v => ({
-          optionText: (v.optionDisplay ?? '').trim(),
-          price: v.price ? parseFloat(v.price) : null,
-          stockQty: parseInt(v.stockQty) || 0,
-          active: v.active !== undefined ? v.active : true,
-        })) : undefined,
+        variants: variantsPayload,
         categoryTypes: selectedCategoryTypes.length > 0 ? selectedCategoryTypes : undefined,
       };
+
+      console.log('[CreatePage] 전송할 productData:', JSON.stringify(productData, null, 2));
 
       const result = await createProduct(productData);
       navigate(`/shop/detail/${result.id}`);
@@ -150,7 +155,7 @@ const ProductCreatePage = () => {
       </header>
 
       {error && (
-        <Card className="p-token-4 border border-red-500/40 text-red-400">
+        <Card className="p-token-4 border border-accent-secondary/50 text-accent-secondary bg-accent-secondary/10">
           {error}
         </Card>
       )}
@@ -163,7 +168,7 @@ const ProductCreatePage = () => {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-2 text-text-main">
-                상품명 <span className="text-red-400">*</span>
+                상품명 <span className="text-accent-secondary">*</span>
               </label>
               <input
                 type="text"
@@ -178,7 +183,7 @@ const ProductCreatePage = () => {
 
             <div>
               <label className="block text-sm font-medium mb-2 text-text-main">
-                상품 설명 <span className="text-red-400">*</span>
+                상품 설명 <span className="text-accent-secondary">*</span>
               </label>
               <textarea
                 name="description"
@@ -194,7 +199,7 @@ const ProductCreatePage = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-2 text-text-main">
-                  가격 <span className="text-red-400">*</span>
+                  가격 <span className="text-accent-secondary">*</span>
                 </label>
                 <input
                   type="number"
@@ -258,16 +263,17 @@ const ProductCreatePage = () => {
         <Card className="p-token-6 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-text-main">상품 변형</h2>
-            <Button
+            <button
               type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() =>
-                setVariants([...variants, { optionDisplay: '', price: '', stockQty: 0, active: true }])
-              }
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setVariants((prev) => [...prev, { optionDisplay: '', price: '', stockQty: 0, active: true }]);
+              }}
+              className="inline-flex items-center justify-center px-3 py-1.5 text-sm bg-gray-default text-text-main border border-gray-default font-medium rounded-token hover:border-primary-500 hover:text-primary-500 hover:bg-primary-500/10"
             >
               + 변형 추가
-            </Button>
+            </button>
           </div>
 
           {variants.length > 0 && (
@@ -276,21 +282,22 @@ const ProductCreatePage = () => {
                 <Card key={index} className="p-token-4 border border-border-default/70">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="font-medium text-text-main">변형 #{index + 1}</h3>
-                    <Button
+                    <button
                       type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="text-red-400"
-                      onClick={() => setVariants(variants.filter((_, i) => i !== index))}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setVariants((prev) => prev.filter((_, i) => i !== index));
+                      }}
+                      className="inline-flex items-center justify-center px-3 py-1.5 text-sm text-red-400 border border-transparent rounded-token hover:bg-red-500/10"
                     >
                       삭제
-                    </Button>
+                    </button>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-1 text-text-main">
-                        옵션 <span className="text-red-400">*</span>
+                        옵션 <span className="text-accent-secondary">*</span>
                       </label>
                       <input
                         type="text"
@@ -331,7 +338,7 @@ const ProductCreatePage = () => {
 
                     <div>
                       <label className="block text-sm font-medium mb-1 text-text-main">
-                        재고 수량 <span className="text-red-400">*</span>
+                        재고 수량 <span className="text-accent-secondary">*</span>
                       </label>
                       <input
                         type="number"

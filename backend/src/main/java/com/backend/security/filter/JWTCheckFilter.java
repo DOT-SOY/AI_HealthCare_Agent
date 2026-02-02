@@ -160,9 +160,12 @@ public class JWTCheckFilter extends OncePerRequestFilter{
                 return;
             }
 
+            // 만료(TOKEN_EXPIRED)일 때만 프론트에서 refresh 시도, 그 외(형식 오류/타입 오류 등)는 ERROR_ACCESS_TOKEN으로 재로그인 유도
+            String errorKey = (e.getErrorCode() == ErrorCode.JWT_EXPIRED) ? "TOKEN_EXPIRED" : "ERROR_ACCESS_TOKEN";
             Gson gson = new Gson();
-            String msg = gson.toJson(Map.of("error", "ERROR_ACCESS_TOKEN"));
+            String msg = gson.toJson(Map.of("error", errorKey));
 
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); // 401
             response.setContentType("application/json; charset=UTF-8");
             response.setCharacterEncoding("UTF-8");
             PrintWriter printWriter = response.getWriter();

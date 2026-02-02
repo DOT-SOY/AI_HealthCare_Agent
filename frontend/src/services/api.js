@@ -1,69 +1,95 @@
 /**
- * API 기본 설정 및 유틸리티
+ * JWT Refresh 전용 모듈
+ * - getOrRunRefresh(): jwtUtil(jwtAxios)에서 401 시 공통 사용 (single-flight)
+ * - 인증 API 호출은 전부 jwtAxios 사용
  */
+
+import { getCookie, setCookie } from "../util/cookieUtil";
 
 const API_BASE_URL = import.meta.env.VITE_API_SERVER_HOST
   ? `${import.meta.env.VITE_API_SERVER_HOST}/api`
   : "http://localhost:8080/api";
 
-/**
- * 기본 fetch 래퍼
- */
-async function fetchAPI(endpoint, options = {}) {
-  const url = `${API_BASE_URL}${endpoint}`;
-
-  const defaultHeaders = {
-    "Content-Type": "application/json",
-  };
-
-  // JWT 토큰이 있으면 Authorization 헤더 추가
-  const token = localStorage.getItem("accessToken");
-  if (token) {
-    defaultHeaders["Authorization"] = `Bearer ${token}`;
-  }
-
-  const config = {
-    ...options,
-    headers: {
-      ...defaultHeaders,
-      ...options.headers,
-    },
-    // 쿠키 전송을 위해 credentials 추가 (guest_token 쿠키 전송에 필요)
-    credentials: 'include',
-  };
+/** refresh 호출 후 쿠키 갱신, 성공 시 새 accessToken 반환 / 실패 시 null */
+async function refreshAccessToken() {
+  console.log('[API] 토큰 갱신 시도 중...');
+  
+  // Refresh Token은 HttpOnly 쿠키로 자동 전송됨 (withCredentials: true)
+  // Authorization 헤더는 보내지 않음 (백엔드가 쿠키의 Refresh Token만 확인)
+  const headers = { "Content-Type": "application/json" };
 
   try {
-    console.log(`[API] 요청 URL: ${url}`);
-    console.log(`[API] 요청 옵션:`, { method: options.method || "GET", headers: config.headers });
+    const res = await fetch(`${API_BASE_URL}/member/refresh`, {
+      method: "GET",
+      headers,
+      credentials: "include", // 쿠키 전송 (Refresh Token)
+    });
     
-    const response = await fetch(url, config);
+    console.log('[API] Refresh 응답 상태:', res.status);
     
-    console.log(`[API] 응답 상태: ${response.status} ${response.statusText}`);
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      const errorMessage = errorData.message || `HTTP error! status: ${response.status}`;
-      console.error(`[API] 에러 응답:`, errorData);
-      throw new Error(errorMessage);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      console.log('[API] Refresh 실패:', errorData);
+      
+      // JWT_008: 알 수 없는 Refresh Token → 재로그인 필요
+      if (errorData?.code === 'JWT_008' || errorData?.error === 'JWT_008') {
+        console.log('[API] Refresh Token 없음 또는 만료 - 재로그인 필요');
+      }
+      return null;
     }
-
-    // 204 No Content 등은 JSON이 없을 수 있음
-    if (response.status === 204) {
+    
+    const data = await res.json().catch(() => ({}));
+    const newAccessToken = data?.accessToken ?? null;
+    
+    if (!newAccessToken) {
+      console.log('[API] Refresh 응답에 accessToken 없음');
       return null;
     }
 
-    const data = await response.json();
-    console.log(`[API] 응답 데이터:`, data);
-    return data;
-  } catch (error) {
-    // 네트워크 에러인지 확인
-    if (error.name === "TypeError" && error.message.includes("fetch")) {
-      console.error("[API] 네트워크 에러 - 백엔드 서버에 연결할 수 없습니다:", error);
-      throw new Error("백엔드 서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.");
+    console.log('[API] 새 토큰 발급 성공');
+    
+    // 쿠키의 member 객체 업데이트
+    const memberRaw = getCookie("member");
+    if (memberRaw) {
+      try {
+        const member = typeof memberRaw === "string" ? JSON.parse(memberRaw) : memberRaw;
+        member.accessToken = newAccessToken;
+        setCookie("member", JSON.stringify(member), 1);
+        console.log('[API] 쿠키 업데이트 완료');
+      } catch (err) {
+        console.error('[API] 쿠키 업데이트 실패:', err);
+      }
     }
-    console.error("[API] 에러:", error);
-    throw error;
+    
+    // localStorage도 업데이트 (loginSlice와 동기화)
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem('accessToken', newAccessToken);
+        console.log('[API] localStorage 업데이트 완료');
+      } catch (err) {
+        console.error('[API] localStorage 업데이트 실패:', err);
+      }
+    }
+    
+    return newAccessToken;
+  } catch (err) {
+    console.error('[API] Refresh 요청 에러:', err);
+    return null;
   }
 }
 
-export default fetchAPI;
+/** Single-flight: 동시에 여러 요청이 401이어도 refresh는 한 번만 호출, 나머지는 같은 Promise 대기 */
+let refreshPromise = null;
+
+/**
+ * refresh 실행 중이면 그 Promise 반환, 없으면 새로 실행 후 반환.
+ * jwtAxios 인터셉터에서 401 시 공통 사용 (Refresh 요청 한 번만).
+ */
+export function getOrRunRefresh() {
+  if (!refreshPromise) {
+    refreshPromise = refreshAccessToken().finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
+}

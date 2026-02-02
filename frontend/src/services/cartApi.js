@@ -1,16 +1,15 @@
 /**
- * 카트 API 호출 함수
+ * 카트 API 호출 함수 (jwtAxios 통일)
  */
 
-import fetchAPI from './api';
+import jwtAxios from '../util/jwtUtil';
 
 /**
  * 장바구니 조회
  */
 export const getCart = async () => {
-  return await fetchAPI('/cart', {
-    method: 'GET',
-  });
+  const res = await jwtAxios.get('/cart');
+  return res.data;
 };
 
 /**
@@ -26,11 +25,8 @@ export const addCartItem = async (variantId, productId, qty) => {
   } else if (productId != null) {
     body.productId = productId;
   }
-  
-  return await fetchAPI('/cart/items', {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
+  const res = await jwtAxios.post('/cart/items', body);
+  return res.data;
 };
 
 /**
@@ -39,12 +35,8 @@ export const addCartItem = async (variantId, productId, qty) => {
  * @param {number} qty - 수량
  */
 export const updateCartItemQty = async (itemId, qty) => {
-  return await fetchAPI(`/cart/items/${itemId}`, {
-    method: 'PATCH',
-    body: JSON.stringify({
-      qty,
-    }),
-  });
+  const res = await jwtAxios.patch(`/cart/items/${itemId}`, { qty });
+  return res.data;
 };
 
 /**
@@ -52,25 +44,22 @@ export const updateCartItemQty = async (itemId, qty) => {
  * @param {number} itemId - 장바구니 아이템 ID
  */
 export const removeCartItem = async (itemId) => {
-  return await fetchAPI(`/cart/items/${itemId}`, {
-    method: 'DELETE',
-  });
+  const res = await jwtAxios.delete(`/cart/items/${itemId}`);
+  return res.data;
 };
 
 /**
  * 장바구니 비우기
  */
 export const clearCart = async () => {
-  return await fetchAPI('/cart', {
-    method: 'DELETE',
-  });
+  const res = await jwtAxios.delete('/cart');
+  return res.data;
 };
 
 /**
  * 게스트 장바구니를 회원 장바구니로 병합
  */
 export const mergeCart = async () => {
-  return await fetchAPI('/cart/merge', {
-    method: 'POST',
-  });
+  const res = await jwtAxios.post('/cart/merge');
+  return res.data;
 };
