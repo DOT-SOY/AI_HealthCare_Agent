@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 
 /**
  * BODY_QUERY 의도 처리 서비스 구현
@@ -72,7 +73,7 @@ public class BodyChatServiceImpl implements BodyChatService {
         if (isLatest) {
             if (bodyInfo.getMeasuredTime() != null) {
                 LocalDate recordDate = bodyInfo.getMeasuredTime()
-                    .atZone(java.time.ZoneId.systemDefault())
+                    .atZone(ZoneId.systemDefault())
                     .toLocalDate();
                 String recordDateStr = AIChatUtils.formatDateForMessage(recordDate);
                 sb.append(recordDateStr).append("의 최신 인바디 기록을 확인했어요!\n\n");

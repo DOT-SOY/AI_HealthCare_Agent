@@ -3,12 +3,16 @@ package com.backend.client;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 
@@ -65,6 +69,53 @@ public class BaseAIClient {
     }
     
     /**
+     * AI 서버에 multipart 파일 업로드 요청을 보냅니다.
+     * 
+     * @param endpoint 엔드포인트 경로 (예: "/image/classify")
+     * @param file 업로드할 파일
+     * @param responseType 응답 타입
+     * @return 응답 객체
+     * @param <T> 응답 타입
+     */
+    public <T> T postMultipartRequest(String endpoint, MultipartFile file, Class<T> responseType) {
+        try {
+            String url = aiServerBaseUrl + endpoint;
+            
+            log.info("AI 서버 multipart 호출: url={}, endpoint={}, filename={}", 
+                url, endpoint, file.getOriginalFilename());
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+            
+            MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+            ByteArrayResource resource = new ByteArrayResource(file.getBytes()) {
+                @Override
+                public String getFilename() {
+                    return file.getOriginalFilename();
+                }
+            };
+            body.add("file", resource);
+            
+            HttpEntity<MultiValueMap<String, Object>> request = new HttpEntity<>(body, headers);
+            
+            ResponseEntity<T> response = restTemplate.postForEntity(
+                url,
+                request,
+                responseType
+            );
+            
+            log.info("AI 서버 multipart 응답 수신: endpoint={}, status={}", 
+                endpoint, 
+                response.getStatusCode());
+            
+            return response.getBody();
+        } catch (Exception e) {
+            log.error("AI 서버 multipart 호출 실패 [endpoint: {}]: {}", endpoint, e.getMessage(), e);
+            throw new RuntimeException("AI 서버 통신 실패: " + endpoint, e);
+        }
+    }
+    
+    /**
      * AI 서버의 base URL을 반환합니다.
      * 
      * @return base URL
@@ -73,5 +124,4 @@ public class BaseAIClient {
         return aiServerBaseUrl;
     }
 }
-
 

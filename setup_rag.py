@@ -1,5 +1,6 @@
 """
 RAG 데이터를 Qdrant에 업로드하는 스크립트
+텍스트 RAG를 처리합니다.
 """
 import json
 import os
@@ -13,7 +14,7 @@ import pathlib
 env_path = pathlib.Path(__file__).parent / 'ai-server' / '.env'
 load_dotenv(dotenv_path=env_path)
 
-# 클라이언트 초기화
+# 클라이언트 초기화 (텍스트 임베딩용)
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 
@@ -48,98 +49,109 @@ def get_embedding(text: str) -> list:
         return None
 
 
-def ensure_collection(client: QdrantClient, vector_size: int = 1536):
-    """Qdrant 컬렉션 생성/재생성"""
+def ensure_collection(client: QdrantClient, collection_name: str, vector_size: int = 1536):
+    """Qdrant 컬렉션 삭제 후 재생성 (항상 새로 생성)"""
     try:
         # 기존 컬렉션 삭제 (있는 경우)
         try:
-            client.delete_collection(QDRANT_COLLECTION)
-            print(f"기존 컬렉션 '{QDRANT_COLLECTION}' 삭제됨")
-        except Exception:
-            pass
+            client.delete_collection(collection_name)
+            print(f"✓ 기존 컬렉션 '{collection_name}' 삭제 완료")
+        except Exception as e:
+            # 컬렉션이 없으면 무시
+            if "doesn't exist" in str(e) or "not found" in str(e).lower():
+                print(f"  컬렉션 '{collection_name}'가 없습니다 (새로 생성합니다)")
+            else:
+                print(f"  컬렉션 삭제 중 오류 (무시하고 계속): {e}")
         
         # 새 컬렉션 생성
         client.create_collection(
-            collection_name=QDRANT_COLLECTION,
+            collection_name=collection_name,
             vectors_config=VectorParams(
                 size=vector_size,
                 distance=Distance.COSINE
             )
         )
-        print(f"컬렉션 '{QDRANT_COLLECTION}' 생성됨")
+        print(f"✓ 새 컬렉션 '{collection_name}' 생성 완료 (차원: {vector_size})")
     except Exception as e:
-        print(f"컬렉션 생성 실패: {e}")
+        print(f"✗ 컬렉션 생성 실패: {e}")
         raise
 
 
 def main():
     """메인 실행 함수"""
+    print("=" * 60)
     print("RAG 데이터 초기화 시작...")
+    print("⚠️  기존 Qdrant 컬렉션을 모두 삭제하고 새로 생성합니다!")
+    print("=" * 60)
     
-    # 지식 데이터 로드
+    # 텍스트 RAG 처리
+    print("\n[텍스트 RAG 데이터 처리]")
+    print("-" * 60)
+    
     knowledge_data = load_knowledge()
-    if not knowledge_data:
-        print("로드할 데이터가 없습니다.")
-        return
-    
-    print(f"총 {len(knowledge_data)}개의 지식 항목 로드됨")
-    
-    # 첫 번째 항목으로 벡터 크기 확인
-    sample_text = f"{knowledge_data[0].get('title', '')} {knowledge_data[0].get('content', '')}"
-    sample_embedding = get_embedding(sample_text)
-    if not sample_embedding:
-        print("임베딩 생성 실패로 인해 중단됩니다.")
-        return
-    
-    vector_size = len(sample_embedding)
-    print(f"벡터 크기: {vector_size}")
-    
-    # 컬렉션 생성/재생성
-    ensure_collection(qdrant_client, vector_size)
-    
-    # 각 항목을 벡터화하여 업로드
-    points = []
-    for idx, item in enumerate(knowledge_data):
-        # 텍스트 결합 (제목 + 내용)
-        text = f"{item.get('title', '')} {item.get('content', '')}"
+    if knowledge_data:
+        print(f"총 {len(knowledge_data)}개의 지식 항목 로드됨")
         
-        # 임베딩 생성
-        embedding = get_embedding(text)
-        if not embedding:
-            print(f"항목 {idx + 1} 임베딩 생성 실패, 건너뜀")
-            continue
-        
-        # PointStruct 생성
-        point = PointStruct(
-            id=item.get("id", idx + 1),
-            vector=embedding,
-            payload={
-                "category": item.get("category", ""),
-                "title": item.get("title", ""),
-                "content": item.get("content", ""),
-                "body_part": item.get("body_part", ""),
-                "exercise_name": item.get("exercise_name", ""),
-                "tags": item.get("tags", [])
-            }
-        )
-        points.append(point)
-        
-        print(f"항목 {idx + 1}/{len(knowledge_data)} 처리 완료: {item.get('title', '')}")
-    
-    # Qdrant에 업로드
-    if points:
-        try:
-            qdrant_client.upsert(
-                collection_name=QDRANT_COLLECTION,
-                points=points
-            )
-            print(f"\n총 {len(points)}개의 항목이 Qdrant에 업로드되었습니다.")
-        except Exception as e:
-            print(f"업로드 실패: {e}")
+        # 첫 번째 항목으로 벡터 크기 확인
+        sample_text = f"{knowledge_data[0].get('title', '')} {knowledge_data[0].get('content', '')}"
+        sample_embedding = get_embedding(sample_text)
+        if not sample_embedding:
+            print("임베딩 생성 실패 (OpenAI API 할당량 초과 가능).")
+            return
+        else:
+            vector_size = len(sample_embedding)
+            print(f"벡터 크기: {vector_size}")
+            
+            # 컬렉션 생성/재생성
+            ensure_collection(qdrant_client, QDRANT_COLLECTION, vector_size)
+            
+            # 각 항목을 벡터화하여 업로드
+            points = []
+            for idx, item in enumerate(knowledge_data):
+                # 텍스트 결합 (제목 + 내용)
+                text = f"{item.get('title', '')} {item.get('content', '')}"
+                
+                # 임베딩 생성
+                embedding = get_embedding(text)
+                if not embedding:
+                    print(f"항목 {idx + 1} 임베딩 생성 실패, 건너뜀")
+                    continue
+                
+                # PointStruct 생성
+                point = PointStruct(
+                    id=item.get("id", idx + 1),
+                    vector=embedding,
+                    payload={
+                        "category": item.get("category", ""),
+                        "title": item.get("title", ""),
+                        "content": item.get("content", ""),
+                        "body_part": item.get("body_part", ""),
+                        "exercise_name": item.get("exercise_name", ""),
+                        "tags": item.get("tags", [])
+                    }
+                )
+                points.append(point)
+                
+                print(f"항목 {idx + 1}/{len(knowledge_data)} 처리 완료: {item.get('title', '')}")
+            
+            # Qdrant에 업로드
+            if points:
+                try:
+                    qdrant_client.upsert(
+                        collection_name=QDRANT_COLLECTION,
+                        points=points
+                    )
+                    print(f"\n총 {len(points)}개의 텍스트 항목이 Qdrant에 업로드되었습니다.")
+                except Exception as e:
+                    print(f"업로드 실패: {e}")
+            else:
+                print("업로드할 텍스트 항목이 없습니다.")
     else:
-        print("업로드할 항목이 없습니다.")
+        print("로드할 텍스트 데이터가 없습니다.")
     
-    print("\nRAG 데이터 초기화 완료!")
+    print("\n" + "=" * 60)
+    print("RAG 데이터 초기화 완료!")
+    print("=" * 60)
 
 
 if __name__ == "__main__":

@@ -29,5 +29,13 @@ export const exerciseApi = {
       `/routines/${routineId}/exercises/${exerciseId}`
     );
   },
+  
+  getSessionFeedback: async (sessionData) => {
+    const response = await jwtAxios.post(
+      '/exercise/session/feedback',
+      sessionData
+    );
+    return response.data;
+  },
 };
 

@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 
 export default function Header() {
+
   return (
     <div className="fixed left-0 top-0 h-full w-20 bg-neutral-900 flex flex-col items-center py-6 z-50">
       {/* 로고 */}
@@ -29,6 +30,7 @@ export default function Header() {
 
         <NavLink
           to="/routine"
+          onClick={handleHeaderClick}
           className={({ isActive }) =>
             `flex flex-col items-center gap-2 py-2 transition-colors ${
               isActive ? '' : 'text-neutral-400 hover:text-neutral-200'
@@ -44,6 +46,7 @@ export default function Header() {
 
         <NavLink
           to="/history"
+          onClick={handleHeaderClick}
           className={({ isActive }) =>
             `flex flex-col items-center gap-2 py-2 transition-colors ${
               isActive ? '' : 'text-neutral-400 hover:text-neutral-200'
@@ -59,6 +62,7 @@ export default function Header() {
 
         <NavLink
           to="/meal"
+          onClick={handleHeaderClick}
           className={({ isActive }) =>
             `flex flex-col items-center gap-2 py-2 transition-colors ${
               isActive ? '' : 'text-neutral-400 hover:text-neutral-200'
@@ -74,6 +78,7 @@ export default function Header() {
 
         <NavLink
           to="/shopping"
+          onClick={handleHeaderClick}
           className={({ isActive }) =>
             `flex flex-col items-center gap-2 py-2 transition-colors ${
               isActive ? '' : 'text-neutral-400 hover:text-neutral-200'
@@ -89,6 +94,7 @@ export default function Header() {
 
         <NavLink
           to="/ranking"
+          onClick={handleHeaderClick}
           className={({ isActive }) =>
             `flex flex-col items-center gap-2 py-2 transition-colors ${
               isActive ? '' : 'text-neutral-400 hover:text-neutral-200'
@@ -104,6 +110,7 @@ export default function Header() {
 
         <NavLink
           to="/profile"
+          onClick={handleHeaderClick}
           className={({ isActive }) =>
             `flex flex-col items-center gap-2 py-2 transition-colors ${
               isActive ? '' : 'text-neutral-400 hover:text-neutral-200'

@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -22,13 +23,16 @@ public class ExerciseTypeInitializer {
     @PostConstruct
     @Transactional
     public void initializeExerciseTypes() {
-        // 이미 데이터가 있으면 초기화하지 않음
-        if (exerciseTypeRepository.count() > 0) {
-            log.info("ExerciseType 데이터가 이미 존재합니다. 초기화를 건너뜁니다.");
-            return;
-        }
-        
         log.info("ExerciseType 초기 데이터 생성 시작...");
+        
+        // 이미 존재하는 운동 타입 확인
+        List<String> existingNames = exerciseTypeRepository.findAll().stream()
+            .map(et -> et.getName())
+            .collect(Collectors.toList());
+        
+        // 데이터가 없으면 전체 초기화
+        if (existingNames.isEmpty()) {
+            log.info("ExerciseType 데이터가 없습니다. 전체 초기화를 진행합니다.");
         
         // 1. 등 / 데드리프트 - 서브 타겟 : 둔근 / 허벅지
         createExerciseType("데드리프트", ExerciseCategory.BACK, 
@@ -66,6 +70,31 @@ public class ExerciseTypeInitializer {
         createExerciseType("카프레이즈", ExerciseCategory.CALF, 
             Arrays.asList(ExerciseCategory.THIGH, ExerciseCategory.CORE));
         
+        // 10. 등 / 턱걸이 - 서브 타겟 : 팔 / 어깨 / 코어
+        createExerciseType("턱걸이", ExerciseCategory.BACK, 
+            Arrays.asList(ExerciseCategory.ARM, ExerciseCategory.SHOULDER, ExerciseCategory.CORE));
+        
+        // 11. 복근 / 윗몸일으키기 - 서브 타겟 : 코어
+        createExerciseType("윗몸일으키기", ExerciseCategory.ABS, 
+            Arrays.asList(ExerciseCategory.CORE));
+        
+        } else {
+            // 일부 운동 타입만 추가 (누락된 것만)
+            log.info("ExerciseType 데이터가 이미 존재합니다. 누락된 운동 타입만 추가합니다.");
+            
+            // 턱걸이 추가
+            if (!existingNames.contains("턱걸이")) {
+                createExerciseType("턱걸이", ExerciseCategory.BACK, 
+                    Arrays.asList(ExerciseCategory.ARM, ExerciseCategory.SHOULDER, ExerciseCategory.CORE));
+            }
+            
+            // 윗몸일으키기 추가
+            if (!existingNames.contains("윗몸일으키기")) {
+                createExerciseType("윗몸일으키기", ExerciseCategory.ABS, 
+                    Arrays.asList(ExerciseCategory.CORE));
+            }
+        }
+        
         log.info("ExerciseType 초기 데이터 생성 완료: {}개", exerciseTypeRepository.count());
     }
     
@@ -79,4 +108,5 @@ public class ExerciseTypeInitializer {
         log.info("ExerciseType 생성: {} (메인: {}, 서브: {})", name, mainTarget, subTargets);
     }
 }
+
 

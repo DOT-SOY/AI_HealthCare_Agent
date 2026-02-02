@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
@@ -166,7 +167,7 @@ public class RefreshTokenRedisService implements RefreshTokenService {
             return;
         }
 
-        Set<String> familiesToRevoke = new java.util.HashSet<>();
+        Set<String> familiesToRevoke = new HashSet<>();
 
         // 각 토큰을 확인하여 해당 사용자의 토큰인지 확인
         for (String tokenKey : allTokenKeys) {

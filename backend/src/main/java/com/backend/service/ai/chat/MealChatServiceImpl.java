@@ -12,8 +12,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * MEAL_QUERY 의도 처리 서비스 구현
@@ -135,7 +137,7 @@ public class MealChatServiceImpl implements MealChatService {
             
             // 식사 시간별로 그룹화
             Map<Meal.MealTime, List<MealDto>> mealsByTime = meals.stream()
-                .collect(java.util.stream.Collectors.groupingBy(m -> Meal.MealTime.valueOf(m.getMealTime())));
+                .collect(Collectors.groupingBy(m -> Meal.MealTime.valueOf(m.getMealTime())));
             
             for (Meal.MealTime time : new Meal.MealTime[]{Meal.MealTime.BREAKFAST, Meal.MealTime.LUNCH, Meal.MealTime.DINNER}) {
                 List<MealDto> timeMeals = mealsByTime.get(time);
@@ -182,7 +184,7 @@ public class MealChatServiceImpl implements MealChatService {
             // 영양소 정보
             if (meal.getCalories() != null || meal.getProtein() != null || meal.getCarbs() != null || meal.getFat() != null) {
                 sb.append("   💊 영양소: ");
-                List<String> nutrients = new java.util.ArrayList<>();
+                List<String> nutrients = new ArrayList<>();
                 if (meal.getCalories() != null) {
                     nutrients.add("칼로리 " + meal.getCalories() + "kcal");
                 }

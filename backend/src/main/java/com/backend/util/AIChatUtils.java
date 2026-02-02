@@ -4,6 +4,7 @@ import com.backend.domain.meal.Meal;
 import com.backend.domain.order.OrderStatus;
 import lombok.extern.slf4j.Slf4j;
 
+import java.time.LocalDate;
 import java.util.Map;
 
 /**
@@ -18,8 +19,8 @@ public class AIChatUtils {
      * - "YYYY-MM-DD" 형식 문자열: 해당 날짜
      * - 그 외: 오늘 날짜 (fallback)
      */
-    public static java.time.LocalDate resolveDate(Object dateObj) {
-        java.time.LocalDate today = java.time.LocalDate.now();
+    public static LocalDate resolveDate(Object dateObj) {
+        LocalDate today = LocalDate.now();
         if (dateObj == null) {
             return today;
         }
@@ -29,7 +30,7 @@ public class AIChatUtils {
                 return today;
             }
             try {
-                return java.time.LocalDate.parse(trimmed);
+                return LocalDate.parse(trimmed);
             } catch (Exception e) {
                 log.warn("날짜 파싱 실패, today로 대체: {}", trimmed);
                 return today;
@@ -41,8 +42,8 @@ public class AIChatUtils {
     /**
      * 날짜를 사용자 친화적인 메시지 형식으로 변환합니다.
      */
-    public static String formatDateForMessage(java.time.LocalDate date) {
-        java.time.LocalDate today = java.time.LocalDate.now();
+    public static String formatDateForMessage(LocalDate date) {
+        LocalDate today = LocalDate.now();
         if (date.equals(today)) {
             return "오늘";
         } else if (date.equals(today.minusDays(1))) {
@@ -102,4 +103,5 @@ public class AIChatUtils {
         }
     }
 }
+
 
