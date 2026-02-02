@@ -48,7 +48,7 @@ public class ProductSearchImpl implements ProductSearch {
         
         query.where(
                         notDeleted(product),
-                        keywordContains(condition.getKeyword()),
+                        keywordContains(condition.getKeyword(), condition.getSearchType()),
                         categoryIdEq(condition.getCategoryId(), productCategory, category),
                         priceBetween(condition.getMinPrice(), condition.getMaxPrice()),
                         statusEq(condition.getStatus()),
@@ -82,7 +82,7 @@ public class ProductSearchImpl implements ProductSearch {
         
         countQuery.where(
                         notDeleted(product),
-                        keywordContains(condition.getKeyword()),
+                        keywordContains(condition.getKeyword(), condition.getSearchType()),
                         categoryIdEq(condition.getCategoryId(), productCategory, category),
                         priceBetween(condition.getMinPrice(), condition.getMaxPrice()),
                         statusEq(condition.getStatus()),
@@ -97,15 +97,26 @@ public class ProductSearchImpl implements ProductSearch {
         return product.deletedAt.isNull();
     }
 
-    // 키워드 검색 (상품명만 - description은 CLOB 타입이라 lower() 함수 사용 불가)
-    private BooleanExpression keywordContains(String keyword) {
+    // 키워드 검색: searchType에 따라 상품명/상품내용/전체 검색 (QueryDSL)
+    // description은 @Lob(CLOB)이라 containsIgnoreCase(LOWER)가 MySQL에서 오류 나므로 like+escape 사용
+    private BooleanExpression keywordContains(String keyword, String searchType) {
         if (keyword == null || keyword.trim().isEmpty()) {
             return null;
         }
+        String k = keyword.trim();
         QProduct product = QProduct.product;
-        // description은 @Lob(CLOB) 타입이므로 containsIgnoreCase 사용 불가
-        // 상품명만 검색하도록 수정
-        return product.name.containsIgnoreCase(keyword);
+        String type = (searchType != null && !searchType.isBlank()) ? searchType.trim().toLowerCase() : "all";
+        BooleanExpression descMatch = product.description.like(likePattern(k), '\\');
+        return switch (type) {
+            case "name" -> product.name.containsIgnoreCase(k);
+            case "description" -> descMatch;
+            default -> product.name.containsIgnoreCase(k).or(descMatch);
+        };
+    }
+
+    /** LIKE 패턴용 이스케이프 (%, _, \). MySQL collation(ci)으로 대소문자 구분 없음. */
+    private static String likePattern(String keyword) {
+        return "%" + keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
     }
 
     // 카테고리 필터

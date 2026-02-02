@@ -86,23 +86,17 @@ export default function TodayRoutinePage() {
   };
 
   return (
-    <div className="ml-20 p-8 min-h-screen bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900">
+    <div className="w-full">
       {/* 헤더 */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-4xl font-bold mb-2">
-              <span className="text-neutral-50">Today's </span>
-              <span style={{ color: '#88ce02' }}>Routine</span>
-            </h1>
-            {displayRoutine?.title && (
-              <p className="text-neutral-400 text-lg">
-                {displayRoutine.title}
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
+      <header className="section-header-token">
+        <h1 className="section-title">
+          <span className="text-text-main">Today's </span>
+          <span className="text-primary-500">Routine</span>
+        </h1>
+        {displayRoutine?.title && (
+          <p className="section-desc">{displayRoutine.title}</p>
+        )}
+      </header>
 
       {/* 주간 캘린더 */}
       <WeeklyCalendar 
@@ -112,17 +106,18 @@ export default function TodayRoutinePage() {
       />
 
       {loading && !displayRoutine ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="text-neutral-400">로딩 중...</div>
+        <div className="flex flex-col items-center justify-center py-12 gap-token-4">
+          <div className="spinner-token" />
+          <p className="text-text-sub font-medium">로딩 중...</p>
         </div>
       ) : !displayRoutine ? (
         <>
           {/* 루틴이 없을 때도 운동 추가 가능 */}
           <div className="flex flex-col items-center justify-center py-12 mb-6">
-            <div className="text-neutral-400 text-lg mb-4">
+            <p className="text-text-muted text-lg mb-4">
               {selectedDate.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}에 루틴이 없습니다.
-            </div>
-            <p className="text-neutral-500 text-sm mb-6">
+            </p>
+            <p className="text-text-muted text-sm mb-6">
               새로운 운동을 추가하면 루틴이 자동으로 생성됩니다.
             </p>
           </div>
@@ -130,15 +125,14 @@ export default function TodayRoutinePage() {
           {/* 운동 추가 버튼 */}
           <button
             onClick={() => setIsAddExerciseModalOpen(true)}
-            className="w-full bg-neutral-700 hover:bg-neutral-600 border-2 border-dashed border-neutral-600 rounded-lg p-6 transition-colors"
-            onMouseEnter={(e) => e.target.style.borderColor = '#88ce02'}
-            onMouseLeave={(e) => e.target.style.borderColor = ''}
+            type="button"
+            className="w-full bg-bg-card border-2 border-dashed border-border-default rounded-token p-6 transition-all duration-200 hover:border-primary-500 hover:text-primary-500 text-text-sub"
           >
             <div className="flex items-center justify-center gap-3">
-              <svg className="w-6 h-6 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              <span className="text-neutral-300 font-medium">새로운 운동 추가</span>
+              <span className="font-medium">새로운 운동 추가</span>
             </div>
           </button>
 
@@ -170,10 +164,10 @@ export default function TodayRoutinePage() {
                 />
               ))
             ) : (
-              <div className="text-center text-neutral-400 py-8">
+              <div className="text-center text-text-muted py-8">
                 <p>이 루틴에 운동이 없습니다.</p>
                 <p className="text-sm mt-2">새로운 운동을 추가해주세요.</p>
-                <p className="text-xs mt-1 text-neutral-500">
+                <p className="text-xs mt-1 text-text-muted">
                   (루틴 ID: {displayRoutine.id}, 운동 개수: {displayRoutine.exercises ? displayRoutine.exercises.length : 'undefined'})
                 </p>
               </div>
@@ -182,15 +176,14 @@ export default function TodayRoutinePage() {
             {/* 운동 추가 버튼 */}
             <button
               onClick={() => setIsAddExerciseModalOpen(true)}
-              className="w-full bg-neutral-700 hover:bg-neutral-600 border-2 border-dashed border-neutral-600 rounded-lg p-6 transition-colors"
-            onMouseEnter={(e) => e.target.style.borderColor = '#88ce02'}
-            onMouseLeave={(e) => e.target.style.borderColor = ''}
+              type="button"
+              className="w-full bg-bg-card border-2 border-dashed border-border-default rounded-token p-6 transition-all duration-200 hover:border-primary-500 hover:text-primary-500 text-text-sub"
             >
               <div className="flex items-center justify-center gap-3">
-                <svg className="w-6 h-6 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-6 h-6 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                <span className="text-neutral-300 font-medium">새로운 운동 추가</span>
+                <span className="font-medium">새로운 운동 추가</span>
               </div>
             </button>
           </div>

@@ -12,6 +12,8 @@ import java.math.BigDecimal;
 public class ProductSearchRequest {
     // 검색어
     private String keyword;
+    // 검색 대상: name(상품명), description(상품내용), all(전체)
+    private String searchType;
 
     // 카테고리 필터
     private Long categoryId;
@@ -32,6 +34,7 @@ public class ProductSearchRequest {
     public ProductSearchCondition toCondition() {
         return ProductSearchCondition.builder()
                 .keyword(keyword)
+                .searchType(searchType)
                 .categoryId(categoryId)
                 .minPrice(minPrice)
                 .maxPrice(maxPrice)

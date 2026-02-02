@@ -94,30 +94,30 @@ export default function HistoryPage() {
   };
 
   return (
-    <div className="ml-20 p-8 min-h-screen bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900">
+    <div className="w-full">
       {/* 헤더 */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <h1 className="text-4xl font-bold mb-2" style={{ color: '#88ce02' }}>My Workout Records</h1>
-            <p className="text-neutral-50 text-lg">운동별 기록 및 성과</p>
-          </div>
-        </div>
-      </div>
+      <header className="section-header-token">
+        <h1 className="section-title">
+          <span className="text-text-main">My Workout </span>
+          <span className="text-primary-500">Records</span>
+        </h1>
+        <p className="section-desc">운동별 기록 및 성과</p>
+      </header>
 
       {/* 필터 버튼 */}
       <FilterButtons selectedFilter={selectedFilter} onFilterChange={setSelectedFilter} />
 
       {/* 운동 카드 그리드 */}
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="text-neutral-400">로딩 중...</div>
+        <div className="flex flex-col items-center justify-center py-12 gap-token-4">
+          <div className="spinner-token" />
+          <p className="text-text-sub font-medium">로딩 중...</p>
         </div>
       ) : exercises.length > 0 ? (
-        <div className="grid grid-cols-3 gap-6 mt-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-token-8">
           {exercises.map((exercise, index) => (
-            <div 
-              key={`${exercise.name}-${index}`} 
+            <div
+              key={`${exercise.name}-${index}`}
               onClick={() => handleExerciseClick(exercise.name)}
               className="cursor-pointer"
             >
@@ -126,7 +126,7 @@ export default function HistoryPage() {
           ))}
         </div>
       ) : (
-        <div className="col-span-3 text-center text-neutral-400 py-12">
+        <div className="col-span-full text-center text-text-muted py-12">
           <p className="text-lg mb-2">{selectedFilter} 부위에 대한 운동 기록이 없습니다.</p>
           <p className="text-sm mt-4">다른 필터를 선택해보세요.</p>
         </div>

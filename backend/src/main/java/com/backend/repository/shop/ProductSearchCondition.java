@@ -10,6 +10,8 @@ import java.math.BigDecimal;
 @Builder
 public class ProductSearchCondition {
     private String keyword;
+    /** 검색 대상: name(상품명), description(상품내용), all(전체) */
+    private String searchType;
     private Long categoryId;
     private BigDecimal minPrice;
     private BigDecimal maxPrice;
