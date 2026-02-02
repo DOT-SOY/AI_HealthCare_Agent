@@ -1,7 +1,5 @@
-import React, { useState, useEffect } from "react";
 import React, { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import "../../styles/Profile.css";
 import BasicLayout from "../../components/layout/BasicLayout";
 // import { User, Moon, Sun, X, Plus, Edit, Trash2 } from "lucide-react";
 import { Home, User, Moon, Sun, X, Plus, Edit, Trash2, ImagePlus, TrendingUp, TrendingDown } from "lucide-react";
