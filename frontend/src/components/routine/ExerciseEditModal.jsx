@@ -11,10 +11,12 @@ const EXERCISE_LIST = [
   { name: '힙쓰러스트', category: 'GLUTE' },
   { name: '스쿼트', category: 'THIGH' },
   { name: '카프레이즈', category: 'CALF' },
+  { name: '턱걸이', category: 'BACK' },
+  { name: '윗몸일으키기', category: 'ABS' },
 ];
 
 // 무게가 필요 없는 운동 목록
-const NO_WEIGHT_EXERCISES = ['플랭크', '행잉레그레이즈', '카프레이즈'];
+const NO_WEIGHT_EXERCISES = ['플랭크', '행잉레그레이즈', '카프레이즈', '턱걸이', '윗몸일으키기'];
 
 export default function ExerciseEditModal({ exercise, isOpen, onClose, onSave }) {
   const [formData, setFormData] = useState({

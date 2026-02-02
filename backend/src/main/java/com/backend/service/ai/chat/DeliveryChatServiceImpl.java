@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.text.DecimalFormat;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 
 /**
@@ -173,7 +174,7 @@ public class DeliveryChatServiceImpl implements DeliveryChatService {
             sb.append("   🚚 배송 상태: ").append(statusKr).append("\n");
             
             if (order.getCreatedAt() != null) {
-                LocalDate orderDate = order.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+                LocalDate orderDate = order.getCreatedAt().atZone(ZoneId.systemDefault()).toLocalDate();
                 sb.append("   📅 주문일: ").append(AIChatUtils.formatDateForMessage(orderDate)).append("\n");
             }
             

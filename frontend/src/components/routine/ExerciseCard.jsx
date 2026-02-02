@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { useExercises } from '../../hooks/useExercises';
 import ExerciseEditModal from './ExerciseEditModal';
+import ExerciseRecognitionModal from '../exercise/ExerciseRecognitionModal';
 
 export default function ExerciseCard({ exercise, routineId, isActive = false, onStart, onComplete, onUpdate }) {
   const { toggleCompleted, updateExercise, deleteExercise } = useExercises();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-  
+  const [isRecognitionModalOpen, setIsRecognitionModalOpen] = useState(false);
+
   const isExerciseCompleted = exercise.completed;
 
   const handleToggleCompleted = async () => {
@@ -33,14 +35,17 @@ export default function ExerciseCard({ exercise, routineId, isActive = false, on
     try {
       await deleteExercise(routineId, exercise.id);
       setIsDeleteConfirmOpen(false);
-      // Redux 상태가 자동으로 업데이트되므로 onUpdate 불필요
+      // 루틴 새로고침
+      if (onUpdate) {
+        onUpdate();
+      }
     } catch (error) {
       console.error('운동 삭제 실패:', error);
     }
   };
 
   const handleStartExercise = () => {
-    setIsAnalyzing(true);
+    setIsRecognitionModalOpen(true);
     if (onStart) onStart();
   };
 
@@ -182,13 +187,29 @@ export default function ExerciseCard({ exercise, routineId, isActive = false, on
         onSave={handleSave}
       />
 
+      <ExerciseRecognitionModal
+        isOpen={isRecognitionModalOpen}
+        onClose={() => {
+          setIsRecognitionModalOpen(false);
+          if (onComplete) onComplete();
+        }}
+        exerciseName={exercise.name}
+        exercise={{ ...exercise, routineId }}
+      />
+
       {/* 삭제 확인 모달 */}
       {isDeleteConfirmOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="card-token rounded-token p-6 w-96 border border-border-default">
-            <h3 className="text-xl font-semibold text-text-main mb-4">운동 삭제</h3>
-            <p className="text-text-sub mb-6">
-              정말로 <span className="font-medium text-primary-500">{exercise.name}</span> 운동을 삭제하시겠습니까?
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+          onClick={() => setIsDeleteConfirmOpen(false)}
+        >
+          <div
+            className="bg-neutral-800 rounded-lg p-6 w-96"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-xl font-semibold text-neutral-50 mb-4">운동 삭제</h3>
+            <p className="text-neutral-300 mb-6">
+              정말로 <span className="font-medium" style={{ color: '#88ce02' }}>{exercise.name}</span> 운동을 삭제하시겠습니까?
               <br />
               <span className="text-sm text-text-muted">이 작업은 되돌릴 수 없습니다.</span>
             </p>

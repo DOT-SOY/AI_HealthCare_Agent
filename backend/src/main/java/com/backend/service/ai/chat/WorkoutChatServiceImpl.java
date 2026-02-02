@@ -1,6 +1,7 @@
 package com.backend.service.ai.chat;
 
 import com.backend.dto.response.AIChatResponse;
+import com.backend.dto.response.ExerciseResponse;
 import com.backend.dto.response.IntentClassificationResult;
 import com.backend.dto.response.RoutineResponse;
 import com.backend.service.member.CurrentMemberService;
@@ -11,6 +12,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * WORKOUT 의도 처리 서비스 구현
@@ -37,6 +41,7 @@ public class WorkoutChatServiceImpl implements WorkoutChatService {
             case "QUERY" -> handleWorkoutQuery(classification);
             case "RECOMMEND" -> handleWorkoutRecommend(classification);
             case "MODIFY" -> handleWorkoutModify(classification);
+            case "START" -> handleWorkoutStart(classification);
             default -> {
                 log.info("WORKOUT intent에서 지원하지 않는 action: {}, 일반 채팅으로 처리", action);
                 yield generalChatService.handleGeneralChat(classification);
@@ -100,10 +105,16 @@ public class WorkoutChatServiceImpl implements WorkoutChatService {
         }
         if (exerciseCompletedObj instanceof String) {
             String str = ((String) exerciseCompletedObj).toLowerCase();
-            if (str.equals("true") || str.equals("완료") || str.equals("완료됨") || str.equals("했어") || str.equals("했음")) {
+            // 완료 관련 키워드
+            if (str.equals("true") || str.equals("완료") || str.equals("완료됨") || 
+                str.equals("했어") || str.equals("했음") || str.equals("끝난") || 
+                str.equals("끝났어") || str.equals("끝났음")) {
                 return true;
             }
-            if (str.equals("false") || str.equals("미완료") || str.equals("안했어") || str.equals("안했음")) {
+            // 미완료 관련 키워드
+            if (str.equals("false") || str.equals("미완료") || str.equals("안했어") || 
+                str.equals("안했음") || str.equals("남은") || str.equals("할") || 
+                str.equals("해야할") || str.equals("해야 할")) {
                 return false;
             }
         }
@@ -152,6 +163,81 @@ public class WorkoutChatServiceImpl implements WorkoutChatService {
     }
 
     /**
+     * WORKOUT의 START 액션 처리 (소분류: action)
+     * 
+     * - 운동 시작 요청 처리
+     * - exercise_name이 있으면 오늘 루틴에서 해당 운동 찾기
+     * - 찾으면 모달 열기, 없으면 메시지 표시
+     */
+    private AIChatResponse handleWorkoutStart(IntentClassificationResult classification) {
+        var entities = classification.getEntities();
+        Object exerciseNameObj = entities != null ? entities.get("exercise_name") : null;
+        String exerciseName = exerciseNameObj != null ? exerciseNameObj.toString() : null;
+        
+        log.info("WORKOUT START 요청: exercise_name={}", exerciseName);
+        
+        // 운동명이 없으면 메시지만 표시
+        if (exerciseName == null || exerciseName.trim().isEmpty()) {
+            return AIChatResponse.builder()
+                .message("어떤 운동을 시작하시겠어요? 운동명을 말씀해주세요. (예: 스쿼트 시작, 턱걸이 시작)")
+                .intent("WORKOUT")
+                .build();
+        }
+        
+        // 오늘 루틴 조회
+        Long memberId = currentMemberService.getCurrentMemberOrThrow().getId();
+        RoutineResponse todayRoutine = routineService.getTodayRoutine(memberId);
+        
+        // 오늘 루틴이 없거나 운동이 없으면 메시지 표시
+        if (todayRoutine == null || todayRoutine.getExercises() == null || todayRoutine.getExercises().isEmpty()) {
+            return AIChatResponse.builder()
+                .message("오늘 루틴에 " + exerciseName + " 운동이 없습니다. 먼저 루틴에 운동을 추가해주세요.")
+                .intent("WORKOUT")
+                .build();
+        }
+        
+        // 오늘 루틴에서 해당 운동 찾기
+        ExerciseResponse foundExercise = todayRoutine.getExercises().stream()
+            .filter(ex -> ex.getName() != null && ex.getName().equals(exerciseName))
+            .findFirst()
+            .orElse(null);
+        
+        // 운동을 찾지 못하면 메시지 표시
+        if (foundExercise == null) {
+            return AIChatResponse.builder()
+                .message("오늘 루틴에 " + exerciseName + " 운동이 없습니다. 먼저 루틴에 운동을 추가해주세요.")
+                .intent("WORKOUT")
+                .build();
+        }
+        
+        // 운동을 찾았으면 모달 열기
+        Map<String, Object> modalData = new HashMap<>();
+        modalData.put("openExerciseModal", true);
+        modalData.put("exerciseName", exerciseName);
+        
+        // 운동 정보에 routineId 추가
+        Map<String, Object> exerciseData = new HashMap<>();
+        exerciseData.put("id", foundExercise.getId());
+        exerciseData.put("name", foundExercise.getName());
+        exerciseData.put("mainTarget", foundExercise.getMainTarget());
+        exerciseData.put("subTargets", foundExercise.getSubTargets());
+        exerciseData.put("sets", foundExercise.getSets());
+        exerciseData.put("reps", foundExercise.getReps());
+        exerciseData.put("weight", foundExercise.getWeight());
+        exerciseData.put("orderIndex", foundExercise.getOrderIndex());
+        exerciseData.put("completed", foundExercise.isCompleted());
+        exerciseData.put("routineId", todayRoutine.getId()); // routineId 추가
+        
+        modalData.put("exercise", exerciseData);
+        
+        return AIChatResponse.builder()
+            .message("방금 운동 어땠는지 알려주세요.")
+            .intent("WORKOUT")
+            .data(modalData)
+            .build();
+    }
+
+    /**
      * 루틴이 없을 때 풍부하고 친근한 메시지를 생성합니다.
      */
     private String generateNoRoutineMessage(LocalDate targetDate, String exerciseName, Boolean completed) {
@@ -178,7 +264,7 @@ public class WorkoutChatServiceImpl implements WorkoutChatService {
         if (targetDate.equals(today)) {
             sb.append("오늘 운동 계획을 세우시거나 새로운 루틴을 시작해보시는 건 어떨까요? 💪");
         } else if (targetDate.isBefore(today)) {
-            long daysAgo = java.time.temporal.ChronoUnit.DAYS.between(targetDate, today);
+            long daysAgo = ChronoUnit.DAYS.between(targetDate, today);
             if (daysAgo == 1) {
                 sb.append("어제는 쉬는 날이셨나요? 오늘은 운동하시는 걸 추천드려요!");
             } else if (daysAgo <= 7) {

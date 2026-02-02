@@ -6,8 +6,12 @@ import json
 from typing import Dict, Any, Optional
 from openai import OpenAI
 
-# OpenAI 클라이언트 초기화
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# OpenAI 클라이언트 초기화 (요청당 25초 타임아웃 — 백엔드 ReadTimeout 60초 내 2회 호출 대비)
+OPENAI_TIMEOUT = float(os.getenv("OPENAI_TIMEOUT", "25"))
+openai_client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    timeout=OPENAI_TIMEOUT,
+)
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 # 통증 조언용 모델 (간단한 대답용)
 PAIN_ADVICE_MODEL = os.getenv("PAIN_ADVICE_MODEL", "gpt-4.1-nano")

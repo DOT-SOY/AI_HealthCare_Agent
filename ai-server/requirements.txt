@@ -4,6 +4,9 @@ qdrant-client==1.12.0
 openai==1.57.0
 python-dotenv==1.0.1
 pydantic==2.9.2
-httpx==0.27.0
-
-
+python-multipart==0.0.9
+transformers==4.40.0
+# torch @ https://download.pytorch.org/whl/cpu/torch-2.10.0%2Bcpu-cp311-cp311-win_amd64.whl
+torch>=2.0.0
+pillow==10.4.0
+sentence-transformers==2.7.0

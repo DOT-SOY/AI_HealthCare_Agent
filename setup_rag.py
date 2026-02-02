@@ -1,188 +1,271 @@
 """
-RAG 데이터를 Qdrant에 업로드하는 스크립트
+RAG 데이터를 Qdrant에 업로드하는 단일 스크립트 (최종 병합본)
+
+- 임베딩: SentenceTransformer(라이브러리)만 사용
+- 컬렉션: domain 기준으로 2개로 분리 업로드
+  - domain == "commerce"  -> QDRANT_COLLECTION_COMMERCE (기본: commerce_knowledge)
+  - else                 -> QDRANT_COLLECTION_EXERCISE (기본: exercise_knowledge)
+
+- 옵션 환경변수:
+  - QDRANT_URL: 기본 http://localhost:6333
+  - QDRANT_COLLECTION_COMMERCE: 기본 commerce_knowledge
+  - QDRANT_COLLECTION_EXERCISE: 기본 exercise_knowledge
+  - ST_MODEL_NAME: 기본 sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+  - RAG_DATA_PATH: 기본 rag_data.json
+  - RECREATE_COLLECTION: true/false (기본 true)  # true면 컬렉션 삭제 후 재생성
 """
+
 import json
 import os
-import uuid
+import pathlib
+from typing import Any, Dict, List, Optional, Tuple
+
 from dotenv import load_dotenv
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
-from openai import OpenAI
 
-# 환경 변수 로드 (ai-server 폴더의 .env 파일)
-import pathlib
-env_path = pathlib.Path(__file__).parent / 'ai-server' / '.env'
+# -----------------------------
+# .env 로드
+# -----------------------------
+# 프로젝트 구조에 맞춰 조정: 현재 파일 기준 ai-server/.env
+env_path = pathlib.Path(__file__).parent / "ai-server" / ".env"
 load_dotenv(dotenv_path=env_path)
 
-# 클라이언트 초기화
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+# -----------------------------
+# 설정
+# -----------------------------
+RAG_DATA_PATH = os.getenv("RAG_DATA_PATH", "rag_data.json")
+RECREATE_COLLECTION = os.getenv("RECREATE_COLLECTION", "true").lower() == "true"
 
 qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
 qdrant_client = QdrantClient(url=qdrant_url)
+
 QDRANT_COLLECTION_COMMERCE = os.getenv("QDRANT_COLLECTION_COMMERCE", "commerce_knowledge")
 QDRANT_COLLECTION_EXERCISE = os.getenv("QDRANT_COLLECTION_EXERCISE", "exercise_knowledge")
 
+ST_MODEL_NAME = os.getenv(
+    "ST_MODEL_NAME",
+    "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+)
 
-def load_knowledge() -> list:
-    """rag_data.json 파일 로드"""
+# lazy-load singleton
+_st_model = None
+
+
+def _get_st_model():
+    global _st_model
+    if _st_model is None:
+        from sentence_transformers import SentenceTransformer
+        print(f"[RAG] SentenceTransformer 모델 로딩 중... ({ST_MODEL_NAME})")
+        _st_model = SentenceTransformer(ST_MODEL_NAME)
+        print("[RAG] SentenceTransformer 모델 로딩 완료")
+    return _st_model
+
+
+def load_knowledge() -> List[Dict[str, Any]]:
+    """RAG 데이터 로드"""
     try:
-        with open("rag_data.json", "r", encoding="utf-8") as f:
-            return json.load(f)
+        with open(RAG_DATA_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if not isinstance(data, list):
+                raise ValueError("rag_data.json 최상위는 list여야 합니다.")
+            return data
     except FileNotFoundError:
-        print("rag_data.json 파일을 찾을 수 없습니다.")
+        print(f"[RAG] {RAG_DATA_PATH} 파일을 찾을 수 없습니다.")
         return []
     except json.JSONDecodeError as e:
-        print(f"JSON 파싱 오류: {e}")
+        print(f"[RAG] JSON 파싱 오류: {e}")
+        return []
+    except Exception as e:
+        print(f"[RAG] 로드 실패: {e}")
         return []
 
 
-def get_embedding(text: str) -> list:
-    """OpenAI 임베딩 생성"""
+def split_by_domain(items: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """domain으로 commerce / exercise 분리 (없으면 exercise로)"""
+    commerce: List[Dict[str, Any]] = []
+    exercise: List[Dict[str, Any]] = []
+
+    for it in items:
+        if it.get("domain") == "commerce":
+            commerce.append(it)
+        else:
+            exercise.append(it)
+
+    return commerce, exercise
+
+
+def make_payload(item: Dict[str, Any]) -> Dict[str, Any]:
+    """payload 통합(두 스크립트 필드 합집합)"""
+    payload: Dict[str, Any] = {
+        "category": item.get("category", ""),
+        "title": item.get("title", ""),
+        "content": item.get("content", ""),
+        "body_part": item.get("body_part", ""),
+        "exercise_name": item.get("exercise_name", ""),
+        "tags": item.get("tags", []),
+    }
+
+    # 확장 필드 (있으면 싣기)
+    for k in [
+        "doc_id",
+        "chunk_id",
+        "doc_type",
+        "goal",
+        "product_category",
+        "domain",
+        "version",
+        "section",
+    ]:
+        if k in item:
+            payload[k] = item.get(k)
+
+    return payload
+
+
+def make_point_id(item: Dict[str, Any], fallback_idx: int) -> str:
+    """
+    ID 정책(결정적):
+    - doc_id + chunk_id가 있으면: "{doc_id}:{chunk_id}"
+    - 아니면 item["id"]가 있으면: str(id)
+    - 아니면 idx 기반
+    """
+    doc_id = item.get("doc_id")
+    chunk_id = item.get("chunk_id")
+    if doc_id is not None and chunk_id is not None:
+        return f"{doc_id}:{chunk_id}"
+
+    if item.get("id") is not None:
+        return str(item.get("id"))
+
+    return str(fallback_idx)
+
+
+def get_embedding(text: str) -> Optional[List[float]]:
+    """Sentence-Transformers 임베딩 생성"""
     try:
-        response = openai_client.embeddings.create(
-            model=EMBEDDING_MODEL,
-            input=text
-        )
-        return response.data[0].embedding
+        model = _get_st_model()
+        emb = model.encode(text, normalize_embeddings=True)
+        return emb.tolist()
     except Exception as e:
-        print(f"임베딩 생성 실패: {e}")
+        print(f"[RAG] 임베딩 생성 실패: {e}")
         return None
 
 
-def ensure_collection(client: QdrantClient, collection_name: str, vector_size: int = 1536):
-    """Qdrant 컬렉션 생성/재생성"""
-    try:
-        # 기존 컬렉션 삭제 (있는 경우)
+def ensure_collection(client: QdrantClient, collection_name: str, vector_size: int):
+    """
+    컬렉션 생성/재생성
+    - RECREATE_COLLECTION=true이면 delete 후 create
+    - false이면 없을 때만 create (스키마 mismatch는 사용자가 책임)
+    """
+    if RECREATE_COLLECTION:
         try:
-            client.delete_collection(collection_name)
-            print(f"기존 컬렉션 '{collection_name}' 삭제됨")
+            try:
+                client.delete_collection(collection_name)
+                print(f"✓ 기존 컬렉션 '{collection_name}' 삭제 완료")
+            except Exception as e:
+                if "doesn't exist" in str(e) or "not found" in str(e).lower():
+                    print(f"  컬렉션 '{collection_name}'가 없습니다 (새로 생성합니다)")
+                else:
+                    print(f"  컬렉션 삭제 중 오류 (무시하고 계속): {e}")
+
+            client.create_collection(
+                collection_name=collection_name,
+                vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
+            )
+            print(f"✓ 새 컬렉션 '{collection_name}' 생성 완료 (차원: {vector_size})")
+        except Exception as e:
+            print(f"✗ 컬렉션 생성 실패: {e}")
+            raise
+    else:
+        try:
+            client.get_collection(collection_name)
+            print(f"✓ 컬렉션 '{collection_name}' 존재 확인 (재생성 안함)")
         except Exception:
-            pass
-        
-        # 새 컬렉션 생성
-        client.create_collection(
-            collection_name=collection_name,
-            vectors_config=VectorParams(
-                size=vector_size,
-                distance=Distance.COSINE
+            client.create_collection(
+                collection_name=collection_name,
+                vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
+            )
+            print(f"✓ 컬렉션 '{collection_name}' 생성 완료 (차원: {vector_size})")
+
+
+def build_points(items: List[Dict[str, Any]]) -> Tuple[List[PointStruct], int]:
+    """아이템 리스트를 PointStruct로 변환"""
+    points: List[PointStruct] = []
+    vector_size = 0
+
+    for idx, item in enumerate(items, start=1):
+        text = f"{item.get('title', '')} {item.get('content', '')}".strip()
+
+        emb = get_embedding(text)
+        if not emb:
+            print(f"항목 {idx} 임베딩 실패, 건너뜀")
+            continue
+
+        if vector_size == 0:
+            vector_size = len(emb)
+
+        point_id = make_point_id(item, fallback_idx=idx)
+        payload = make_payload(item)
+
+        points.append(
+            PointStruct(
+                id=point_id,
+                vector=emb,
+                payload=payload,
             )
         )
-        print(f"컬렉션 '{collection_name}' 생성됨")
-    except Exception as e:
-        print(f"컬렉션 생성 실패: {e}")
-        raise
+
+        print(f"항목 {idx}/{len(items)} 처리 완료: {item.get('title', '')}")
+
+    return points, vector_size
+
+
+def upsert_points(collection_name: str, points: List[PointStruct]):
+    if not points:
+        print(f"[{collection_name}] 업로드할 항목이 없습니다.")
+        return
+
+    qdrant_client.upsert(collection_name=collection_name, points=points)
+    print(f"[{collection_name}] {len(points)}개 업로드 완료")
 
 
 def main():
-    """메인 실행 함수"""
-    print("RAG 데이터 초기화 시작...")
-    
-    # 지식 데이터 로드
-    knowledge_data = load_knowledge()
-    if not knowledge_data:
+    print("=" * 60)
+    print("RAG 데이터 업로드 시작 (SentenceTransformer 전용)")
+    print(f"- RAG_DATA_PATH: {RAG_DATA_PATH}")
+    print(f"- QDRANT_URL: {qdrant_url}")
+    print(f"- RECREATE_COLLECTION: {RECREATE_COLLECTION}")
+    print(f"- ST_MODEL_NAME: {ST_MODEL_NAME}")
+    print("=" * 60)
+
+    data = load_knowledge()
+    if not data:
         print("로드할 데이터가 없습니다.")
         return
-    
-    print(f"총 {len(knowledge_data)}개의 지식 항목 로드됨")
-    
-    # 첫 번째 항목으로 벡터 크기 확인
-    sample_text = f"{knowledge_data[0].get('title', '')} {knowledge_data[0].get('content', '')}"
-    sample_embedding = get_embedding(sample_text)
-    if not sample_embedding:
-        print("임베딩 생성 실패로 인해 중단됩니다.")
-        return
-    
-    vector_size = len(sample_embedding)
-    print(f"벡터 크기: {vector_size}")
-    
-    # domain별로 데이터 분리
-    commerce_points = []
-    exercise_points = []
-    
-    for idx, item in enumerate(knowledge_data):
-        # 텍스트 결합 (제목 + 내용)
-        text = f"{item.get('title', '')} {item.get('content', '')}"
-        
-        # 임베딩 생성
-        embedding = get_embedding(text)
-        if not embedding:
-            print(f"항목 {idx + 1} 임베딩 생성 실패, 건너뜀")
-            continue
-        
-        # payload 생성
-        payload = {
-            "category": item.get("category", ""),
-            "title": item.get("title", ""),
-            "content": item.get("content", ""),
-            "body_part": item.get("body_part", ""),
-            "exercise_name": item.get("exercise_name", ""),
-            "tags": item.get("tags", [])
-        }
-        
-        # 새로운 필드 추가
-        if "doc_id" in item:
-            payload["doc_id"] = item.get("doc_id")
-        if "chunk_id" in item:
-            payload["chunk_id"] = item.get("chunk_id")
-        if "doc_type" in item:
-            payload["doc_type"] = item.get("doc_type")
-        if "goal" in item:
-            payload["goal"] = item.get("goal")
-        if "product_category" in item:
-            payload["product_category"] = item.get("product_category")
-        if "domain" in item:
-            payload["domain"] = item.get("domain")
-        if "version" in item:
-            payload["version"] = item.get("version")
-        if "section" in item:
-            payload["section"] = item.get("section")
-        
-        # PointStruct 생성 (UUID 사용)
-        point = PointStruct(
-            id=str(uuid.uuid4()),
-            vector=embedding,
-            payload=payload
-        )
-        
-        # domain에 따라 분리
-        domain = item.get("domain", "")
-        if domain == "commerce":
-            commerce_points.append(point)
-        else:
-            exercise_points.append(point)
-        
-        print(f"항목 {idx + 1}/{len(knowledge_data)} 처리 완료: {item.get('title', '')}")
-    
-    # Commerce 컬렉션 처리
-    if commerce_points:
-        print(f"\n[Commerce 컬렉션] {len(commerce_points)}개 항목 처리 중...")
-        ensure_collection(qdrant_client, QDRANT_COLLECTION_COMMERCE, vector_size)
-        try:
-            qdrant_client.upsert(
-                collection_name=QDRANT_COLLECTION_COMMERCE,
-                points=commerce_points
-            )
-            print(f"Commerce 컬렉션에 {len(commerce_points)}개 항목 업로드 완료")
-        except Exception as e:
-            print(f"Commerce 컬렉션 업로드 실패: {e}")
-    
-    # Exercise 컬렉션 처리
-    if exercise_points:
-        print(f"\n[Exercise 컬렉션] {len(exercise_points)}개 항목 처리 중...")
-        ensure_collection(qdrant_client, QDRANT_COLLECTION_EXERCISE, vector_size)
-        try:
-            qdrant_client.upsert(
-                collection_name=QDRANT_COLLECTION_EXERCISE,
-                points=exercise_points
-            )
-            print(f"Exercise 컬렉션에 {len(exercise_points)}개 항목 업로드 완료")
-        except Exception as e:
-            print(f"Exercise 컬렉션 업로드 실패: {e}")
-    
-    print("\nRAG 데이터 초기화 완료!")
+
+    commerce_items, exercise_items = split_by_domain(data)
+
+    # Commerce
+    if commerce_items:
+        print("\n[Commerce] 포인트 생성")
+        commerce_points, commerce_vector_size = build_points(commerce_items)
+        if commerce_points:
+            ensure_collection(qdrant_client, QDRANT_COLLECTION_COMMERCE, commerce_vector_size)
+            upsert_points(QDRANT_COLLECTION_COMMERCE, commerce_points)
+
+    # Exercise
+    if exercise_items:
+        print("\n[Exercise] 포인트 생성")
+        exercise_points, exercise_vector_size = build_points(exercise_items)
+        if exercise_points:
+            ensure_collection(qdrant_client, QDRANT_COLLECTION_EXERCISE, exercise_vector_size)
+            upsert_points(QDRANT_COLLECTION_EXERCISE, exercise_points)
+
+    print("\n" + "=" * 60)
+    print("RAG 데이터 업로드 완료")
+    print("=" * 60)
 
 
 if __name__ == "__main__":
     main()
-

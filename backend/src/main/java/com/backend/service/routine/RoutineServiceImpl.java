@@ -26,6 +26,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -120,7 +121,7 @@ public class RoutineServiceImpl implements RoutineService {
         filteredRoutine.setTitle(routine.getTitle());
         filteredRoutine.setAiSummary(routine.getAiSummary());
         filteredRoutine.setStatus(routine.getStatus());
-        filteredRoutine.setExercises(new java.util.ArrayList<>());
+        filteredRoutine.setExercises(new ArrayList<>());
         
         for (Exercise exercise : routine.getExercises()) {
             // 운동 이름 필터링
@@ -540,7 +541,19 @@ public class RoutineServiceImpl implements RoutineService {
             .findFirst()
             .orElseThrow(() -> new IllegalArgumentException("운동을 찾을 수 없습니다: " + exerciseId));
         
-        exerciseRepository.delete(exercise);
+        log.info("운동 삭제 시작: routineId={}, exerciseId={}, exerciseName={}", 
+            routineId, exerciseId, exercise.getExerciseType() != null ? exercise.getExerciseType().getName() : "unknown");
+        
+        // 양방향 관계에서 제거 (orphanRemoval이 있으므로 이것만으로도 삭제 가능하지만, 명시적으로 삭제)
+        routine.getExercises().remove(exercise);
+        
+        // 명시적으로 삭제 (더 확실함)
+        exerciseRepository.deleteById(exerciseId);
+        
+        // 즉시 플러시하여 DB에 반영
+        exerciseRepository.flush();
+        
+        log.info("운동 삭제 완료: routineId={}, exerciseId={}", routineId, exerciseId);
     }
     
     private RoutineResponse toRoutineResponse(Routine routine, boolean isToday) {

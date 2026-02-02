@@ -27,4 +27,19 @@ public class ChatClient {
         
         return baseAIClient.postRequest("/chat", requestBody, ChatResponse.class);
     }
+    
+    /**
+     * Python AI 서버의 /chat 엔드포인트를 호출하여 컨텍스트를 포함한 의도를 분류합니다.
+     * 
+     * @param context 이전 대화 컨텍스트
+     * @param userInput 사용자 입력
+     * @return 의도 분류 결과
+     */
+    public ChatResponse classifyIntentWithContext(String context, String userInput) {
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("text", userInput);
+        requestBody.put("context", context);
+        
+        return baseAIClient.postRequest("/chat", requestBody, ChatResponse.class);
+    }
 }

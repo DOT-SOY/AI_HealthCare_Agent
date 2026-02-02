@@ -3,8 +3,10 @@ package com.backend.service.meal;
 import com.backend.domain.meal.Meal;
 import com.backend.dto.meal.MealDashboardDto;
 import com.backend.dto.meal.MealDto;
+
 import java.time.LocalDate;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * [식단 관리 및 변동 분석 서비스]
@@ -62,7 +64,7 @@ public interface MealService {
      * 
      * 변경: CompletableFuture 반환으로 진정한 비동기 처리
      */
-    java.util.concurrent.CompletableFuture<Void> asyncVisionAnalysis(Long userId, String base64Image);
+    CompletableFuture<Void> asyncVisionAnalysis(Long userId, String base64Image);
 
     /**
      * [비동기 AI 호출: 심층 상담]
@@ -70,7 +72,7 @@ public interface MealService {
      * 
      * 변경: CompletableFuture 반환으로 진정한 비동기 처리
      */
-    java.util.concurrent.CompletableFuture<Void> asyncDeepAdvice(Long userId, LocalDate date);
+    CompletableFuture<Void> asyncDeepAdvice(Long userId, LocalDate date);
 
     /**
      * [비동기 AI 호출: 식단 재구성]
@@ -78,7 +80,7 @@ public interface MealService {
      * 
      * 변경: CompletableFuture 반환으로 진정한 비동기 처리
      */
-    java.util.concurrent.CompletableFuture<Void> asyncMealReplan(Long userId, LocalDate date);
+    CompletableFuture<Void> asyncMealReplan(Long userId, LocalDate date);
 
     /**
      * [식단 계획 업데이트]

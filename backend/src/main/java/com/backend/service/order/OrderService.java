@@ -7,6 +7,8 @@ import com.backend.dto.order.request.OrderListRequest;
 import com.backend.dto.order.response.OrderCreateFromCartResponse;
 import com.backend.dto.order.response.OrderDetailResponse;
 import com.backend.dto.order.response.OrderSummaryResponse;
+
+import java.time.LocalDate;
 import java.util.List;
 
 public interface OrderService {
@@ -45,6 +47,6 @@ public interface OrderService {
      * @param status 배송 상태 (null이면 필터링 안 함)
      * @return 주문 목록 (날짜/상품명/상태가 모두 null이면 최신 1개)
      */
-    List<OrderSummaryResponse> getOrdersByFilters(Long memberId, java.time.LocalDate date, String productName, OrderStatus status);
+    List<OrderSummaryResponse> getOrdersByFilters(Long memberId, LocalDate date, String productName, OrderStatus status);
 }
 
