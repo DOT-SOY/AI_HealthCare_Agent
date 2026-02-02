@@ -17,6 +17,7 @@ import com.backend.dto.shop.response.ProductVariantResponse;
 import com.backend.dto.shop.response.ReviewSummaryResponse;
 import com.backend.domain.order.OrderItemStatus;
 import com.backend.domain.order.OrderStatus;
+import com.backend.repository.cart.CartItemRepository;
 import com.backend.repository.member.MemberRepository;
 import com.backend.repository.order.OrderItemRepository;
 import com.backend.repository.shop.*;
@@ -52,6 +53,7 @@ public class ProductServiceImpl implements ProductService {
     private final ProductCategoryRepository productCategoryRepository;
     private final ProductReviewRepository productReviewRepository;
     private final OrderItemRepository orderItemRepository;
+    private final CartItemRepository cartItemRepository;
 
     // ===========================
     // Public APIs
@@ -130,6 +132,7 @@ public class ProductServiceImpl implements ProductService {
                 ? searchRequest.toCondition()
                 : ProductSearchCondition.builder()
                         .keyword(searchRequest.getKeyword())
+                        .searchType(searchRequest.getSearchType())
                         .categoryId(searchRequest.getCategoryId())
                         .minPrice(searchRequest.getMinPrice())
                         .maxPrice(searchRequest.getMaxPrice())
@@ -284,9 +287,10 @@ public class ProductServiceImpl implements ProductService {
             return;
         }
 
-        // 기존 활성 이미지: filePath -> image
+        // 기존 활성 이미지: filePath -> image (null/빈 filePath 제외, toMap NPE 방지)
         Map<String, ProductImage> activeByPath = product.getImages().stream()
                 .filter(img -> img.getDeletedAt() == null)
+                .filter(img -> img.getFilePath() != null && !img.getFilePath().trim().isEmpty())
                 .collect(Collectors.toMap(
                         ProductImage::getFilePath,
                         Function.identity(),
@@ -344,27 +348,60 @@ public class ProductServiceImpl implements ProductService {
         product.getImages().removeAll(actives);
     }
 
+    /**
+     * 옵션(variant) 수정: 기존은 ID로 수정, 새 행은 추가, 요청에 없고 참조도 없는 것만 삭제.
+     * 주문/장바구니에 참조된 옵션은 삭제하지 않아 FK 제약 없이 수정 가능.
+     */
     private void replaceVariants(Product product, List<ProductVariantRequest> requests) {
         if (requests == null) return;
 
-        product.getVariants().clear();
+        List<ProductVariant> currentVariants = product.getVariants();
+        List<Long> currentIds = currentVariants.stream().map(ProductVariant::getId).toList();
 
-        if (requests.isEmpty()) {
-            log.info("All variants removed from product: productId={}", product.getId());
-            return;
+        // 주문 또는 장바구니에 사용 중인 variant ID (이건 삭제하면 안 됨)
+        Set<Long> inUseIds = new HashSet<>();
+        if (!currentIds.isEmpty()) {
+            inUseIds.addAll(orderItemRepository.findVariantIdsReferencedByOrderItems(currentIds));
+            inUseIds.addAll(cartItemRepository.findVariantIdsReferencedByCartItems(currentIds));
         }
 
+        Set<Long> requestIds = requests.stream()
+                .map(ProductVariantRequest::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Map<Long, ProductVariant> currentById = currentVariants.stream()
+                .collect(Collectors.toMap(ProductVariant::getId, Function.identity(), (a, b) -> a));
+
+        // 수정: 요청에 id가 있고 해당 variant가 있으면 updateDetails
         for (ProductVariantRequest req : requests) {
-            product.getVariants().add(ProductVariant.builder()
-                    .product(product)
-                    .optionText(req.getOptionText())
-                    .price(req.getPrice())
-                    .stockQty(req.getStockQty() != null ? req.getStockQty() : 0)
-                    .active(req.getActive() != null ? req.getActive() : true)
-                    .build());
+            if (req.getId() != null && currentById.containsKey(req.getId())) {
+                ProductVariant existing = currentById.get(req.getId());
+                existing.updateDetails(
+                        req.getOptionText(),
+                        req.getPrice(),
+                        req.getStockQty(),
+                        req.getActive()
+                );
+            } else {
+                product.getVariants().add(ProductVariant.builder()
+                        .product(product)
+                        .optionText(req.getOptionText() != null ? req.getOptionText().trim() : "")
+                        .price(req.getPrice())
+                        .stockQty(req.getStockQty() != null ? req.getStockQty() : 0)
+                        .active(req.getActive() != null ? req.getActive() : true)
+                        .build());
+            }
         }
 
-        log.info("Product variants replaced: productId={}, variantCount={}", product.getId(), requests.size());
+        // 삭제: 요청에 없고, 주문/장바구니에도 없는 것만 컬렉션에서 제거 (orphanRemoval로 DB 삭제)
+        List<ProductVariant> toRemove = currentVariants.stream()
+                .filter(v -> !requestIds.contains(v.getId()) && !inUseIds.contains(v.getId()))
+                .toList();
+        currentVariants.removeAll(toRemove);
+
+        log.info("Product variants updated: productId={}, updated/added/removed(no-ref)={}/{}/{}",
+                product.getId(), requestIds.size(), requests.size() - requestIds.size(), toRemove.size());
     }
 
     /**

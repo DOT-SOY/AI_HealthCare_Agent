@@ -62,10 +62,7 @@ public class JWTCheckFilter extends OncePerRequestFilter{
             return true;
         }
 
-        // 파일 업로드 경로는 체크하지 않음 (TODO: 추후 ADMIN 권한으로 제한)
-        if (path.equals("/api/files/upload")) {
-            return true;
-        }
+        // 파일 업로드(/api/files/upload)는 JWT 검사 수행 → SecurityContext 설정 후 Spring Security hasRole("ADMIN") 통과
 
         // 상품 조회(GET)는 필터를 타서 JWT가 있으면 SecurityContext 설정(관리자 전용 목록 필터용), 없으면 통과만 허용
         // (shouldNotFilter false 유지 → doFilterInternal에서 Authorization 없을 때 GET /api/products는 통과 처리)

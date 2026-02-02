@@ -25,30 +25,30 @@ export default function ExerciseCard({ exercise }) {
   };
 
   return (
-    <div className="bg-neutral-800 rounded-lg p-6 relative hover:bg-neutral-700 transition-colors cursor-pointer">
+    <div className="card-token rounded-token p-6 relative hover:shadow-card-hover transition-all duration-200 cursor-pointer border-border-default">
       {/* 카테고리 태그 */}
       <div className="flex gap-2 mb-3">
-        <span className="text-xs text-neutral-400 bg-neutral-700 px-2 py-1 rounded">
+        <span className="text-xs text-text-muted bg-bg-surface px-2 py-1 rounded-token-sm">
           {getCategoryName(exercise.mainTarget)}
         </span>
       </div>
 
       {/* 운동명 */}
-      <h3 className="text-2xl font-bold text-neutral-50 mb-4">{exercise.name}</h3>
+      <h3 className="text-2xl font-bold text-text-main mb-4">{exercise.name}</h3>
 
       {/* 통계 정보 */}
       <div className="space-y-2 text-sm">
         <div className="flex justify-between">
-          <span className="text-neutral-400">최근 수행</span>
-          <span className="font-medium" style={{ color: '#88ce02' }}>{formatDate(exercise.recentDate)}</span>
+          <span className="text-text-muted">최근 수행</span>
+          <span className="font-medium text-primary-500">{formatDate(exercise.recentDate)}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-neutral-400">최고 중량(1RM)</span>
-          <span className="font-medium" style={{ color: '#88ce02' }}>{exercise.maxWeight != null ? `${exercise.maxWeight}kg` : '-'}</span>
+          <span className="text-text-muted">최고 중량(1RM)</span>
+          <span className="font-medium text-primary-500">{exercise.maxWeight != null ? `${exercise.maxWeight}kg` : '-'}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-neutral-400">총 볼륨</span>
-          <span className="font-medium" style={{ color: '#88ce02' }}>{formatNumber(exercise.totalVolume)} kg</span>
+          <span className="text-text-muted">총 볼륨</span>
+          <span className="font-medium text-primary-500">{formatNumber(exercise.totalVolume)} kg</span>
         </div>
       </div>
     </div>

@@ -1,0 +1,25 @@
+/**
+ * 앱/대시보드용 전역 색상 변수 (Profile, Admin 등)
+ * - 라이트/다크는 컨테이너의 data-theme="light" | "dark" 로 제어
+ * - 쇼핑몰(design-tokens.css)과 별도로, 대시보드·프로필 페이지에서 사용
+ */
+
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #e0e0e0;
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --accent-lime: #ccff00;
+  --btn-logout-bg: #e0e0e0;
+  --border-color: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="dark"] {
+  --bg-primary: #121212;
+  --bg-secondary: #2c2c2c;
+  --text-primary: #e0e0e0;
+  --text-secondary: #aaaaaa;
+  --accent-lime: #b2d900;
+  --btn-logout-bg: #444444;
+  --border-color: rgba(255, 255, 255, 0.1);
+}

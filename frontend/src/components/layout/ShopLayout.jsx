@@ -8,15 +8,24 @@ import { addCartItem, getCart, updateCartItemQty, removeCartItem, clearCart } fr
 // 장바구니 Context 생성
 const CartContext = createContext(null);
 
-export const useCart = () => {
-  const context = useContext(CartContext);
-  if (!context) {
-    throw new Error('useCart must be used within ShopLayout');
-  }
-  return context;
+const emptyCart = { cartId: null, isGuest: true, items: [], totals: { itemCount: 0, totalQty: 0, totalPrice: 0 } };
+
+const fallbackCartContext = {
+  cartItems: [],
+  addToCart: async () => {},
+  updateQty: async () => {},
+  removeItem: async () => {},
+  resetCart: async () => {},
+  isDrawerOpen: false,
+  openDrawer: () => {},
+  closeDrawer: () => {},
+  toggleDrawer: () => {},
 };
 
-const emptyCart = { cartId: null, isGuest: true, items: [], totals: { itemCount: 0, totalQty: 0, totalPrice: 0 } };
+export const useCart = () => {
+  const context = useContext(CartContext);
+  return context ?? fallbackCartContext;
+};
 
 const ShopLayout = ({ children }) => {
   const location = useLocation();
@@ -118,12 +127,8 @@ const ShopLayout = ({ children }) => {
 
   return (
     <CartContext.Provider value={cartContextValue}>
-      <BasicLayout>
-        <div className="bg-baseBg min-h-screen">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
-            {children}
-          </div>
-        </div>
+      <BasicLayout containerClassName="page-container page-container-wide">
+        {children}
 
         {!isCheckoutPage && (
           <>

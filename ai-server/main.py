@@ -78,7 +78,7 @@ async def chat(request: ChatRequest):
         ai_answer = generate_ai_answer(request.text, intent, entities)
 
     # 3. DB 체크 필요 여부 플래그 (백엔드 오케스트레이션 참고용)
-    requires_db_check = intent in ["PAIN_REPORT", "WORKOUT"]
+    requires_db_check = intent in ["PAIN_REPORT", "WORKOUT", "MEAL_QUERY", "BODY_QUERY", "DELIVERY_QUERY"]
 
     return ChatResponse(
         intent=intent,

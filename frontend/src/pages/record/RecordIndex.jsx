@@ -4,11 +4,7 @@ import BasicLayout from "../../components/layout/BasicLayout";
 const RecordIndex = () => {
   return (
     <BasicLayout>
-      <div className="w-full bg-baseBg min-h-screen">
-        <div className="ui-container py-12 lg:py-16">
-          <Outlet />
-        </div>
-      </div>
+      <Outlet />
     </BasicLayout>
   );
 };
