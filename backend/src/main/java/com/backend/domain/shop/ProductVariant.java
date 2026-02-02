@@ -55,6 +55,16 @@ public class ProductVariant extends BaseEntity {
         this.active = (active != null) ? active : true;
     }
 
+    /** 옵션 정보/가격/재고/활성 여부 일괄 수정 (주문·장바구니 참조된 옵션 수정용) */
+    public void updateDetails(String optionText, BigDecimal price, Integer stockQty, Boolean active) {
+        if (optionText != null && !optionText.trim().isEmpty()) {
+            this.optionText = optionText.trim();
+        }
+        this.price = price;
+        this.stockQty = (stockQty != null && stockQty >= 0) ? stockQty : this.stockQty;
+        this.active = (active != null) ? active : this.active;
+    }
+
     // 재고 수량 변경
     public void updateStock(Integer stockQty) {
         if (stockQty == null || stockQty < 0) {

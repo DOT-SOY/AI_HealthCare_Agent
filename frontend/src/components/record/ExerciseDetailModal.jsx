@@ -11,6 +11,7 @@ export default function ExerciseDetailModal({ exerciseName, isOpen, onClose }) {
   const cardsRef = useRef(null);
   const containerRef = useRef(null);
   const observerRef = useRef(null);
+  const scrollYRef = useRef(0);
 
   // 초기 5개 로드
   useEffect(() => {
@@ -95,6 +96,30 @@ export default function ExerciseDetailModal({ exerciseName, isOpen, onClose }) {
     if (isOpen) {
       setCurrentIndex(0);
     }
+  }, [isOpen]);
+
+  // 모달 열림 시 배경 스크롤 막기 (position: fixed로 모바일 포함 안정적 차단)
+  useEffect(() => {
+    if (isOpen) {
+      scrollYRef.current = window.scrollY;
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollYRef.current}px`;
+      document.body.style.left = '0';
+      document.body.style.right = '0';
+    } else {
+      const y = scrollYRef.current;
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      window.scrollTo(0, y);
+    }
+    return () => {
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+    };
   }, [isOpen]);
 
   // 카드 애니메이션
@@ -229,13 +254,14 @@ export default function ExerciseDetailModal({ exerciseName, isOpen, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-bg-root/80 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="w-full h-full flex flex-col">
         {/* 헤더 */}
         <div className="p-6 flex items-center justify-end">
           <button
             onClick={onClose}
-            className="text-neutral-400 hover:text-neutral-50 transition-colors"
+            className="text-text-sub hover:text-text-main transition-colors p-1 rounded-token-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+            aria-label="닫기"
           >
             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -245,76 +271,60 @@ export default function ExerciseDetailModal({ exerciseName, isOpen, onClose }) {
 
         {/* 캐러셀 */}
         {routines.length > 0 ? (
-          <div 
+          <div
             ref={containerRef}
-            className="flex-1 relative overflow-hidden"
-            style={{ minHeight: '600px' }}
+            className="flex-1 relative overflow-hidden min-h-[600px]"
           >
             {/* 제목 표시 */}
-            <div className="absolute top-8 left-1/2 transform -translate-x-1/2 z-50 text-center">
-              <h3 className="text-4xl font-bold" style={{ color: '#88ce02' }}>{exerciseName} 기록</h3>
+            <div className="absolute top-8 left-1/2 -translate-x-1/2 z-50 text-center">
+              <h3 className="text-4xl font-bold text-primary-500">{exerciseName} 기록</h3>
             </div>
-            
-            <ul 
-              ref={cardsRef} 
-              className="cards relative w-full h-full"
-              style={{ listStyle: 'none', padding: 0, margin: 0 }}
+
+            <ul
+              ref={cardsRef}
+              className="cards relative w-full h-full list-none p-0 m-0"
             >
               {routines.map((routine, index) => {
                 const exercise = routine.exercises?.[0];
                 if (!exercise) return null;
                 const totalVolume = exercise.sets * exercise.reps * (exercise.weight ?? 0);
-                
+
                 return (
                   <li
                     key={`${routine.id}-${index}`}
                     ref={index === routines.length - 1 ? observerRef : null}
-                    style={{
-                      position: 'absolute',
-                      width: '24rem',
-                      height: '32rem',
-                      opacity: 0,
-                      zIndex: 10,
-                      pointerEvents: 'none'
-                    }}
+                    className="absolute w-96 h-[32rem] opacity-0 z-[10] pointer-events-none"
                   >
-                    <div
-                      className="w-full h-full bg-gradient-to-br from-neutral-800 to-neutral-900 rounded-xl p-8 flex flex-col justify-between border-2 shadow-lg"
-                      style={{
-                        background: `linear-gradient(135deg, rgba(17, 24, 39, 0.95) 0%, rgba(31, 41, 55, 0.95) 100%)`,
-                        borderColor: 'rgba(136, 206, 2, 0.3)',
-                        boxShadow: '0 0 30px rgba(136, 206, 2, 0.3)',
-                      }}
-                    >
+                    <div className="card-token w-full h-full rounded-token p-8 flex flex-col justify-between border-2 border-primary-500/30 shadow-card-hover">
                       {/* 날짜 */}
                       <div className="text-center">
-                        <div className="text-5xl font-bold mb-2" style={{ color: '#88ce02' }}>
+                        <div className="text-5xl font-bold mb-2 text-primary-500">
                           {formatDate(routine.date)}
                         </div>
-                        <div className="text-base text-neutral-400">{routine.title}</div>
+                        <div className="text-base text-text-sub">{routine.title}</div>
                       </div>
 
                       {/* 운동 정보 */}
                       <div className="space-y-6">
-                        <div className="bg-neutral-700/50 rounded-lg p-6">
+                        <div className="bg-bg-surface rounded-token p-6">
                           <div className="grid grid-cols-2 gap-6 text-base">
                             <div>
-                              <span className="text-neutral-400 block mb-2">세트</span>
-                              <span className="text-3xl font-bold text-neutral-50">{exercise.sets || 0}</span>
+                              <span className="text-text-sub block mb-2">세트</span>
+                              <span className="text-3xl font-bold text-text-main">{exercise.sets || 0}</span>
                             </div>
                             <div>
-                              <span className="text-neutral-400 block mb-2">횟수</span>
-                              <span className="text-3xl font-bold text-neutral-50">{exercise.reps || 0}</span>
+                              <span className="text-text-sub block mb-2">횟수</span>
+                              <span className="text-3xl font-bold text-text-main">{exercise.reps || 0}</span>
                             </div>
                             <div>
-                              <span className="text-neutral-400 block mb-2">무게</span>
-                              <span className="text-3xl font-bold text-neutral-50">
+                              <span className="text-text-sub block mb-2">무게</span>
+                              <span className="text-3xl font-bold text-text-main">
                                 {exercise.weight != null ? `${exercise.weight}kg` : '-'}
                               </span>
                             </div>
                             <div>
-                              <span className="text-neutral-400 block mb-2">볼륨</span>
-                              <span className="text-3xl font-bold text-neutral-50">{formatNumber(totalVolume)}kg</span>
+                              <span className="text-text-sub block mb-2">볼륨</span>
+                              <span className="text-3xl font-bold text-text-main">{formatNumber(totalVolume)}kg</span>
                             </div>
                           </div>
                         </div>
@@ -324,76 +334,22 @@ export default function ExerciseDetailModal({ exerciseName, isOpen, onClose }) {
                 );
               })}
             </ul>
-            
+
             {/* Prev/Next 버튼 */}
-            <div className="actions" style={{ position: 'absolute', bottom: '50px', left: '50%', transform: 'translateX(-50%)', zIndex: 1000 }}>
-              <button 
-                className="prev" 
+            <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-[1000] flex gap-2">
+              <button
+                type="button"
                 onClick={handlePrev}
                 disabled={currentIndex === routines.length - 1}
-                style={{ 
-                  display: 'inline-block', 
-                  outline: 'none', 
-                  padding: '12px 30px', 
-                  background: currentIndex === routines.length - 1 ? '#333' : '#111', 
-                  border: 'solid 2px #88ce02', 
-                  color: '#88ce02', 
-                  textDecoration: 'none', 
-                  borderRadius: '99px', 
-                  fontWeight: 600, 
-                  cursor: currentIndex === routines.length - 1 ? 'not-allowed' : 'pointer', 
-                  lineHeight: '18px', 
-                  margin: '0 0.5rem',
-                  transition: 'all 0.3s',
-                  opacity: currentIndex === routines.length - 1 ? 0.5 : 1
-                }}
-                onMouseEnter={(e) => {
-                  if (currentIndex < routines.length - 1) {
-                    e.target.style.background = '#88ce02';
-                    e.target.style.color = '#111';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (currentIndex < routines.length - 1) {
-                    e.target.style.background = '#111';
-                    e.target.style.color = '#88ce02';
-                  }
-                }}
+                className="px-6 py-3 rounded-full font-semibold min-w-[100px] border-2 border-primary-500 bg-bg-card text-primary-500 transition-all duration-200 hover:bg-primary-500 hover:text-bg-root disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-bg-surface disabled:border-border-default disabled:text-text-sub disabled:hover:bg-bg-surface disabled:hover:text-text-sub focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
               >
                 Prev
               </button>
-              <button 
-                className="next" 
+              <button
+                type="button"
                 onClick={handleNext}
                 disabled={currentIndex === 0}
-                style={{ 
-                  display: 'inline-block', 
-                  outline: 'none', 
-                  padding: '12px 30px', 
-                  background: currentIndex === 0 ? '#333' : '#111', 
-                  border: 'solid 2px #88ce02', 
-                  color: '#88ce02', 
-                  textDecoration: 'none', 
-                  borderRadius: '99px', 
-                  fontWeight: 600, 
-                  cursor: currentIndex === 0 ? 'not-allowed' : 'pointer', 
-                  lineHeight: '18px', 
-                  margin: '0 0.5rem',
-                  transition: 'all 0.3s',
-                  opacity: currentIndex === 0 ? 0.5 : 1
-                }}
-                onMouseEnter={(e) => {
-                  if (currentIndex > 0) {
-                    e.target.style.background = '#88ce02';
-                    e.target.style.color = '#111';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (currentIndex > 0) {
-                    e.target.style.background = '#111';
-                    e.target.style.color = '#88ce02';
-                  }
-                }}
+                className="px-6 py-3 rounded-full font-semibold min-w-[100px] border-2 border-primary-500 bg-bg-card text-primary-500 transition-all duration-200 hover:bg-primary-500 hover:text-bg-root disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-bg-surface disabled:border-border-default disabled:text-text-sub disabled:hover:bg-bg-surface disabled:hover:text-text-sub focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
               >
                 Next
               </button>
@@ -401,7 +357,7 @@ export default function ExerciseDetailModal({ exerciseName, isOpen, onClose }) {
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center text-neutral-400 py-12">
+            <div className="text-center text-text-sub py-12">
               {loading ? (
                 <p className="text-xl">로딩 중...</p>
               ) : (

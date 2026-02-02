@@ -16,6 +16,9 @@ import java.math.BigDecimal;
 @Setter
 public class ProductVariantRequest {
 
+    /** 수정 시 기존 variant ID (있으면 수정, 없으면 신규 추가) */
+    private Long id;
+
     @NotBlank(message = "옵션 정보는 필수입니다")
     private String optionText; // 옵션 평문 (예: "색상: 빨강, 사이즈: L")
     

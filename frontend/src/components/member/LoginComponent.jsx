@@ -101,17 +101,17 @@ const LoginComponent = () => {
   return (
     <div className="ui-card p-8 lg:p-10">
       <div className="flex flex-col items-center mb-8">
-        <div className="text-xs uppercase tracking-widest text-baseMuted mb-2">LOGIN</div>
+        <div className="text-xs uppercase tracking-widest text-text-sub mb-2">LOGIN</div>
         <h1 className="ui-title">로그인</h1>
       </div>
 
       <form className="space-y-4" onSubmit={handleClickLogin}>
         <div>
-          <label className="block text-xs font-semibold text-baseMuted mb-2">이메일</label>
+          <label className="block text-xs font-semibold text-text-sub mb-2">이메일</label>
           <input className="ui-input" name="email" type="text" value={loginParam.email} onChange={handleChange} />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-baseMuted mb-2">비밀번호</label>
+          <label className="block text-xs font-semibold text-text-sub mb-2">비밀번호</label>
           <input className="ui-input" name="pw" type="password" value={loginParam.pw} onChange={handleChange} />
         </div>
 
@@ -124,8 +124,8 @@ const LoginComponent = () => {
       </form>
 
       <div className="relative my-8">
-        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-baseBorder"></div></div>
-        <div className="relative flex justify-center text-xs font-semibold"><span className="bg-baseBg px-4 text-baseMuted">소셜 로그인</span></div>
+        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border-default"></div></div>
+        <div className="relative flex justify-center text-xs font-semibold"><span className="bg-bg-card px-4 text-text-sub">소셜 로그인</span></div>
       </div>
       <KakaoLoginComponent />
     </div>

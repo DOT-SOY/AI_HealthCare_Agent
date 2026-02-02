@@ -1,0 +1,673 @@
+/**
+ * 전역 컴포넌트 클래스 — 쇼핑몰·다른 페이지에서 공통 사용
+ * (버튼은 Button.jsx, 카드 기본은 Card.jsx; 여기서는 레이아웃·입력·칩·페이지네이션·로딩 등)
+ * Tailwind v4: @layer components, 디자인 토큰 변수 사용
+ */
+
+@layer components {
+  /* ---------- 페이지 루트 (전체 페이지 공통: shop list와 동일한 배경·최소 높이) ---------- */
+  .page-root {
+    width: 100%;
+    min-height: 100vh;
+    background-color: var(--bg-root);
+  }
+  .page-container {
+    max-width: 80rem;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 3rem 1rem;
+  }
+  @media (min-width: 640px) {
+    .page-container {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+  }
+  @media (min-width: 1024px) {
+    .page-container {
+      padding-top: 4rem;
+      padding-bottom: 4rem;
+      padding-left: 2rem;
+      padding-right: 2rem;
+    }
+  }
+  /* 쇼핑 본문: 가로 너비 확대 (루틴/기록보다 넓게) */
+  .page-container-wide {
+    max-width: 96rem;
+  }
+
+  /* ---------- 레이아웃 ---------- */
+  .container-token {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  @media (min-width: 640px) {
+    .container-token {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+  }
+  @media (min-width: 1024px) {
+    .container-token {
+      padding-left: 2rem;
+      padding-right: 2rem;
+    }
+  }
+
+  .section-token {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  @media (min-width: 640px) {
+    .section-token {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+  }
+
+  /* ---------- 검색/입력창 (다른 페이지 폼에서도 사용) ---------- */
+  .input-token {
+    width: 100%;
+    height: 3rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-default);
+    background-color: var(--bg-card);
+    color: var(--text-main);
+    font-size: 1rem;
+    line-height: 1.5;
+    transition: box-shadow 0.2s var(--ease-out-quart);
+  }
+  .input-token::placeholder {
+    color: var(--text-muted);
+  }
+  .input-token:focus {
+    outline: none;
+    border-color: transparent;
+    box-shadow: 0 0 0 2px var(--primary-500);
+  }
+
+  /* 아이콘 있는 검색창용 왼쪽 패딩 */
+  .input-token-with-icon {
+    padding-left: 3rem;
+  }
+
+  /* ---------- 드롭다운(select) 전역 — input-token과 톤 맞춤 ---------- */
+  .select-token {
+    width: 100%;
+    min-width: 8rem;
+    height: 3rem;
+    padding-left: 1rem;
+    padding-right: 2.25rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-default);
+    background-color: var(--bg-card);
+    color: var(--text-main);
+    font-size: 1rem;
+    line-height: 1.5;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 1.25rem;
+    transition: box-shadow 0.2s var(--ease-out-quart), border-color 0.2s var(--ease-out-quart);
+  }
+  .select-token:hover {
+    border-color: var(--gray-200);
+  }
+  .select-token:focus {
+    outline: none;
+    border-color: transparent;
+    box-shadow: 0 0 0 2px var(--primary-500);
+  }
+  .select-token option {
+    background-color: var(--bg-card);
+    color: var(--text-main);
+    padding: 0.5rem;
+  }
+
+  /* 기존 ui-select도 동일 톤으로 정리 (호환용) */
+  .ui-select {
+    width: 100%;
+    min-width: 8rem;
+    height: 3rem;
+    padding: 0 2.25rem 0 1rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-default);
+    background-color: var(--bg-card);
+    color: var(--text-main);
+    font-size: 1rem;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 1.25rem;
+    transition: box-shadow 0.2s var(--ease-out-quart), border-color 0.2s var(--ease-out-quart);
+  }
+  .ui-select:hover {
+    border-color: var(--gray-200);
+  }
+  .ui-select:focus {
+    outline: none;
+    border-color: transparent;
+    box-shadow: 0 0 0 2px var(--primary-500);
+  }
+  .ui-select option {
+    background-color: var(--bg-card);
+    color: var(--text-main);
+  }
+
+  /* ---------- 카드 베이스 (컴포넌트 없이 클래스만 쓸 때) ---------- */
+  .card-token {
+    background-color: var(--bg-card);
+    color: var(--text-main);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-default);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.35), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
+  }
+
+  /* ---------- 세그먼트/칩 버튼 (카테고리 필터 등) ---------- */
+  .segment-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    flex-shrink: 0;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-default);
+    background-color: var(--bg-card);
+    color: var(--text-sub);
+    font-size: 1rem;
+    font-weight: 500;
+    transition: all 0.2s var(--ease-out-quart);
+  }
+  .segment-btn:hover {
+    border-color: rgba(182, 255, 0, 0.6);
+    color: var(--text-main);
+  }
+  .segment-btn-active {
+    background-color: rgba(182, 255, 0, 0.15);
+    border-color: var(--primary-500);
+    color: var(--primary-500);
+    box-shadow: 0 0 16px var(--primary-glow);
+  }
+
+  /* ---------- 페이지네이션 숫자 버튼 ---------- */
+  .page-btn {
+    min-width: 2.25rem;
+    height: 2.25rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-default);
+    background-color: var(--bg-card);
+    color: var(--text-main);
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+  .page-btn:hover {
+    border-color: var(--primary-500);
+    color: var(--primary-500);
+  }
+  .page-btn-active {
+    background-color: var(--primary-500);
+    color: var(--bg-root);
+    border-color: var(--primary-500);
+  }
+
+  /* ---------- 로딩 스피너 (전역) ---------- */
+  .spinner-token {
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 2px solid var(--primary-500);
+    border-top-color: transparent;
+    border-radius: 9999px;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* ---------- 섹션 헤더 (목록 상단 타이틀+설명) ---------- */
+  .section-header-token {
+    margin-bottom: var(--spacing-token-6);
+  }
+  .section-header-token .section-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.875rem, 4vw, 2.25rem);
+    line-height: 1.2;
+    letter-spacing: -0.025em;
+    text-transform: uppercase;
+    color: var(--text-main);
+  }
+  .section-header-token .section-desc {
+    font-size: 1rem;
+    color: var(--text-sub);
+    margin-top: 0.125rem;
+    letter-spacing: 0.025em;
+  }
+
+  /* ---------- 대시보드/프로필 (design-tokens 통일 — 루틴·기록·식사와 동일 톤) ---------- */
+  .dashboard-container {
+    font-family: var(--font-sans);
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: var(--spacing-token-6);
+    color: var(--text-main);
+    background-color: var(--bg-root);
+    min-height: 100vh;
+    transition: background-color 0.2s var(--ease-out-quart), color 0.2s var(--ease-out-quart);
+  }
+
+  .dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-token-8);
+  }
+  .dashboard-header .header-right {
+    display: flex;
+    gap: var(--spacing-token-4);
+    align-items: center;
+  }
+  .dashboard-header .icon-home {
+    cursor: pointer;
+    color: var(--text-muted);
+  }
+  .dashboard-header .btn-logout {
+    background: var(--gray-100);
+    border: 1px solid var(--border-default);
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--text-sub);
+    cursor: pointer;
+    transition: border-color 0.2s var(--ease-out-quart), color 0.2s var(--ease-out-quart);
+  }
+  .dashboard-header .btn-logout:hover {
+    border-color: var(--primary-500);
+    color: var(--primary-500);
+  }
+
+  .dashboard-main {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: var(--spacing-token-8);
+  }
+  @media (max-width: 900px) {
+    .dashboard-main {
+      grid-template-columns: 1fr;
+    }
+  }
+  .left-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-token-6);
+  }
+
+  .info-card {
+    background-color: var(--bg-card);
+    color: var(--text-main);
+    padding: var(--spacing-token-6);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-default);
+    box-shadow: var(--shadow-card);
+    transition: box-shadow 0.2s var(--ease-out-quart);
+  }
+  .info-card:hover {
+    box-shadow: var(--shadow-card-hover);
+  }
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-token-4);
+  }
+  .card-header h2 {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    margin: 0;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: var(--text-main);
+  }
+  .info-card .section-title {
+    text-align: left;
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-top: 0;
+    margin-bottom: var(--spacing-token-4);
+    color: var(--text-main);
+  }
+  .btn-edit {
+    background: var(--primary-500);
+    color: var(--bg-root);
+    border: 1px solid var(--primary-500);
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    cursor: pointer;
+    border-radius: var(--radius-md);
+    transition: box-shadow 0.2s var(--ease-out-quart);
+  }
+  .btn-edit:hover {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .data-list .data-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-default);
+    padding-bottom: 0.25rem;
+    color: var(--text-main);
+  }
+  .data-row .label {
+    color: var(--text-sub);
+  }
+  .data-row .value {
+    font-weight: 600;
+    color: var(--text-main);
+  }
+  .profile-details {
+    font-size: 1.0625rem;
+    line-height: 1.75;
+    color: var(--text-main);
+  }
+  .profile-details .name {
+    font-weight: 700;
+    color: var(--text-main);
+  }
+  .profile-details .gender-icon,
+  .profile-details .row.date {
+    color: var(--text-sub);
+  }
+  .row.stats {
+    font-weight: 600;
+    font-size: 1.125rem;
+    margin-top: 0.25rem;
+    color: var(--text-main);
+  }
+
+  .right-content {
+    display: flex;
+    flex-direction: column;
+  }
+  .badge-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: var(--spacing-token-6);
+  }
+  .lime-badge {
+    background: var(--primary-500);
+    color: var(--bg-root);
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    font-weight: 700;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--primary-500);
+  }
+
+  .charts-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-token-8);
+  }
+  .chart-layout-row {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-token-6);
+  }
+  .grey-info-box {
+    background-color: var(--bg-card);
+    width: 150px;
+    padding: var(--spacing-token-4) var(--spacing-token-4);
+    min-height: 100px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-default);
+    transition: box-shadow 0.2s var(--ease-out-quart);
+  }
+  .info-title {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    color: var(--text-main);
+  }
+  .info-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--primary-500);
+  }
+  .chart-area {
+    flex: 1;
+    position: relative;
+    top: -10px;
+  }
+  .chart-main-title {
+    text-align: center;
+    color: var(--text-sub);
+    font-size: 0.875rem;
+    margin-bottom: 0.25rem;
+  }
+
+  /* ---------- 폼/로그인·회원가입 (shop list와 동일 톤, 전역) ---------- */
+  .ui-card {
+    background-color: var(--bg-card);
+    color: var(--text-main);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-default);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.35), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
+  }
+  .ui-title {
+    font-family: var(--font-display);
+    font-size: 1.875rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: var(--text-main);
+  }
+  .ui-input {
+    width: 100%;
+    height: 2.75rem;
+    padding: 0 1rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-default);
+    background-color: var(--bg-card);
+    color: var(--text-main);
+    font-size: 1rem;
+    transition: box-shadow 0.2s, border-color 0.2s;
+  }
+  .ui-input::placeholder {
+    color: var(--text-muted);
+  }
+  .ui-input:focus {
+    outline: none;
+    border-color: var(--primary-500);
+    box-shadow: 0 0 0 2px var(--primary-glow);
+  }
+  .ui-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1rem;
+    font-weight: 600;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--primary-500);
+    background-color: var(--primary-500);
+    color: var(--bg-root);
+    transition: box-shadow 0.2s, transform 0.2s;
+  }
+  .ui-btn-primary:hover {
+    box-shadow: 0 0 16px var(--primary-glow);
+  }
+  .ui-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1rem;
+    font-weight: 600;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-default);
+    background-color: var(--bg-card);
+    color: var(--text-main);
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .ui-btn-secondary:hover {
+    border-color: var(--primary-500);
+    color: var(--primary-500);
+  }
+  .ui-btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-default);
+    background: transparent;
+    color: var(--text-main);
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .ui-btn-ghost:hover {
+    border-color: var(--primary-500);
+    color: var(--primary-500);
+  }
+  .ui-btn-kakao {
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-md);
+    border: none;
+    background-color: #fee500;
+    color: #191919;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .ui-btn-kakao:hover {
+    opacity: 0.9;
+  }
+
+  /* ---------- AI 플로팅 버튼 (참고: 회전 블러 conic-gradient + 메탈릭·네온) ---------- */
+  .ai-fab-wrapper {
+    position: relative;
+    display: inline-flex;
+  }
+  .ai-fab-btn {
+    position: relative;
+    z-index: 1;
+    overflow: hidden;
+    /* 라이트/다크 공통: 밝은 버튼 위에 아이콘 어두운 색으로 가독성 확보 */
+    color: #0d0d0d;
+    /* 베이스: 라임 톤 + 메탈릭 테두리 */
+    background-color: rgba(140, 200, 0, 0.85);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.4),
+      0 4px 12px rgba(0, 0, 0, 0.25);
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease, filter 0.3s ease;
+  }
+  .ai-fab-wrapper:hover .ai-fab-btn {
+    transform: scale(1.08);
+    border-color: rgba(255, 255, 255, 0.7);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.5),
+      0 0 24px var(--primary-glow),
+      0 0 48px rgba(182, 255, 0, 0.35),
+      0 4px 16px rgba(0, 0, 0, 0.2);
+    filter: brightness(1.05);
+  }
+  /* 회전 블러 conic-gradient 마스크 (다채로운 색상으로 회전이 잘 보이게) */
+  .ai-fab-mask {
+    width: 200px;
+    height: 200px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform-origin: center center;
+    transform: translate(-50%, -50%) rotate(0deg);
+    border-radius: 50%;
+    background: conic-gradient(
+      from 0deg at 50% 50%,
+      #B6FF00 0deg,
+      #4dd9b8 90deg,
+      #ccff90 180deg,
+      #eeff41 270deg,
+      #B6FF00 360deg
+    );
+    filter: blur(8px);
+    z-index: 0;
+    opacity: 0.7;
+    transition: opacity 0.35s ease-out;
+    pointer-events: none;
+  }
+  .ai-fab-wrapper:hover .ai-fab-mask {
+    opacity: 1;
+  }
+  .ai-fab-wrapper:hover .ai-fab-mask,
+  .ai-fab-mask {
+    animation: ai-mask-rotate 5s linear infinite;
+  }
+  /* 버튼 위 흰색 하이라이트 좌→우 shimmer (호버 시에만, 1.8초 주기) */
+  .ai-fab-btn::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: linear-gradient(
+      105deg,
+      transparent 0%,
+      transparent 35%,
+      rgba(255, 255, 255, 0.5) 50%,
+      transparent 65%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    background-position: 120% 0;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  .ai-fab-wrapper:hover .ai-fab-btn::after {
+    opacity: 1;
+    animation: ai-shimmer 1.8s ease-in-out infinite;
+  }
+}
+
+@keyframes ai-mask-rotate {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@keyframes ai-shimmer {
+  0%, 100% {
+    background-position: 120% 0;
+  }
+  50% {
+    background-position: -20% 0;
+  }
+}
