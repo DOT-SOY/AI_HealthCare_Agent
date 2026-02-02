@@ -47,4 +47,3 @@ public class MealTargetSearchImpl implements MealTargetSearch {
                 .fetch();
     }
 }
-

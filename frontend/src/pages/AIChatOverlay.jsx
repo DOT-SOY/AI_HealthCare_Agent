@@ -12,6 +12,8 @@ export default function AIChatOverlay() {
   const { isListening, transcript, startListening, stopListening } = useSTT();
   const { subscribeToReview, connectWebSocket, disconnect } = useWebSocket();
   const [inputText, setInputText] = useState('');
+  const [isLeaving, setIsLeaving] = useState(false);
+  const [enterDone, setEnterDone] = useState(false);
   const messagesEndRef = useRef(null);
 
   const lastMessageRef = useRef(null);
@@ -90,6 +92,29 @@ export default function AIChatOverlay() {
     }
   }, [isChatOpen, notificationCount, dispatch]);
 
+  // 열릴 때 enter 애니메이션 트리거 (한 프레임 후)
+  useEffect(() => {
+    if (isChatOpen && !isLeaving) {
+      const id = requestAnimationFrame(() => setEnterDone(true));
+      return () => cancelAnimationFrame(id);
+    }
+    if (!isChatOpen && !isLeaving) setEnterDone(false);
+  }, [isChatOpen, isLeaving]);
+
+  // 닫을 때: leave 애니메이션 후 실제 닫기
+  useEffect(() => {
+    if (!isLeaving) return;
+    const t = setTimeout(() => {
+      dispatch(toggleChat());
+      setIsLeaving(false);
+    }, 280);
+    return () => clearTimeout(t);
+  }, [isLeaving, dispatch]);
+
+  const handleClose = () => {
+    if (isChatOpen) setIsLeaving(true);
+  };
+
   const handleSend = async () => {
     if (!inputText.trim()) return;
 
@@ -108,8 +133,8 @@ export default function AIChatOverlay() {
   return (
     <>
       {/* 플로팅 버튼 — AI 테마 호버 애니메이션 */}
-      {!isChatOpen && (
-        <div className="fixed bottom-8 right-8 z-50 ai-fab-wrapper">
+      {!isChatOpen && !isLeaving && (
+        <div className="fixed bottom-8 right-8 z-50 ai-fab-wrapper ai-fab-enter">
           <button
             type="button"
             onClick={() => dispatch(toggleChat())}
@@ -130,25 +155,29 @@ export default function AIChatOverlay() {
         </div>
       )}
 
-      {/* 채팅 패널 */}
-      {isChatOpen && (
+      {/* 채팅 패널 — 열림/닫힘 애니메이션 */}
+      {(isChatOpen || isLeaving) && (
         <>
           {/* 배경 오버레이 */}
           <div
-            className="fixed inset-0 z-40 bg-bg-root/60"
-            onClick={() => dispatch(toggleChat())}
+            className="ai-chat-overlay fixed inset-0 z-40 bg-bg-root/60 backdrop-blur-sm"
+            data-visible={enterDone && !isLeaving}
+            data-leaving={isLeaving}
+            onClick={handleClose}
             aria-hidden
           />
           {/* 채팅 패널 */}
           <div
-            className="card-token fixed bottom-8 right-8 w-96 h-[600px] rounded-token shadow-card flex flex-col z-50"
+            className="ai-chat-panel card-token fixed bottom-8 right-8 w-96 h-[600px] rounded-token shadow-card flex flex-col z-50"
+            data-visible={enterDone && !isLeaving}
+            data-leaving={isLeaving}
             onClick={(e) => e.stopPropagation()}
           >
             {/* 헤더 */}
             <div className="flex items-center justify-between p-4 border-b border-border-default">
               <h2 className="text-lg font-semibold text-text-main">AI 코치</h2>
               <button
-                onClick={() => dispatch(toggleChat())}
+                onClick={handleClose}
                 className="text-text-sub hover:text-text-main transition-colors p-1 rounded-token-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
                 aria-label="채팅 닫기"
               >

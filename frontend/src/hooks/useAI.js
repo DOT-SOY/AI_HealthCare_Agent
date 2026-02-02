@@ -1,9 +1,11 @@
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { addMessage, setLastResponse, setLoading } from '../store/aiSlice';
 import { aiApi } from '../api/aiApi';
 
 export function useAI() {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { messages, lastResponse, loading } = useSelector((state) => state.ai);
 
   const sendAIMessage = async (text) => {
@@ -33,6 +35,21 @@ export function useAI() {
       
       dispatch(addMessage({ role: 'assistant', content: aiResponseText }));
       dispatch(setLastResponse(response));
+      
+      // 상품 추천 플로우: PAYMENT_READY 상태면 결제 페이지로 이동
+      if (response.data && response.data.state === 'PAYMENT_READY' && response.data.payment_ready) {
+        const orderNo = response.data.order_no;
+        const paymentReady = response.data.payment_ready;
+        
+        // 결제 페이지로 이동 (주문 번호와 결제 정보 전달)
+        navigate('/shop/checkout', {
+          state: {
+            fromAI: true,
+            orderNo: orderNo,
+            paymentReady: paymentReady
+          }
+        });
+      }
       
       return response;
     } catch (error) {

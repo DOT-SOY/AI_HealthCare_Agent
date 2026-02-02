@@ -17,7 +17,9 @@ SYSTEM_PROMPT = """사용자 질문을 intent(대분류)와 action(소분류)으
    - QUERY: "체지방률"/"골격근량"/"체중"/"인바디" + 날짜 → BODY_QUERY (QUERY)
 5. DELIVERY_QUERY (배송)
    - QUERY: "배송"/"주문"/"상품"/"배송 현황"/"이번에 산거"/"최근에 산거"/"주문한거"/"구매한거"/"산거"/"뭐 샀"/"뭐 주문" + 날짜/상품명 → DELIVERY_QUERY (QUERY)
-6. GENERAL_CHAT (일반)
+6. PRODUCT_RECOMMEND (상품 추천)
+   - RECOMMEND: "추천"/"추천해줘"/"어떤게 좋아"/"뭐 살까"/"구매하고 싶어"/"보충제"/"영양제"/"상품" + "추천" → PRODUCT_RECOMMEND (RECOMMEND)
+7. GENERAL_CHAT (일반)
    - CHAT: 그 외 → GENERAL_CHAT (CHAT)
 
 [엔티티]
@@ -34,7 +36,7 @@ SYSTEM_PROMPT = """사용자 질문을 intent(대분류)와 action(소분류)으
 [응답]
 JSON만 반환:
 {{
-  "intent": "WORKOUT|PAIN_REPORT|MEAL_QUERY|BODY_QUERY|DELIVERY_QUERY|GENERAL_CHAT",
+  "intent": "WORKOUT|PAIN_REPORT|MEAL_QUERY|BODY_QUERY|DELIVERY_QUERY|PRODUCT_RECOMMEND|GENERAL_CHAT",
   "action": "QUERY|RECOMMEND|MODIFY|REPORT|CHAT",
   "entities": {{"date": "...", "exercise_name": "...", "body_part": "...", "intensity": "...", "exercise_completed": "...", "meal_time": "...", "body_metric": "...", "product_name": "...", "delivery_status": "..."}},
   "ai_answer": "간단한 한국어 답변"
