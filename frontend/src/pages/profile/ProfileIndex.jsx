@@ -44,7 +44,7 @@ const ProfileIndex = () => {
 
   // OCR 관련 상태 (2칸 순서 업로드 → 처리 → 피드백 모달)
   const [isOcrModalOpen, setIsOcrModalOpen] = useState(false);
-  const [ocrStep, setOcrStep] = useState("upload"); // 'upload' | 'processing' | 'feedback'
+  const [ocrStep, setOcrStep] = useState("upload"); // 'upload' | 'processing' | 'confirm' | 'feedback'
   const [ocrImages, setOcrImages] = useState([]); // 최대 2개: [{ file, preview, text?, parsedData? }, ...]
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrError, setOcrError] = useState(null);
@@ -157,7 +157,7 @@ const ProfileIndex = () => {
     });
   };
 
-  // OCR: 분석 시작 (1장 OCR → 파싱 → 백엔드 save-and-compare: DB 저장 후 직전 1 row와 비교)
+  // OCR: 분석 시작 (1장 OCR → 파싱 → 분석 결과만 표시, DB 저장은 사용자 확인 후)
   const handleOcrProcess = async () => {
     const list = ocrImages.filter((item) => item?.file);
     if (list.length === 0) {
@@ -173,15 +173,30 @@ const ProfileIndex = () => {
       const text = res?.text ?? "";
       const parsedData = parseInbodyOcrText(text);
       setOcrImages((prev) => [{ ...prev[0], text, parsedData }]);
+      setComparisonFeedback(null);
+      setOcrStep("confirm");
+    } catch (err) {
+      setOcrError(err.message || "OCR 처리 중 오류가 발생했습니다.");
+      setOcrStep("upload");
+    } finally {
+      setOcrLoading(false);
+    }
+  };
 
-      const payload = buildBodyInfoPayload(parsedData);
+  // OCR: "저장할까요?" → [저장] 클릭 시 DB 저장 후 비교 결과 표시
+  const handleOcrConfirmSave = async () => {
+    const list = ocrImages.filter((item) => item?.parsedData);
+    if (list.length === 0) return;
+    setOcrLoading(true);
+    setOcrError(null);
+    try {
+      const payload = buildBodyInfoPayload(list[0].parsedData);
       const feedback = await saveAndCompare(payload);
       setComparisonFeedback(feedback);
       setOcrStep("feedback");
       fetchData();
     } catch (err) {
-      setOcrError(err.message || "OCR 처리 중 오류가 발생했습니다.");
-      setOcrStep("upload");
+      setOcrError(err.message || "저장 중 오류가 발생했습니다.");
     } finally {
       setOcrLoading(false);
     }
@@ -519,6 +534,7 @@ const ProfileIndex = () => {
                 <h3 style={{ margin: 0, fontSize: "18px", color: "#333" }}>
                   {ocrStep === "upload" && "인바디 이미지 업로드"}
                   {ocrStep === "processing" && "분석 중"}
+                  {ocrStep === "confirm" && "분석 결과"}
                   {ocrStep === "feedback" && "비교 분석 결과"}
                 </h3>
                 <button
@@ -591,7 +607,54 @@ const ProfileIndex = () => {
               )}
 
               {ocrStep === "processing" && (
-                <p style={{ color: "#666", margin: "20px 0" }}>이미지에서 텍스트를 추출하고 비교 분석 중입니다...</p>
+                <p style={{ color: "#666", margin: "20px 0" }}>이미지에서 텍스트를 추출하고 분석 중입니다...</p>
+              )}
+
+              {ocrStep === "confirm" && ocrImages[0]?.parsedData && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  <p style={{ margin: 0, fontSize: "14px", color: "#333" }}>추출된 체성분 수치입니다. 저장할까요?</p>
+                  <div style={{ background: "#f5f5f5", borderRadius: "8px", padding: "12px", fontSize: "13px", color: "#333" }}>
+                    {[
+                      { key: "체중", val: ocrImages[0].parsedData.weight, unit: "kg" },
+                      { key: "키", val: ocrImages[0].parsedData.height, unit: "cm" },
+                      { key: "골격근량", val: ocrImages[0].parsedData.skeletalMuscleMass, unit: "kg" },
+                      { key: "체지방률", val: ocrImages[0].parsedData.bodyFatPercent, unit: "%" },
+                      { key: "체수분", val: ocrImages[0].parsedData.bodyWater, unit: "L" },
+                      { key: "단백질", val: ocrImages[0].parsedData.protein, unit: "kg" },
+                      { key: "무기질", val: ocrImages[0].parsedData.minerals, unit: "kg" },
+                      { key: "체지방량", val: ocrImages[0].parsedData.bodyFatMass, unit: "kg" }
+                    ].filter(({ val }) => val != null && val !== "").map(({ key, val, unit }) => (
+                      <div key={key} style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
+                        <span>{key}</span>
+                        <span><strong>{val}</strong> {unit}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+                    <button
+                      type="button"
+                      onClick={handleOcrConfirmSave}
+                      disabled={ocrLoading}
+                      style={{
+                        flex: 1, padding: "10px 16px", backgroundColor: "#2e7d32", color: "#fff",
+                        border: "none", borderRadius: "6px", fontWeight: "bold", cursor: ocrLoading ? "not-allowed" : "pointer", fontSize: "14px"
+                      }}
+                    >
+                      {ocrLoading ? "저장 중..." : "저장"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleOcrFeedbackClose}
+                      disabled={ocrLoading}
+                      style={{
+                        flex: 1, padding: "10px 16px", backgroundColor: "#757575", color: "#fff",
+                        border: "none", borderRadius: "6px", fontWeight: "bold", cursor: ocrLoading ? "not-allowed" : "pointer", fontSize: "14px"
+                      }}
+                    >
+                      아니요
+                    </button>
+                  </div>
+                </div>
               )}
 
               {ocrStep === "feedback" && comparisonFeedback && (
