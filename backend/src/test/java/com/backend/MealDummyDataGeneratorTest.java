@@ -1,4 +1,4 @@
-package com.backend.service.meal;
+package com.backend;
 
 import com.backend.domain.meal.Meal;
 import com.backend.domain.meal.MealTarget;

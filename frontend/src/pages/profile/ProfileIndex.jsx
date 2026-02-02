@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { useDispatch } from "react-redux";
 import BasicLayout from "../../components/layout/BasicLayout";
-import { logout } from "../../slices/loginSlice";
-import { Home, User, Moon, Sun, X, Plus, Edit, Trash2 } from "lucide-react";
+import { User, Moon, Sun, X, Plus, Edit, Trash2 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip,
 } from "recharts";
@@ -16,7 +14,6 @@ import {
 } from "../../services/memberInfoAddrApi";
 
 const ProfileIndex = () => {
-  const dispatch = useDispatch();
   const [historyData, setHistoryData] = useState([]);
   const [latestInfo, setLatestInfo] = useState(null);
 
@@ -234,17 +231,11 @@ const ProfileIndex = () => {
   return (
     <BasicLayout containerClassName="page-container dashboard-container">
       <div className="w-full">
-        <header className="section-header-token flex flex-wrap items-center justify-between gap-4">
+        <header className="section-header-token">
           <h1 className="section-title">
             <span className="text-text-main">My </span>
             <span className="text-primary-500">Profile</span>
           </h1>
-          <div className="dashboard-header header-right flex items-center gap-2">
-            <Home className="icon-home w-6 h-6" size={24} aria-hidden />
-            <button type="button" className="btn-logout" onClick={() => dispatch(logout())}>
-              로그아웃
-            </button>
-          </div>
         </header>
 
         <div className="dashboard-main mt-6">
