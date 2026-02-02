@@ -10,11 +10,23 @@ export function useAI() {
     try {
       dispatch(setLoading(true));
       
-      // 사용자 메시지 추가 (이미지가 있으면 이미지 표시용 텍스트 추가)
-      const userMessageContent = imageFile 
-        ? (text ? `${text} [이미지 첨부됨]` : '[이미지 첨부됨]')
-        : text;
-      dispatch(addMessage({ role: 'user', content: userMessageContent }));
+      // 이미지가 있으면 base64로 변환하여 메시지에 저장
+      let imageUrl = null;
+      if (imageFile) {
+        imageUrl = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(imageFile);
+        });
+      }
+      
+      // 사용자 메시지 추가 (이미지 URL도 함께 저장)
+      const userMessageContent = text || '';
+      dispatch(addMessage({ 
+        role: 'user', 
+        content: userMessageContent,
+        imageUrl: imageUrl 
+      }));
       
       // 최근 대화 2개 추출 (AI 1개 + 사용자 1개)
       const recentMessages = getRecentMessages(messages, 2);

@@ -147,7 +147,7 @@ export default function AIChatOverlay() {
     <>
       {/* 플로팅 버튼 (다른 사람의 v2 디자인 적용) */}
       {!isChatOpen && (
-        <div className="fixed bottom-8 right-8 z-50 ai-fab-wrapper">
+        <div className="fixed bottom-8 right-8 z-50 ai-fab-wrapper" style={{ overflow: 'visible' }}>
           <button
             type="button"
             onClick={() => dispatch(toggleChat())}
@@ -157,12 +157,12 @@ export default function AIChatOverlay() {
             <svg className="w-8 h-8 relative z-[2] text-neutral-950" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
             </svg>
-            {notificationCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-accent-secondary text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-bg-root z-[2]">
-                {notificationCount > 9 ? '9+' : notificationCount}
-              </span>
-            )}
           </button>
+          {notificationCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-accent-secondary text-white text-xs font-bold rounded-full min-w-[22px] h-[22px] px-2 flex items-center justify-center border-2 border-bg-root z-[3] shadow-sm leading-none">
+              {notificationCount > 9 ? '9+' : notificationCount}
+            </span>
+          )}
         </div>
       )}
 
@@ -197,7 +197,19 @@ export default function AIChatOverlay() {
                   <div className={`max-w-[85%] rounded-token px-4 py-2 ${
                     message.role === 'user' ? 'bg-primary-500 text-bg-root' : 'bg-bg-surface text-text-main shadow-sm border border-border-default'
                   }`}>
-                    <p className="text-sm whitespace-pre-wrap font-medium">{message.content}</p>
+                    {/* 이미지 썸네일 표시 */}
+                    {message.imageUrl && (
+                      <div className="mb-2">
+                        <img 
+                          src={message.imageUrl} 
+                          alt="첨부 이미지" 
+                          className="max-w-[200px] max-h-[200px] rounded-token border border-border-default/50 shadow-sm object-cover"
+                        />
+                      </div>
+                    )}
+                    {message.content && (
+                      <p className="text-sm whitespace-pre-wrap font-medium">{message.content}</p>
+                    )}
 
                     {/* WORKOUT 인텐트 UI (기능 v3 유지) */}
                     {message.intent === 'WORKOUT' && message.data?.exercises?.length > 0 && (
