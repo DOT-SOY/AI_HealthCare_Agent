@@ -26,8 +26,8 @@ public class RefreshTokenRedisService implements RefreshTokenService {
 
     private static final String TOKEN_KEY_PREFIX = "refresh:token:";
     private static final String FAMILY_KEY_PREFIX = "refresh:family:";
-    private static final int REFRESH_TTL_MIN = 60 * 24; // 24시간
-    private static final int REFRESH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24;
+    private static final int REFRESH_TTL_MIN = 15 * 24 * 60; // 15일
+    private static final int REFRESH_COOKIE_MAX_AGE_SECONDS = 15 * 24 * 60 * 60;
 
     private final RedisTemplate<String, Object> redisTemplate;
 

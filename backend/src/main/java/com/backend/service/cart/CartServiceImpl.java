@@ -366,8 +366,9 @@ public class CartServiceImpl implements CartService {
             }
         }
 
-        // 4. 게스트 장바구니 삭제
-        cartItemRepository.deleteByCartId(guestCart.getId());
+        // 4. 게스트 장바구니 삭제 (Cart 삭제만 수행. cascade + orphanRemoval로 소속 CartItem이 함께 삭제됨.
+        //    deleteByCartId를 먼저 호출하면 DB 행은 삭제되지만 영속 컨텍스트의 items는 남아,
+        //    delete(guestCart) 시 Hibernate가 이미 삭제된 행을 다시 삭제하려다 ObjectOptimisticLockingFailureException 발생)
         cartRepository.delete(guestCart);
         log.info("Guest cart merged and deleted: guestToken={}, memberId={}", guestToken, memberId);
     }

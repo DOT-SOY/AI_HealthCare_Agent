@@ -89,10 +89,10 @@ const PaymentSuccessPage = () => {
 
   if (status === 'loading') {
     return (
-      <div className="max-w-lg mx-auto text-center py-16">
-        <p className="text-gray-600 mb-2">결제 승인 처리 중입니다...</p>
+      <div className="max-w-lg mx-auto text-center py-16 text-text-main">
+        <p className="text-text-sub mb-2">결제 승인 처리 중입니다...</p>
         {retryCount > 0 && (
-          <p className="text-gray-500 text-sm">
+          <p className="text-text-muted text-sm">
             결제 완료 여부를 확인하는 중입니다. 잠시만 기다려 주세요. (자동 재시도 {retryCount}/{MAX_RETRY})
           </p>
         )}
@@ -103,9 +103,12 @@ const PaymentSuccessPage = () => {
   if (status === 'error') {
     return (
       <div className="max-w-lg mx-auto text-center py-16">
-        <h1 className="text-xl font-bold text-red-600 mb-2">결제 승인 실패</h1>
-        <p className="text-gray-700 mb-6">{errorMessage}</p>
-        <Link to="/shop/list" className="text-blue-500 hover:underline">
+        <h1 className="text-xl font-bold text-accent-secondary mb-2">결제 승인 실패</h1>
+        <p className="text-text-main mb-6">{errorMessage}</p>
+        <Link
+          to="/shop/list"
+          className="inline-block px-6 py-2 border border-border-default rounded-token bg-bg-card text-text-main hover:border-primary-500 hover:text-primary-500 hover:bg-primary-500/10 font-medium transition-colors"
+        >
           쇼핑 계속하기
         </Link>
       </div>
@@ -114,28 +117,28 @@ const PaymentSuccessPage = () => {
 
   return (
     <div className="max-w-lg mx-auto text-center py-16">
-      <h1 className="text-2xl font-bold text-green-600 mb-4">결제가 완료되었습니다</h1>
+      <h1 className="text-2xl font-bold text-primary-500 mb-4">결제가 완료되었습니다</h1>
       {detail && (
-        <div className="text-left bg-gray-50 rounded-lg p-4 mb-6">
-          <p><span className="font-medium">주문번호</span> {detail.orderId}</p>
-          <p><span className="font-medium">결제금액</span> {Number(detail.amount ?? 0).toLocaleString()}원</p>
+        <div className="text-left bg-bg-card border border-border-default rounded-token p-4 mb-6 text-text-main">
+          <p><span className="font-medium text-text-main">주문번호</span> <span className="text-text-sub">{detail.orderId}</span></p>
+          <p><span className="font-medium text-text-main">결제금액</span> <span className="text-text-sub">{Number(detail.amount ?? 0).toLocaleString()}원</span></p>
           {detail.approvedAt && (
-            <p><span className="font-medium">승인일시</span> {new Date(detail.approvedAt).toLocaleString()}</p>
+            <p><span className="font-medium text-text-main">승인일시</span> <span className="text-text-sub">{new Date(detail.approvedAt).toLocaleString()}</span></p>
           )}
         </div>
       )}
-      <div className="flex justify-center gap-3">
+      <div className="flex justify-center gap-3 flex-wrap">
         {detail?.orderId && (
           <Link
             to={`/shop/orders/${encodeURIComponent(detail.orderId)}`}
-            className="inline-block px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-medium"
+            className="inline-block px-6 py-2 bg-primary-500 text-bg-root rounded-token hover:shadow-glow font-medium border border-primary-500 transition-all"
           >
             주문서 바로 보기
           </Link>
         )}
         <Link
           to="/shop/list"
-          className="inline-block px-6 py-2 border rounded-lg hover:bg-gray-50 font-medium"
+          className="inline-block px-6 py-2 border border-border-default rounded-token bg-bg-card text-text-main hover:border-primary-500 hover:text-primary-500 hover:bg-primary-500/10 font-medium transition-colors"
         >
           쇼핑 계속하기
         </Link>

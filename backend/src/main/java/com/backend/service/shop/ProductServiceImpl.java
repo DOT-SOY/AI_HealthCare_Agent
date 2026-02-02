@@ -353,7 +353,13 @@ public class ProductServiceImpl implements ProductService {
      * 주문/장바구니에 참조된 옵션은 삭제하지 않아 FK 제약 없이 수정 가능.
      */
     private void replaceVariants(Product product, List<ProductVariantRequest> requests) {
-        if (requests == null) return;
+        if (requests == null) {
+            log.info("replaceVariants: requests is null, skipping");
+            return;
+        }
+        
+        log.info("replaceVariants: processing {} variant requests for product {}", 
+                requests.size(), product.getId());
 
         List<ProductVariant> currentVariants = product.getVariants();
         List<Long> currentIds = currentVariants.stream().map(ProductVariant::getId).toList();
@@ -378,15 +384,16 @@ public class ProductServiceImpl implements ProductService {
             if (req.getId() != null && currentById.containsKey(req.getId())) {
                 ProductVariant existing = currentById.get(req.getId());
                 existing.updateDetails(
-                        req.getOptionText(),
+                        normalizeOptionText(req.getOptionText()),
                         req.getPrice(),
                         req.getStockQty(),
                         req.getActive()
                 );
             } else {
+                String optionText = normalizeOptionText(req.getOptionText());
                 product.getVariants().add(ProductVariant.builder()
                         .product(product)
-                        .optionText(req.getOptionText() != null ? req.getOptionText().trim() : "")
+                        .optionText(optionText)
                         .price(req.getPrice())
                         .stockQty(req.getStockQty() != null ? req.getStockQty() : 0)
                         .active(req.getActive() != null ? req.getActive() : true)
@@ -394,9 +401,10 @@ public class ProductServiceImpl implements ProductService {
             }
         }
 
-        // 삭제: 요청에 없고, 주문/장바구니에도 없는 것만 컬렉션에서 제거 (orphanRemoval로 DB 삭제)
+        // 삭제: 기존(이미 id 있음) variant 중 요청에 없고 주문/장바구니에도 없는 것만 제거.
+        // 새로 추가한 variant(id==null)는 제외해야 생성 시 옵션이 사라지지 않음.
         List<ProductVariant> toRemove = currentVariants.stream()
-                .filter(v -> !requestIds.contains(v.getId()) && !inUseIds.contains(v.getId()))
+                .filter(v -> v.getId() != null && !requestIds.contains(v.getId()) && !inUseIds.contains(v.getId()))
                 .toList();
         currentVariants.removeAll(toRemove);
 
@@ -441,6 +449,14 @@ public class ProductServiceImpl implements ProductService {
     // ===========================
     // Helpers
     // ===========================
+
+    /** 옵션 텍스트: null/blank면 "기본 옵션" (DB nullable=false 및 검증 완화 대응) */
+    private static String normalizeOptionText(String optionText) {
+        if (optionText != null && !optionText.trim().isEmpty()) {
+            return optionText.trim();
+        }
+        return "기본 옵션";
+    }
 
     private Product findActiveProduct(Long id) {
         return productRepository.findByIdAndDeletedAtIsNull(id)
