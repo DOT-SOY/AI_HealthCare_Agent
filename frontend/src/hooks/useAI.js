@@ -6,15 +6,33 @@ export function useAI() {
   const dispatch = useDispatch();
   const { messages, lastResponse, loading } = useSelector((state) => state.ai);
 
-  const sendAIMessage = async (text) => {
+  const sendAIMessage = async (text, imageFile = null) => {
     try {
       dispatch(setLoading(true));
       
-      // 사용자 메시지 추가
-      dispatch(addMessage({ role: 'user', content: text }));
+      // 이미지가 있으면 base64로 변환하여 메시지에 저장
+      let imageUrl = null;
+      if (imageFile) {
+        imageUrl = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(imageFile);
+        });
+      }
+      
+      // 사용자 메시지 추가 (이미지 URL도 함께 저장)
+      const userMessageContent = text || '';
+      dispatch(addMessage({ 
+        role: 'user', 
+        content: userMessageContent,
+        imageUrl: imageUrl 
+      }));
+      
+      // 최근 대화 2개 추출 (AI 1개 + 사용자 1개)
+      const recentMessages = getRecentMessages(messages, 2);
       
       // AI API 호출
-      const response = await aiApi.sendMessage(text);
+      const response = await aiApi.sendMessage(text, imageFile, recentMessages);
       
       // AI 응답 추가 (백엔드 응답 형식에 맞춤)
       let aiResponseText = response.message || response.aiAnswer;
@@ -31,7 +49,13 @@ export function useAI() {
         }
       }
       
-      dispatch(addMessage({ role: 'assistant', content: aiResponseText }));
+      // AI 응답 메시지에 data 정보도 함께 저장 (루틴 정보 등)
+      dispatch(addMessage({ 
+        role: 'assistant', 
+        content: aiResponseText,
+        data: response.data || null,
+        intent: response.intent || null
+      }));
       dispatch(setLastResponse(response));
       
       return response;
@@ -46,6 +70,27 @@ export function useAI() {
     } finally {
       dispatch(setLoading(false));
     }
+  };
+
+  /**
+   * 최근 대화 메시지 추출 (AI 1개 + 사용자 1개)
+   */
+  const getRecentMessages = (messages, count) => {
+    if (!messages || messages.length === 0) {
+      return [];
+    }
+    
+    const recent = [];
+    // 뒤에서부터 순회
+    for (let i = messages.length - 1; i >= 0 && recent.length < count; i--) {
+      const msg = messages[i];
+      // 첫 번째 메시지이거나 이전 메시지와 역할이 다를 때만 추가
+      if (recent.length === 0 || recent[0].role !== msg.role) {
+        recent.unshift(msg);
+      }
+    }
+    
+    return recent;
   };
 
   const clearMessages = () => {
