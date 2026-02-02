@@ -26,8 +26,24 @@ import java.util.Set;
 public class AIChatOrchestrationServiceImpl implements AIChatOrchestrationService {
 
     private static final Set<String> TRIGGER_KEYWORDS = Set.of(
-        "응", "그거 해줘", "그렇게 해줘", "해줘", "해봐", 
-        "그거", "그렇게", "좋아", "알겠어"
+            // 동의 / 승인
+            "응", "응응", "그래", "그래요", "좋아", "좋아요", "알겠어", "알겠습니다",
+            "오케이", "오케", "OK", "ㅇㅋ",
+
+            // 이전 대화 지시
+            "그거", "그거 해줘", "그걸로", "그렇게", "그렇게 해줘",
+            "그 내용", "그 방식", "그 방법", "그 기준",
+            "아까", "아까 그거", "방금 그거", "그럼",
+            "이전 거", "전에 말한 거", "조금 전에 말한 거",
+
+            // 이어서 / 계속
+            "이어서", "계속", "계속해줘", "그 다음", "다음 단계", "그 다음으로",
+
+            // 반복
+            "다시", "다시 해줘", "한 번 더", "다시 한번",
+
+            // 목적어 생략
+            "해줘", "해", "해봐", "보여줘", "알려줘", "정리해줘"
     );
 
     private final AIIntentService aiIntentService;

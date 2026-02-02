@@ -7,16 +7,27 @@ import os
 from dotenv import load_dotenv
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
-from openai import OpenAI
+from sentence_transformers import SentenceTransformer
 
 # 환경 변수 로드 (ai-server 폴더의 .env 파일)
 import pathlib
 env_path = pathlib.Path(__file__).parent / 'ai-server' / '.env'
 load_dotenv(dotenv_path=env_path)
 
-# 클라이언트 초기화 (텍스트 임베딩용)
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+# Sentence-Transformers 모델 초기화 (텍스트 임베딩용)
+_st_model: SentenceTransformer | None = None
+
+
+def _get_embedding_model() -> SentenceTransformer:
+    """Sentence-Transformers 텍스트 임베딩 모델 로드"""
+    global _st_model
+    if _st_model is None:
+        model_name = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+        print(f"[RAG] SentenceTransformer 모델 로딩 중... ({model_name})")
+        _st_model = SentenceTransformer(model_name)
+        print("[RAG] SentenceTransformer 모델 로딩 완료")
+    return _st_model
+
 
 qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
 qdrant_client = QdrantClient(url=qdrant_url)
@@ -36,14 +47,12 @@ def load_knowledge() -> list:
         return []
 
 
-def get_embedding(text: str) -> list:
-    """OpenAI 임베딩 생성"""
+def get_embedding(text: str) -> list | None:
+    """Sentence-Transformers 텍스트 임베딩 생성"""
     try:
-        response = openai_client.embeddings.create(
-            model=EMBEDDING_MODEL,
-            input=text
-        )
-        return response.data[0].embedding
+        model = _get_embedding_model()
+        embedding = model.encode(text, normalize_embeddings=True)
+        return embedding.tolist()
     except Exception as e:
         print(f"임베딩 생성 실패: {e}")
         return None
@@ -96,7 +105,7 @@ def main():
         sample_text = f"{knowledge_data[0].get('title', '')} {knowledge_data[0].get('content', '')}"
         sample_embedding = get_embedding(sample_text)
         if not sample_embedding:
-            print("임베딩 생성 실패 (OpenAI API 할당량 초과 가능).")
+            print("임베딩 생성 실패 (임베딩 모델 초기화 또는 인코딩 오류).")
             return
         else:
             vector_size = len(sample_embedding)

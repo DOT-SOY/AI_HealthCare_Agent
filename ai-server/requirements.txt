@@ -11,3 +11,4 @@ transformers==4.40.0
 # torch @ https://download.pytorch.org/whl/cpu/torch-2.10.0%2Bcpu-cp311-cp311-win_amd64.whl
 torch>=2.0.0
 pillow==10.4.0
+sentence-transformers==2.7.0
