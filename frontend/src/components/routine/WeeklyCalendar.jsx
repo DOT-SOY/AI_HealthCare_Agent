@@ -2,14 +2,17 @@ export default function WeeklyCalendar({ routines = [], selectedDate, onDateChan
   const days = ['일', '월', '화', '수', '목', '금', '토'];
   const today = new Date();
   
-  // 최근 7일 생성
+  // selectedDate를 기준으로 주간 캘린더 생성
+  // selectedDate가 없으면 오늘 기준으로 생성
+  const baseDate = selectedDate || today;
+  
+  // baseDate를 중심으로 전후 3일씩 포함한 7일 생성
   const weekDates = [];
-  for (let i = 0; i < 7; i++) {
-    const date = new Date(today);
-    date.setDate(date.getDate() - i);
+  for (let i = -3; i <= 3; i++) {
+    const date = new Date(baseDate);
+    date.setDate(date.getDate() + i);
     weekDates.push(date);
   }
-  weekDates.reverse(); // 오래된 날짜부터
 
   const isSelected = (date) => {
     if (!selectedDate) return false;
@@ -20,14 +23,21 @@ export default function WeeklyCalendar({ routines = [], selectedDate, onDateChan
     return date.toDateString() === today.toDateString();
   };
 
+  const formatDateKey = (date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
   const getRoutineForDate = (date) => {
-    const dateStr = date.toISOString().split('T')[0];
-    return routines.find(r => {
-      if (!r.date) return false;
-      // date가 문자열이면 그대로 비교, Date 객체면 변환
-      const routineDateStr = typeof r.date === 'string' 
-        ? r.date 
-        : new Date(r.date).toISOString().split('T')[0];
+    const dateStr = formatDateKey(date);
+    return routines.find((r) => {
+      if (!r?.date) return false;
+      const routineDateStr =
+        typeof r.date === 'string'
+          ? r.date
+          : formatDateKey(new Date(r.date));
       return routineDateStr === dateStr;
     });
   };

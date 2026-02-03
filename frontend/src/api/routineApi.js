@@ -36,11 +36,15 @@ export const routineApi = {
   },
   
   getByDate: async (date) => {
-    // 주간 루틴에서 해당 날짜 찾기
-    const response = await jwtAxios.get(`/routines/weekly`);
-    const routines = response.data;
-    const targetDate = new Date(date).toISOString().split('T')[0];
-    return routines.find(r => r.date === targetDate) || null;
+    // 날짜 문자열로 변환 (YYYY-MM-DD)
+    const dateStr = typeof date === 'string' ? date : new Date(date).toISOString().split('T')[0];
+    try {
+      const response = await jwtAxios.get('/routines/by-date', { params: { date: dateStr } });
+      return response.data;
+    } catch (error) {
+      console.error('날짜별 루틴 조회 실패:', error);
+      return null;
+    }
   },
   
   create: async (date, title, summary) => {
@@ -54,6 +58,11 @@ export const routineApi = {
   
   updateStatus: async (id, status) => {
     const response = await jwtAxios.put(`/routines/${id}/status`, { status });
+    return response.data;
+  },
+  
+  getVolumeStats: async (period = 'month') => {
+    const response = await jwtAxios.get('/routines/volume-stats', { params: { period } });
     return response.data;
   },
 };
