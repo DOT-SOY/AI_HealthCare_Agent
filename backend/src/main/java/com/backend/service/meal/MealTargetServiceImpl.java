@@ -29,30 +29,49 @@ public class MealTargetServiceImpl implements MealTargetService {
      * [캘린더용 고성능 조회] 월간 모든 날짜의 성취도 및 아이콘 상태 계산
      */
     public List<MealCalendarDto> getMonthlyCalendarStatus(Long userId, LocalDate yearMonth) {
-        // 1. 월간 식단 데이터 원샷 조회 (QueryDSL)
-        List<MealCalendarDto> monthlySums = mealSearch.findMonthlyMealSummary(userId, yearMonth);
-        
-        // 2. 월간 목표 설정 데이터 원샷 조회
-        LocalDate start = yearMonth.withDayOfMonth(1);
-        LocalDate end = yearMonth.withDayOfMonth(yearMonth.lengthOfMonth());
-        List<MealTarget> monthTargets = targetSearch.findTargetsBetweenDates(userId, start, end);
-        Map<LocalDate, MealTarget> targetMap = monthTargets.stream()
-                .collect(Collectors.toMap(MealTarget::getTargetDate, t -> t));
-
-        // 3. 목표 승계 기초 데이터 (이번 달 첫 날 이전의 최신 목표)
-        MealTarget lastActiveTarget = targetSearch.findLatestTargetBeforeDate(userId, start);
-
-        // 4. 전수 조사 및 오차 판정 (±10%, ±2%)
-        for (MealCalendarDto dayDto : monthlySums) {
-            if (targetMap.containsKey(dayDto.getMealDate())) {
-                lastActiveTarget = targetMap.get(dayDto.getMealDate());
+        try {
+            // 1. 월간 식단 데이터 원샷 조회 (QueryDSL)
+            List<MealCalendarDto> monthlySums = mealSearch.findMonthlyMealSummary(userId, yearMonth);
+            if (monthlySums == null) {
+                monthlySums = new ArrayList<>();
             }
+            
+            // 2. 월간 목표 설정 데이터 원샷 조회
+            LocalDate start = yearMonth.withDayOfMonth(1);
+            LocalDate end = yearMonth.withDayOfMonth(yearMonth.lengthOfMonth());
+            List<MealTarget> monthTargets = targetSearch.findTargetsBetweenDates(userId, start, end);
+            Map<LocalDate, MealTarget> targetMap = monthTargets != null 
+                ? monthTargets.stream()
+                    .filter(t -> t != null && t.getTargetDate() != null)
+                    .collect(Collectors.toMap(MealTarget::getTargetDate, t -> t, (existing, replacement) -> existing))
+                : new HashMap<>();
 
-            if (lastActiveTarget != null) {
-                applyAchievementLogic(dayDto, lastActiveTarget);
+            // 3. 목표 승계 기초 데이터 (이번 달 첫 날 이전의 최신 목표)
+            MealTarget lastActiveTarget = targetSearch.findLatestTargetBeforeDate(userId, start);
+
+            // 4. 전수 조사 및 오차 판정 (±10%, ±2%)
+            for (MealCalendarDto dayDto : monthlySums) {
+                if (dayDto == null || dayDto.getMealDate() == null) {
+                    continue;
+                }
+                
+                if (targetMap.containsKey(dayDto.getMealDate())) {
+                    lastActiveTarget = targetMap.get(dayDto.getMealDate());
+                }
+
+                if (lastActiveTarget != null) {
+                    try {
+                        applyAchievementLogic(dayDto, lastActiveTarget);
+                    } catch (Exception e) {
+                        log.warn("성취도 계산 실패 - 날짜: {}, 에러: {}", dayDto.getMealDate(), e.getMessage());
+                    }
+                }
             }
+            return monthlySums;
+        } catch (Exception e) {
+            log.error("월간 캘린더 상태 조회 실패 - userId: {}, yearMonth: {}, 에러: {}", userId, yearMonth, e.getMessage(), e);
+            return new ArrayList<>(); // 에러 발생 시 빈 리스트 반환
         }
-        return monthlySums;
     }
 
     /**
@@ -111,10 +130,29 @@ public class MealTargetServiceImpl implements MealTargetService {
      * [핵심 로직] ±10% / ±2% 판정 알고리즘
      */
     private void applyAchievementLogic(MealCalendarDto dto, MealTarget target) {
-        int percent = (int) ((dto.getTotalEatenCalories() / (double) target.getGoalCal()) * 100);
+        if (dto == null || target == null) {
+            return;
+        }
+        
+        Integer totalEatenCalories = dto.getTotalEatenCalories();
+        Integer goalCal = target.getGoalCal();
+        
+        // null 체크
+        if (totalEatenCalories == null) {
+            totalEatenCalories = 0;
+        }
+        if (goalCal == null || goalCal == 0) {
+            dto.setGoalCalories(0);
+            dto.setAchievementRate(0);
+            dto.setDailyStatus("FAIL");
+            dto.setIsSuccess(false);
+            return;
+        }
+        
+        int percent = (int) ((totalEatenCalories / (double) goalCal) * 100);
         double diff = Math.abs(100 - percent);
 
-        dto.setGoalCalories(target.getGoalCal());
+        dto.setGoalCalories(goalCal);
         dto.setAchievementRate(percent);
         
         // 엔터프라이즈급 상태 판정

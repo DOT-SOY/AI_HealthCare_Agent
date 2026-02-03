@@ -11,6 +11,7 @@ import com.backend.dto.request.ExerciseUpdateRequest;
 import com.backend.dto.request.RoutineCreateRequest;
 import com.backend.dto.response.ExerciseResponse;
 import com.backend.dto.response.RoutineResponse;
+import com.backend.dto.response.VolumeStatsResponse;
 import com.backend.repository.exercise.ExerciseRepository;
 import com.backend.repository.exercise.ExerciseTypeRepository;
 import com.backend.repository.member.MemberRepository;
@@ -601,5 +602,77 @@ public class RoutineServiceImpl implements RoutineService {
             .orderIndex(exercise.getOrderIndex())
             .completed(exercise.isCompleted())
             .build();
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public VolumeStatsResponse getVolumeStats(Long memberId, String period) {
+        log.info("총 볼륨 통계 조회: memberId={}, period={}", memberId, period);
+        
+        LocalDate today = LocalDate.now();
+        LocalDate startDate, endDate, previousStartDate, previousEndDate;
+        
+        if ("week".equals(period)) {
+            // 주별: 이번 주와 저번 주
+            int dayOfWeek = today.getDayOfWeek().getValue() - 1; // 0(월) ~ 6(일)
+            startDate = today.minusDays(dayOfWeek); // 이번 주 월요일
+            endDate = startDate.plusDays(6); // 이번 주 일요일
+            previousStartDate = startDate.minusWeeks(1); // 저번 주 월요일
+            previousEndDate = previousStartDate.plusDays(6); // 저번 주 일요일
+        } else {
+            // 월별: 이번 달과 저번 달
+            startDate = LocalDate.of(today.getYear(), today.getMonth(), 1); // 이번 달 1일
+            endDate = startDate.plusMonths(1).minusDays(1); // 이번 달 마지막 날
+            previousStartDate = startDate.minusMonths(1); // 저번 달 1일
+            previousEndDate = startDate.minusDays(1); // 저번 달 마지막 날
+        }
+        
+        // 이번 기간 루틴 조회
+        List<Routine> currentRoutines = routineRepository.findByMemberIdAndDateBetween(
+            memberId, startDate, endDate
+        );
+        
+        // 저번 기간 루틴 조회
+        List<Routine> previousRoutines = routineRepository.findByMemberIdAndDateBetween(
+            memberId, previousStartDate, previousEndDate
+        );
+        
+        // 총 볼륨 계산
+        List<VolumeStatsResponse.VolumeDataPoint> currentData = calculateVolumeDataPoints(currentRoutines);
+        List<VolumeStatsResponse.VolumeDataPoint> previousData = calculateVolumeDataPoints(previousRoutines);
+        
+        return VolumeStatsResponse.builder()
+            .current(currentData)
+            .previous(previousData)
+            .build();
+    }
+    
+    private List<VolumeStatsResponse.VolumeDataPoint> calculateVolumeDataPoints(List<Routine> routines) {
+        Map<LocalDate, Double> volumeByDate = new HashMap<>();
+        
+        for (Routine routine : routines) {
+            double totalVolume = 0.0;
+            
+            // 완료된 운동만 포함하여 총 볼륨 계산
+            for (Exercise exercise : routine.getExercises()) {
+                if (exercise.isCompleted() && exercise.getSets() != null && 
+                    exercise.getReps() != null && exercise.getWeight() != null) {
+                    totalVolume += exercise.getSets() * exercise.getReps() * exercise.getWeight();
+                }
+            }
+            
+            if (totalVolume > 0) {
+                volumeByDate.put(routine.getDate(), totalVolume);
+            }
+        }
+        
+        // 날짜순으로 정렬하여 반환
+        return volumeByDate.entrySet().stream()
+            .sorted(Map.Entry.comparingByKey())
+            .map(entry -> VolumeStatsResponse.VolumeDataPoint.builder()
+                .date(entry.getKey().toString())
+                .totalVolume(entry.getValue())
+                .build())
+            .collect(Collectors.toList());
     }
 }
