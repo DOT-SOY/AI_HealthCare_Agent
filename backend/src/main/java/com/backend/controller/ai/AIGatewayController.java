@@ -35,25 +35,6 @@ public class AIGatewayController {
      * AI 채팅 처리 (텍스트 및 이미지 지원)
      *
      * multipart/form-data로 텍스트, 이미지, 대화 히스토리를 받습니다.
-     * WORKOUT의 RECOMMEND 액션 처리 (소분류: action)
-     *
-     * - "루틴 짜달라" / "루틴 추천해줘" 등 요청 시 프리셋 선택 모달을 띄우도록 showPresetModal=true 반환
-     * - 프론트에서 카드 선택 후 applyPreset으로 루틴 생성
-     */
-    private AIChatResponse handleWorkoutRecommend(IntentClassificationResult classification) {
-        log.info("WORKOUT RECOMMEND: 프리셋 모달 표시 요청");
-
-        String message = "아래에서 원하는 프로그램을 선택해 주세요. 오늘부터 연속된 날짜에 루틴이 생성됩니다.";
-
-        return AIChatResponse.builder()
-            .message(message)
-            .intent("WORKOUT")
-            .showPresetModal(true)
-            .build();
-    }
-
-    /**
-     * WORKOUT의 MODIFY 액션 처리 (소분류: action)
      *
      * @param text 사용자 입력 텍스트 (선택적)
      * @param image 첨부된 이미지 파일 (선택적)

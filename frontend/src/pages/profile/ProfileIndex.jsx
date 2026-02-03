@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch } from "react-redux";
-import "../../styles/Profile.css";
 import BasicLayout from "../../components/layout/BasicLayout";
-import { User, Moon, Sun, X, Plus, Edit, Trash2 } from "lucide-react";
 import { logout } from "../../slices/loginSlice";
 import { Home, User, Moon, Sun, X, Plus, Edit, Trash2 } from "lucide-react";
 import {
@@ -29,9 +27,6 @@ const ProfileIndex = () => {
 
   const [historyData, setHistoryData] = useState([]);
   const [latestInfo, setLatestInfo] = useState(null);
-
-  // 대시보드 차트/레이아웃에서 사용할 다크 모드 플래그
-  const isDark = true;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editData, setEditData] = useState({});
@@ -245,11 +240,11 @@ const ProfileIndex = () => {
     <BasicLayout>
       <div className="dashboard-container" data-theme={isDark ? "dark" : "light"}>
         <header className="dashboard-header">
-             <h1 className="section-title">
-                        <span className="text-text-main">My </span>
-                        <span className="text-primary-500">Profile</span>
+          <h1 className="section-title">
+            <span className="text-text-main">My </span>
+            <span className="text-primary-500">Profile</span>
+          </h1>
           <Home className="icon-home" size={24} />
-
           <div className="header-right">
             <button className="btn-toggle-theme" onClick={toggleDarkMode}>
               {isDark ? <Sun size={20} /> : <Moon size={20} />}

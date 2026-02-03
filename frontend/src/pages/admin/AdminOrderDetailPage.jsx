@@ -51,7 +51,7 @@ const AdminOrderDetailPage = () => {
         setOrder(res);
       } catch (err) {
         if (cancelled) return;
-        setError(err?.message || '주문 정보를 불러오는데 실패했습니다.');
+        setError(err?.response?.data?.message || err?.message || '주문 정보를 불러오는데 실패했습니다.');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -67,7 +67,8 @@ const AdminOrderDetailPage = () => {
       await updateOrderStatusAdmin(orderNo, newStatus);
       setOrder((prev) => (prev ? { ...prev, status: newStatus } : null));
     } catch (err) {
-      alert(err?.message || '상태 변경에 실패했습니다.');
+      const msg = err?.response?.data?.message || err?.message || '상태 변경에 실패했습니다.';
+      alert(msg);
     } finally {
       setUpdatingStatus(false);
     }

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logout } from "../../slices/loginSlice";
+import { useTheme } from "../../contexts/ThemeContext";
 
 // 간단한 SVG 아이콘 컴포넌트들
 const HomeIcon = ({ className }) => (

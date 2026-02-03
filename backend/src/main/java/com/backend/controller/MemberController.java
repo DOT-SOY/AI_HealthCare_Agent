@@ -66,50 +66,6 @@ public class MemberController {
         ));
     }
 
-    /**
-     * Access Token 갱신 API (Refresh Token으로 새 Access Token 발급)
-     * - 인증 없이 호출 (JWTCheckFilter에서 /api/member/refresh 제외)
-     * - 쿠키의 refreshToken으로 회전 후 새 refreshToken 쿠키 설정 + 새 accessToken JSON 반환
-     */
-    @GetMapping("/refresh")
-    public ResponseEntity<?> refresh(HttpServletRequest request, HttpServletResponse response) {
-        String refreshTokenRaw = RefreshCookieUtil.get(request);
-        if (refreshTokenRaw == null || refreshTokenRaw.isBlank()) {
-            throw new JWTException(ErrorCode.JWT_NO_REFRESH_COOKIE);
-        }
-
-        String newRefreshToken = refreshTokenService.rotateRefreshToken(refreshTokenRaw, request, null);
-        RefreshCookieUtil.set(request, response, newRefreshToken, refreshTokenService.refreshCookieMaxAgeSeconds());
-
-        Map<String, Object> newRefreshClaims = JWTUtil.validateToken(newRefreshToken);
-        String email = (String) newRefreshClaims.get("email");
-        if (email == null || email.isBlank()) {
-            throw new JWTException(ErrorCode.JWT_INVALID_REFRESH_CLAIMS);
-        }
-
-        Member member = memberRepository.getWithRoles(email);
-        if (member == null) {
-            throw new JWTException(ErrorCode.JWT_INVALID_REFRESH_CLAIMS);
-        }
-
-        List<String> roleNames = member.getRoleList().stream()
-                .map(MemberRole::name)
-                .collect(Collectors.toList());
-
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("email", member.getEmail());
-        claims.put("name", member.getName());
-        claims.put("roleNames", roleNames);
-        claims.put("tokenType", TokenType.ACCESS.name());
-        claims.put("auth_time", Instant.now().getEpochSecond());
-        claims.put("amr", newRefreshClaims.getOrDefault("amr", "pwd"));
-
-        String accessToken = JWTUtil.generateToken(claims, 15);
-        claims.put("accessToken", accessToken);
-
-        return ResponseEntity.ok(claims);
-    }
-
     @PostMapping("/join")
     public ResponseEntity<?> join(@Valid @RequestBody MemberDTO memberDTO,
                                   BindingResult bindingResult) {

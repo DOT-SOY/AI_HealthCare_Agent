@@ -11,9 +11,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import com.backend.config.ExerciseAlternativesConfig;
+
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -134,31 +138,75 @@ public class WorkoutChatServiceImpl implements WorkoutChatService {
         // - 목표 및 선호도 고려
         // - AI 기반 운동 추천 생성
         
-        log.info("WORKOUT RECOMMEND 요청 (추후 구현): {}", classification);
+        log.info("WORKOUT RECOMMEND 요청: 프리셋 모달 표시");
         
         return AIChatResponse.builder()
-            .message("운동 추천 기능은 곧 제공될 예정입니다.")
+            .message("어떤 루틴으로 할까요? 아래에서 선택해 주세요.")
             .intent("WORKOUT")
+            .showPresetModal(true)
             .build();
     }
 
     /**
-     * WORKOUT의 MODIFY 액션 처리 (소분류: action)
-     * 
-     * - 루틴 수정, 운동 추가/삭제, 세트/횟수/무게 변경 등
-     * - 추후 구현 예정
+     * WORKOUT의 MODIFY 액션 처리 (통증 부위별 대체 운동)
+     * - entities.body_part(허리, 어깨 등)로 오늘 루틴 중 해당 부위 부상 위험 운동 필터
+     * - 대체 운동 목록을 data.replaceableExercises로 반환, showReplaceModal=true
      */
     private AIChatResponse handleWorkoutModify(IntentClassificationResult classification) {
-        // TODO: 추후 구현
-        // - entities에서 수정할 루틴 정보 추출 (date, exercise_name 등)
-        // - RoutineService를 통해 루틴 수정
-        // - 수정 결과를 자연어로 변환하여 응답
-        
-        log.info("WORKOUT MODIFY 요청 (추후 구현): {}", classification);
-        
+        var entities = classification.getEntities();
+        Object bodyPartObj = entities != null ? entities.get("body_part") : null;
+        String bodyPart = bodyPartObj != null ? bodyPartObj.toString().trim() : null;
+
+        if (bodyPart == null || bodyPart.isEmpty()) {
+            log.info("WORKOUT MODIFY: body_part 없음, 일반 안내 반환");
+            return AIChatResponse.builder()
+                .message("어느 부위가 불편하신가요? (예: 허리, 어깨, 무릎) 말씀해 주시면 그 부위에 부담이 적은 대체 운동을 추천해 드릴게요.")
+                .intent("WORKOUT")
+                .build();
+        }
+
+        Long memberId = currentMemberService.getCurrentMemberOrThrow().getId();
+        RoutineResponse todayRoutine = routineService.getTodayRoutine(memberId);
+
+        if (todayRoutine == null || todayRoutine.getExercises() == null || todayRoutine.getExercises().isEmpty()) {
+            return AIChatResponse.builder()
+                .message("오늘 루틴이 없어요. 먼저 루틴을 만들거나 '루틴 짜달라'고 요청해 주세요.")
+                .intent("WORKOUT")
+                .build();
+        }
+
+        List<Map<String, Object>> replaceableExercises = new ArrayList<>();
+        for (ExerciseResponse ex : todayRoutine.getExercises()) {
+            String name = ex.getName();
+            if (name == null) continue;
+            if (!ExerciseAlternativesConfig.hasInjuryRisk(name, bodyPart)) continue;
+            List<String> alternatives = ExerciseAlternativesConfig.getAlternatives(name);
+            if (alternatives == null || alternatives.isEmpty()) continue;
+            Map<String, Object> item = new HashMap<>();
+            item.put("routineId", todayRoutine.getId());
+            item.put("exerciseId", ex.getId());
+            item.put("exerciseName", name);
+            item.put("alternatives", alternatives);
+            replaceableExercises.add(item);
+        }
+
+        if (replaceableExercises.isEmpty()) {
+            return AIChatResponse.builder()
+                .message(bodyPart + "에 부담이 되는 운동이 오늘 루틴에는 없어요. 그대로 진행하셔도 좋아요.")
+                .intent("WORKOUT")
+                .build();
+        }
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("replaceableExercises", replaceableExercises);
+        data.put("bodyPart", bodyPart);
+
+        log.info("WORKOUT MODIFY: body_part={}, replaceableCount={}", bodyPart, replaceableExercises.size());
         return AIChatResponse.builder()
-            .message("루틴 수정 기능은 곧 제공될 예정입니다.")
+            .message(bodyPart + "에 부담이 되는 운동을 대체 운동으로 바꿀 수 있어요. 아래에서 선택해 주세요.")
             .intent("WORKOUT")
+            .data(data)
+            .showReplaceModal(true)
             .build();
     }
 

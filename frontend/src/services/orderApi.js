@@ -100,7 +100,8 @@ export const getAdminOrders = async (params = {}) => {
   if (to_date) queryParams.append('to_date', to_date);
   if (status) queryParams.append('status', status);
 
-  return await fetchAPI(`/admin/orders?${queryParams.toString()}`);
+  const res = await jwtAxios.get(`/admin/orders?${queryParams.toString()}`);
+  return res.data;
 };
 
 /**
@@ -108,7 +109,8 @@ export const getAdminOrders = async (params = {}) => {
  * @param {string} orderNo - 주문번호
  */
 export const getAdminOrderDetail = async (orderNo) => {
-  return await fetchAPI(`/admin/orders/${encodeURIComponent(orderNo)}`);
+  const res = await jwtAxios.get(`/admin/orders/${encodeURIComponent(orderNo)}`);
+  return res.data;
 };
 
 /**
@@ -117,8 +119,5 @@ export const getAdminOrderDetail = async (orderNo) => {
  * @param {string} status - SHIPPED | DELIVERED | CANCELED
  */
 export const updateOrderStatusAdmin = async (orderNo, status) => {
-  return await fetchAPI(`/admin/orders/${encodeURIComponent(orderNo)}/status`, {
-    method: 'PATCH',
-    body: JSON.stringify({ status }),
-  });
+  await jwtAxios.patch(`/admin/orders/${encodeURIComponent(orderNo)}/status`, { status });
 };

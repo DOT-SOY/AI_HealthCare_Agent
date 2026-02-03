@@ -72,5 +72,11 @@ export const routineApi = {
     });
     return response.data;
   },
+
+  /** 루틴 내 운동 수정 (이름/세트/횟수 등). 대체 운동 선택 시 사용 */
+  updateExercise: async (routineId, exerciseId, body) => {
+    const response = await jwtAxios.put(`/routines/${routineId}/exercises/${exerciseId}`, body);
+    return response.data;
+  },
 };
 

@@ -639,19 +639,6 @@ public class RoutineServiceImpl implements RoutineService {
         }
         log.info("프리셋 적용 완료: memberId={}, presetIndex={}, startDate={}, days={}", memberId, presetIndex, startDate, days.size());
         messagingTemplate.convertAndSend("/topic/routine/generate", java.util.Map.of("completed", true, "memberId", memberId));
-        log.info("운동 삭제 시작: routineId={}, exerciseId={}, exerciseName={}",
-            routineId, exerciseId, exercise.getExerciseType() != null ? exercise.getExerciseType().getName() : "unknown");
-
-        // 양방향 관계에서 제거 (orphanRemoval이 있으므로 이것만으로도 삭제 가능하지만, 명시적으로 삭제)
-        routine.getExercises().remove(exercise);
-
-        // 명시적으로 삭제 (더 확실함)
-        exerciseRepository.deleteById(exerciseId);
-
-        // 즉시 플러시하여 DB에 반영
-        exerciseRepository.flush();
-
-        log.info("운동 삭제 완료: routineId={}, exerciseId={}", routineId, exerciseId);
     }
     
     private RoutineResponse toRoutineResponse(Routine routine, boolean isToday) {

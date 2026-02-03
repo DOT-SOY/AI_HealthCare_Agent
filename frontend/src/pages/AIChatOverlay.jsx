@@ -48,6 +48,10 @@ export default function AIChatOverlay() {
 
   const [showPresetModal, setShowPresetModal] = useState(false);
   const [applyLoading, setApplyLoading] = useState(false);
+  const [showReplaceModal, setShowReplaceModal] = useState(false);
+  const [replaceableExercises, setReplaceableExercises] = useState([]);
+  const [replaceBodyPart, setReplaceBodyPart] = useState('');
+  const [replaceLoading, setReplaceLoading] = useState(false);
   const messagesEndRef = useRef(null);
   const previousMessagesLengthRef = useRef(messages.length);
   const wasChatOpenRef = useRef(isChatOpen);
@@ -155,14 +159,18 @@ export default function AIChatOverlay() {
     const text = inputText.trim();
     const image = selectedImage;
     setInputText('');
-    const response = await sendAIMessage(text);
-    if (response?.showPresetModal === true) {
-      setShowPresetModal(true);
-    }
     setSelectedImage(null);
     setImagePreview(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
-    await sendAIMessage(text, image);
+    const response = await sendAIMessage(text, image);
+    if (response?.showPresetModal === true) {
+      setShowPresetModal(true);
+    }
+    if (response?.showReplaceModal === true && response?.data?.replaceableExercises?.length > 0) {
+      setReplaceableExercises(response.data.replaceableExercises);
+      setReplaceBodyPart(response.data.bodyPart || '');
+      setShowReplaceModal(true);
+    }
   };
 
   const handleApplyPreset = useCallback(async (presetIndex) => {
@@ -179,6 +187,23 @@ export default function AIChatOverlay() {
       dispatch(addMessage({ role: 'assistant', content: '루틴 생성에 실패했어요. 다시 시도해 주세요.' }));
     } finally {
       setApplyLoading(false);
+    }
+  }, [dispatch, fetchTodayRoutine, fetchWeekRoutines]);
+
+  const handleReplaceExercise = useCallback(async (routineId, exerciseId, newName) => {
+    setReplaceLoading(true);
+    try {
+      await routineApi.updateExercise(routineId, exerciseId, { name: newName });
+      setShowReplaceModal(false);
+      setReplaceableExercises([]);
+      dispatch(addMessage({ role: 'assistant', content: `'${newName}'으로 대체했어요. 루틴에서 확인해 주세요.` }));
+      await fetchTodayRoutine();
+      await fetchWeekRoutines();
+    } catch (err) {
+      console.error('대체 운동 적용 실패:', err);
+      dispatch(addMessage({ role: 'assistant', content: '대체 적용에 실패했어요. 다시 시도해 주세요.' }));
+    } finally {
+      setReplaceLoading(false);
     }
   }, [dispatch, fetchTodayRoutine, fetchWeekRoutines]);
 
@@ -335,6 +360,132 @@ export default function AIChatOverlay() {
             </div>
           </div>
         </>
+      )}
+
+      {/* 루틴 프리셋 선택 모달 (루틴 짜달라 시) */}
+      {showPresetModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60"
+          onClick={() => !applyLoading && setShowPresetModal(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="preset-modal-title"
+        >
+          <div
+            className="bg-neutral-800 rounded-xl border border-neutral-600 shadow-xl w-full max-w-2xl mx-4 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 border-b border-neutral-600 flex items-center justify-between">
+              <h2 id="preset-modal-title" className="text-xl font-bold text-neutral-50">
+                루틴 선택
+              </h2>
+              <button
+                type="button"
+                onClick={() => !applyLoading && setShowPresetModal(false)}
+                className="text-neutral-400 hover:text-neutral-50 p-1 rounded"
+                aria-label="닫기"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-6">
+              <p className="text-neutral-400 text-sm mb-6">
+                오늘부터 연속된 날짜에 루틴이 자동으로 생성됩니다.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {PRESET_CARDS.map((preset, index) => (
+                  <button
+                    key={preset.groupName ?? index}
+                    type="button"
+                    disabled={applyLoading}
+                    onClick={() => handleApplyPreset(index)}
+                    className="text-left p-5 rounded-lg border-2 border-neutral-600 bg-neutral-700/50 hover:border-[#88ce02] hover:bg-neutral-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    <div className="font-semibold text-neutral-50 mb-3" style={{ color: '#88ce02' }}>
+                      {preset.groupName}
+                    </div>
+                    <div className="text-neutral-400 text-sm space-y-3">
+                      {preset.days?.map((day, i) => (
+                        <div key={i} className="border-l-2 border-neutral-600 pl-2">
+                          <div className="font-medium text-neutral-300">{i + 1}. {day.title}</div>
+                          <div className="text-xs mt-1 text-neutral-500">{day.exerciseNames?.join(', ')}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {applyLoading && (
+                      <div className="mt-3 text-neutral-500 text-xs">적용 중...</div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 대체 운동 선택 모달 (허리/어깨 아파서 루틴 수정 시) */}
+      {showReplaceModal && replaceableExercises.length > 0 && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 overflow-y-auto py-4"
+          onClick={() => !replaceLoading && setShowReplaceModal(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="replace-modal-title"
+        >
+          <div
+            className="bg-neutral-800 rounded-xl border border-neutral-600 shadow-xl w-full max-w-2xl mx-4 my-auto overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 border-b border-neutral-600 flex items-center justify-between">
+              <h2 id="replace-modal-title" className="text-xl font-bold text-neutral-50">
+                {replaceBodyPart}에 부담 적은 대체 운동
+              </h2>
+              <button
+                type="button"
+                onClick={() => !replaceLoading && setShowReplaceModal(false)}
+                className="text-neutral-400 hover:text-neutral-50 p-1 rounded"
+                aria-label="닫기"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-6">
+              <p className="text-neutral-400 text-sm mb-6">
+                {replaceBodyPart}에 부담이 되는 운동을 아래 카드에서 대체 운동으로 바꿀 수 있어요.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto">
+                {replaceableExercises.map((item, idx) => (
+                  <div key={idx} className="rounded-lg border-2 border-neutral-600 bg-neutral-700/50 p-5">
+                    <div className="font-semibold text-neutral-50 mb-3" style={{ color: '#88ce02' }}>
+                      현재: {item.exerciseName}
+                    </div>
+                    <p className="text-neutral-500 text-xs mb-3">대체할 운동 카드를 선택하세요</p>
+                    <div className="space-y-2">
+                      {(item.alternatives || []).map((alt, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          disabled={replaceLoading}
+                          onClick={() => handleReplaceExercise(item.routineId, item.exerciseId, alt)}
+                          className="w-full text-left p-3 rounded-lg border-2 border-neutral-600 bg-neutral-700/50 hover:border-[#88ce02] hover:bg-neutral-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed text-neutral-50 text-sm font-medium"
+                        >
+                          {alt}
+                        </button>
+                      ))}
+                    </div>
+                    {replaceLoading && (
+                      <div className="mt-3 text-neutral-500 text-xs">적용 중...</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 운동 인식 모달 (v3 기능) */}
