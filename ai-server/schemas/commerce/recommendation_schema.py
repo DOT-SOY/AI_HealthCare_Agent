@@ -26,7 +26,7 @@ class ProductCategory(str, Enum):
 class RecommendationCondition:
     """
     추천 조건 JSON 스키마
-    
+
     예시:
     {
         "goal": "DIET",
@@ -42,7 +42,7 @@ class RecommendationCondition:
         }
     }
     """
-    
+
     def __init__(
         self,
         goal: str,
@@ -52,7 +52,8 @@ class RecommendationCondition:
         must_have: Optional[List[str]] = None,
         priority: Optional[List[str]] = None,
         user_profile_used: bool = False,
-        derived_constraints: Optional[Dict[str, Any]] = None
+        derived_constraints: Optional[Dict[str, Any]] = None,
+        keyword: Optional[str] = None
     ):
         self.goal = goal
         self.product_category = product_category
@@ -62,7 +63,8 @@ class RecommendationCondition:
         self.priority = priority or []
         self.user_profile_used = user_profile_used
         self.derived_constraints = derived_constraints or {}
-    
+        self.keyword = (keyword or "").strip() or None
+
     def to_dict(self) -> Dict[str, Any]:
         """딕셔너리로 변환"""
         return {
@@ -73,12 +75,16 @@ class RecommendationCondition:
             "must_have": self.must_have,
             "priority": self.priority,
             "user_profile_used": self.user_profile_used,
-            "derived_constraints": self.derived_constraints
+            "derived_constraints": self.derived_constraints,
+            "keyword": self.keyword
         }
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "RecommendationCondition":
-        """딕셔너리에서 생성"""
+        """딕셔너리에서 생성 (키 없으면 기본값)"""
+        kw = data.get("keyword")
+        if kw is not None and isinstance(kw, str):
+            kw = kw.strip() or None
         return cls(
             goal=data.get("goal", "ALL"),
             product_category=data.get("product_category", "ALL"),
@@ -87,22 +93,16 @@ class RecommendationCondition:
             must_have=data.get("must_have", []),
             priority=data.get("priority", []),
             user_profile_used=data.get("user_profile_used", False),
-            derived_constraints=data.get("derived_constraints", {})
+            derived_constraints=data.get("derived_constraints", {}),
+            keyword=kw
         )
-    
+
     def validate(self) -> bool:
         """스키마 유효성 검증"""
-        # goal 검증
         if self.goal not in [g.value for g in Goal]:
             return False
-        
-        # product_category 검증
         if self.product_category not in [c.value for c in ProductCategory]:
             return False
-        
-        # budget_max 검증
         if self.budget_max is not None and self.budget_max < 0:
             return False
-        
         return True
-

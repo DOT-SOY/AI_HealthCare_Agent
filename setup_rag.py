@@ -1,7 +1,10 @@
 """
 RAG 데이터를 Qdrant에 업로드하는 단일 스크립트 (최종 병합본)
 
-- 임베딩: SentenceTransformer(라이브러리)만 사용
+- 임베딩: SentenceTransformer(라이브러리)만 사용 → 384차원 (paraphrase-multilingual-MiniLM-L12-v2)
+- ai-server의 embedding_service.EMBEDDING_DIM(384) 및 Qdrant 컬렉션 차원과 반드시 일치해야 함.
+  - 기존 컬렉션이 1536차원(OpenAI 등)이면 RAG 검색이 실패함. RECREATE_COLLECTION=true로 이 스크립트를
+    재실행하여 384차원 컬렉션으로 재생성 및 전량 재임베딩 필요.
 - 컬렉션: domain 기준으로 2개로 분리 업로드
   - domain == "commerce"  -> QDRANT_COLLECTION_COMMERCE (기본: commerce_knowledge)
   - else                 -> QDRANT_COLLECTION_EXERCISE (기본: exercise_knowledge)
@@ -18,6 +21,8 @@ RAG 데이터를 Qdrant에 업로드하는 단일 스크립트 (최종 병합본
 import json
 import os
 import pathlib
+import uuid
+
 from typing import Any, Dict, List, Optional, Tuple
 
 from dotenv import load_dotenv
@@ -47,6 +52,8 @@ ST_MODEL_NAME = os.getenv(
     "ST_MODEL_NAME",
     "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
 )
+# ai-server embedding_service.EMBEDDING_DIM과 동일해야 함 (384)
+EMBEDDING_DIM_EXPECTED = 384
 
 # lazy-load singleton
 _st_model = None
@@ -123,22 +130,46 @@ def make_payload(item: Dict[str, Any]) -> Dict[str, Any]:
     return payload
 
 
-def make_point_id(item: Dict[str, Any], fallback_idx: int) -> str:
+def make_point_id(item: Dict[str, Any], fallback_idx: int):
     """
-    ID 정책(결정적):
-    - doc_id + chunk_id가 있으면: "{doc_id}:{chunk_id}"
-    - 아니면 item["id"]가 있으면: str(id)
-    - 아니면 idx 기반
+    Qdrant Point ID 규칙: unsigned int 또는 UUID만 허용.
+
+    정책(결정적):
+    - doc_id(UUID) + chunk_id가 있으면: uuid5(doc_id, chunk_id)로 "항상 동일한 UUID" 생성
+    - item["id"]가 UUID면 그대로 사용
+    - item["id"]가 정수면 int로 사용
+    - 그 외에는 fallback_idx 정수 사용
     """
     doc_id = item.get("doc_id")
     chunk_id = item.get("chunk_id")
+
+    # 1) doc_id + chunk_id => 안정적인 UUID 생성
     if doc_id is not None and chunk_id is not None:
-        return f"{doc_id}:{chunk_id}"
+        try:
+            ns = uuid.UUID(str(doc_id))  # doc_id가 UUID여야 함
+            return str(uuid.uuid5(ns, str(chunk_id)))
+        except Exception:
+            # doc_id가 UUID가 아니면 안전하게 fallback
+            return int(fallback_idx)
 
-    if item.get("id") is not None:
-        return str(item.get("id"))
+    # 2) item["id"] 사용 (UUID or int)
+    raw_id = item.get("id")
+    if raw_id is not None:
+        # UUID면 그대로
+        try:
+            return str(uuid.UUID(str(raw_id)))
+        except Exception:
+            pass
 
-    return str(fallback_idx)
+        # 정수면 정수로
+        try:
+            return int(raw_id)
+        except Exception:
+            return int(fallback_idx)
+
+    # 3) fallback: 정수
+    return int(fallback_idx)
+
 
 
 def get_embedding(text: str) -> Optional[List[float]]:
@@ -204,6 +235,8 @@ def build_points(items: List[Dict[str, Any]]) -> Tuple[List[PointStruct], int]:
 
         if vector_size == 0:
             vector_size = len(emb)
+            if vector_size != EMBEDDING_DIM_EXPECTED:
+                print(f"[RAG] 경고: 임베딩 차원이 기대값과 다릅니다. expected={EMBEDDING_DIM_EXPECTED}, got={vector_size}")
 
         point_id = make_point_id(item, fallback_idx=idx)
         payload = make_payload(item)

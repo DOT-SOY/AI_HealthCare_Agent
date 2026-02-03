@@ -102,6 +102,8 @@ const CheckoutPage = () => {
   const defaultAppliedRef = useRef(false);
   /** AI에서 온 주문인지 여부 */
   const fromAIRef = useRef(false);
+  /** 결제하기 이중 클릭/재호출 방지 (state보다 즉시 반영) */
+  const submitLockRef = useRef(false);
 
   /** 토스 requestPayment method 코드 ↔ 화면 라벨 (API 개별 연동 키 + 결제창용) */
   const PAYMENT_METHODS = [
@@ -272,7 +274,8 @@ const CheckoutPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (submitting) return;
+    if (submitLockRef.current || submitting) return;
+    submitLockRef.current = true;
 
     // 결제위젯 연동 키: 위젯 렌더 후 "결제하기" 두 번째 클릭 → requestPayment
     if (checkoutPhase === 'widget_ready' && widgetInstanceRef.current && widgetOrderPayload) {
@@ -291,6 +294,7 @@ const CheckoutPage = () => {
         console.error(err);
         alert(err?.message ?? '결제 요청 중 오류가 발생했습니다.');
       } finally {
+        submitLockRef.current = false;
         setSubmitting(false);
       }
       return;
@@ -403,6 +407,7 @@ const CheckoutPage = () => {
       console.error(err);
       alert(err?.message ?? '결제 준비 중 오류가 발생했습니다.');
     } finally {
+      submitLockRef.current = false;
       setSubmitting(false);
     }
   };

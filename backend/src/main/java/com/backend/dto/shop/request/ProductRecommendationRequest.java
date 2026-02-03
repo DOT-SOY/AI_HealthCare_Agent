@@ -34,5 +34,11 @@ public class ProductRecommendationRequest {
     
     // 우선순위 조건
     private List<String> priority;
+
+    /** 상품명/검색 키워드 (optional, null/빈 값이면 키워드 검색 없음) */
+    private String keyword;
+
+    /** 검색 대상: name(상품명), description(상품내용), all(전체). null이면 "all" */
+    private String searchType;
 }
 

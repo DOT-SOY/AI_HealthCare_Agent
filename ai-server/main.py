@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -17,10 +18,19 @@ from services.chat_service import generate_ai_answer
 from services.pain_advice_service import generate_pain_advice
 from services.workout_feedback_service import generate_workout_feedback
 from services.image_classification_service import get_image_classification_service
-from services.commerce_orchestration_service import handle_commerce_recommend
-from services.commerce_state_machine import state_machine, CommerceState
+from services.commerce import handle_commerce_recommend, state_machine, CommerceState
+from services.embedding_service import load_embedding_model
 
-app = FastAPI(title="GrowLog AI Server")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """앱 시작 시 임베딩 모델 1회 로딩 (요청 중 8초 지연 방지)"""
+    await asyncio.to_thread(load_embedding_model)
+    yield
+    # shutdown: 필요 시 정리
+
+
+app = FastAPI(title="GrowLog AI Server", lifespan=lifespan)
 
 # CORS 설정
 app.add_middleware(
@@ -223,25 +233,14 @@ class CommerceSessionCheckRequest(BaseModel):
 @app.post("/commerce/session/check")
 async def commerce_session_check(request: CommerceSessionCheckRequest):
     """
-    Commerce 세션 상태 확인 엔드포인트
-
-    - 세션이 존재하고 상품 추천 플로우 중인지 확인
-    - RECOMMEND 상태가 아니면 플로우 중으로 간주
+    Commerce 세션 상태 확인 (SSOT).
+    Redis에 해당 세션 키가 존재하면 in_flow=True, 없으면 False.
     """
     session = state_machine.get_session(request.session_id)
-
-    if not session:
-        return {
-            "in_flow": False,
-            "state": None
-        }
-
-    # RECOMMEND 상태가 아니면 상품 추천 플로우 중으로 간주
-    in_flow = session.state != CommerceState.RECOMMEND
-
+    in_flow = session is not None
     return {
         "in_flow": in_flow,
-        "state": session.state.value if session.state else None
+        "state": session.state.value if session and session.state else None
     }
 
 

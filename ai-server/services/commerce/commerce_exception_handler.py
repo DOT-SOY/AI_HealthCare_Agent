@@ -8,16 +8,16 @@ import httpx
 def handle_exception(error: Exception, context: str = "") -> Dict[str, Any]:
     """
     예외를 사용자 친화적인 메시지로 변환
-    
+
     Args:
         error: 발생한 예외
         context: 컨텍스트 정보
-    
+
     Returns:
         에러 응답 딕셔너리
     """
     error_type = type(error).__name__
-    
+
     if isinstance(error, httpx.TimeoutException):
         return {
             "message": "요청 시간이 초과되었습니다. 다시 시도해주세요.",
@@ -93,11 +93,11 @@ def handle_exception(error: Exception, context: str = "") -> Dict[str, Any]:
 def get_user_message_for_error(error_code: str, context: Dict[str, Any] = None) -> str:
     """
     에러 코드에 따른 사용자 메시지 반환
-    
+
     Args:
         error_code: 에러 코드
         context: 추가 컨텍스트
-    
+
     Returns:
         사용자 메시지
     """
@@ -114,6 +114,5 @@ def get_user_message_for_error(error_code: str, context: Dict[str, Any] = None) 
         "CONDITION_GENERATION_FAILED": "추천 조건을 생성하는 중 오류가 발생했습니다. 다시 시도해주세요.",
         "PROCESSING_ERROR": "처리 중 오류가 발생했습니다. 다시 시도해주세요."
     }
-    
-    return messages.get(error_code, "오류가 발생했습니다. 다시 시도해주세요.")
 
+    return messages.get(error_code, "오류가 발생했습니다. 다시 시도해주세요.")

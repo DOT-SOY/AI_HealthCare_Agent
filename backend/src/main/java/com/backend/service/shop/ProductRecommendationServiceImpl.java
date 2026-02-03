@@ -34,10 +34,12 @@ public class ProductRecommendationServiceImpl implements ProductRecommendationSe
     
     @Override
     public ProductRecommendationResponse recommend(ProductRecommendationRequest request) {
-        log.info("상품 추천 요청: goal={}, category={}, budgetMax={}, avoid={}, mustHave={}, priority={}",
+        String searchType = (request.getSearchType() != null && !request.getSearchType().isBlank())
+                ? request.getSearchType().trim() : "all";
+        log.info("상품 추천 요청: goal={}, category={}, budgetMax={}, keyword={}, avoid={}, mustHave={}, priority={}",
                 request.getGoal(), request.getProductCategory(), request.getBudgetMax(),
-                request.getAvoid(), request.getMustHave(), request.getPriority());
-        
+                request.getKeyword(), request.getAvoid(), request.getMustHave(), request.getPriority());
+
         // 1. 카테고리 ID 조회 (productCategory가 있는 경우)
         Long categoryId = null;
         if (request.getProductCategory() != null && request.getProductCategory() != CategoryType.ETC) {
@@ -45,8 +47,8 @@ public class ProductRecommendationServiceImpl implements ProductRecommendationSe
                     .map(Category::getId)
                     .orElse(null);
         }
-        
-        // 2. ProductSearchCondition 생성 (하드 필터)
+
+        // 2. ProductSearchCondition 생성 (하드 필터 + keyword optional)
         ProductSearchCondition condition = ProductSearchCondition.builder()
                 .categoryId(categoryId)
                 .maxPrice(request.getBudgetMax())
@@ -54,16 +56,34 @@ public class ProductRecommendationServiceImpl implements ProductRecommendationSe
                 .excludeOutOfStock(true)  // 재고>0만
                 .sortBy("createdAt")
                 .direction("DESC")
+                .keyword(request.getKeyword() != null && !request.getKeyword().isBlank() ? request.getKeyword().trim() : null)
+                .searchType(searchType)
                 .build();
-        
+
         // 3. 기본 검색 (하드 필터 적용)
         PageRequest pageRequest = new PageRequest();
         pageRequest.setPage(1);
         pageRequest.setPageSize(50);  // 충분히 많이 가져와서 소프트 필터링 및 정렬 수행
-        
+
         Page<Product> products = productSearch.search(condition, pageRequest.toPageable());
         List<Product> candidateProducts = products.getContent();
-        
+
+        // 0건이고 keyword가 있었으면 keyword 없이 재검색 (fallback)
+        if (candidateProducts.isEmpty() && condition.getKeyword() != null) {
+            ProductSearchCondition fallbackCondition = ProductSearchCondition.builder()
+                    .categoryId(categoryId)
+                    .maxPrice(request.getBudgetMax())
+                    .status(ProductStatus.ACTIVE)
+                    .excludeOutOfStock(true)
+                    .sortBy("createdAt")
+                    .direction("DESC")
+                    .keyword(null)
+                    .searchType(searchType)
+                    .build();
+            products = productSearch.search(fallbackCondition, pageRequest.toPageable());
+            candidateProducts = products.getContent();
+        }
+
         if (candidateProducts.isEmpty()) {
             return ProductRecommendationResponse.builder()
                     .products(List.of())

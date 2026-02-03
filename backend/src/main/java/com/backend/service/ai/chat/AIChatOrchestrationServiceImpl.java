@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -75,6 +76,41 @@ public class AIChatOrchestrationServiceImpl implements AIChatOrchestrationServic
         
         log.info("AI 채팅 요청: text={}", text);
 
+        // 2.1 commerce 세션 가드: Redis(ai-server)에 세션이 있으면 우선 commerce로 위임하되,
+        //      응답의 error 코드(SESSION_EXPIRED/OFF_TOPIC/FLOW_COMPLETED)에 따라 재분류 또는 플로우 종료를 판단한다.
+        boolean triedCommerce = false;
+        try {
+            Long memberId = currentMemberService.getCurrentMemberOrThrow().getId();
+            String sessionId = "commerce_" + memberId;
+            boolean inFlow = commerceChatService.isInCommerceFlow(sessionId);
+            if (inFlow) {
+                log.info("commerce 세션 가드: in_flow=true, sessionId={}, 우선 commerce로 위임", sessionId);
+                triedCommerce = true;
+                AIChatResponse commerceResponse = commerceChatService.handleCommerceRecommendBySession(sessionId, text);
+
+                // ai-server 응답의 error 코드 확인
+                String commerceError = null;
+                Object data = commerceResponse.getData();
+                if (data instanceof Map<?, ?> dataMap) {
+                    Object errorValue = ((Map<?, ?>) dataMap).get("error");
+                    if (errorValue instanceof String) {
+                        commerceError = (String) errorValue;
+                    }
+                }
+
+                if ("SESSION_EXPIRED".equals(commerceError) || "OFF_TOPIC".equals(commerceError)) {
+                    // 세션 만료 또는 딴소리로 인한 플로우 종료: 같은 발화로 intent 재분류 진행
+                    log.info("commerce 플로우 종료 신호 감지: error={}, sessionId={}", commerceError, sessionId);
+                    // fall-through: 아래 intent 분류 로직으로 이어진다.
+                } else {
+                    // FLOW_COMPLETED 또는 기타/없음: commerce 응답을 그대로 반환
+                    return commerceResponse;
+                }
+            }
+        } catch (Exception e) {
+            // 비로그인 등으로 memberId를 얻지 못하면 가드 건너뛰고 기존 의도 분류 진행
+        }
+
         // 3. 트리거 키워드 감지
         boolean isTrigger = isTriggerMessage(text);
         IntentClassificationResult classification;
@@ -89,7 +125,8 @@ public class AIChatOrchestrationServiceImpl implements AIChatOrchestrationServic
         }
         
         String intent = classification.getIntent();
-        
+        log.info("AI 의도 분류 결과: intent={}", intent);
+
         // 4. 의도에 따라 적절한 Service 호출
         AIChatResponse response = switch (intent) {
             case "PAIN_REPORT" -> painReportChatService.handlePainReport(classification);
@@ -98,14 +135,7 @@ public class AIChatOrchestrationServiceImpl implements AIChatOrchestrationServic
             case "MEAL_QUERY" -> mealChatService.handleMeal(classification);
             case "BODY_QUERY" -> bodyChatService.handleBodyQuery(classification);
             case "DELIVERY_QUERY" -> deliveryChatService.handleDelivery(classification);
-            case "PRODUCT_RECOMMEND" -> {
-                // 사용자 발화 텍스트를 commerce 서비스에 전달
-                if (commerceChatService instanceof CommerceChatServiceImpl) {
-                    yield ((CommerceChatServiceImpl) commerceChatService).handleCommerceRecommend(classification, request.getText());
-                } else {
-                    yield commerceChatService.handleCommerceRecommend(classification);
-                }
-            }
+            case "PRODUCT_RECOMMEND" -> commerceChatService.handleCommerceRecommend(classification, request.getText());
             default -> createErrorResponse("알 수 없는 의도입니다.");
         };
         

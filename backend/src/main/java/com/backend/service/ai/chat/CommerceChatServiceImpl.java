@@ -35,12 +35,18 @@ public class CommerceChatServiceImpl implements CommerceChatService {
     public AIChatResponse handleCommerceRecommend(IntentClassificationResult classification) {
         return handleCommerceRecommend(classification, null);
     }
+
+    @Override
+    public AIChatResponse handleCommerceRecommend(IntentClassificationResult classification, String userText) {
+        log.info("PRODUCT_RECOMMEND 의도 처리 시작");
+        String sessionId = "commerce_" + currentMemberService.getCurrentMemberOrThrow().getId();
+        String text = (userText != null && !userText.trim().isEmpty())
+            ? userText
+            : (classification != null && classification.getAiAnswer() != null ? classification.getAiAnswer() : "");
+        return callCommerceRecommend(sessionId, text);
+    }
     
-    /**
-     * 상품 추천 플로우 중인지 확인
-     * @param sessionId 세션 ID
-     * @return 상품 추천 플로우 중이면 true
-     */
+    @Override
     public boolean isInCommerceFlow(String sessionId) {
         try {
             // ai-server의 /commerce/session/check 엔드포인트 호출
@@ -60,7 +66,7 @@ public class CommerceChatServiceImpl implements CommerceChatService {
                 if (result != null) {
                     Boolean inFlow = (Boolean) result.get("in_flow");
                     String state = (String) result.get("state");
-                    log.debug("세션 상태 확인: sessionId={}, inFlow={}, state={}", sessionId, inFlow, state);
+                    log.info("commerce 세션 확인: sessionId={}, in_flow={}, state={}", sessionId, inFlow, state);
                     return Boolean.TRUE.equals(inFlow);
                 }
             } catch (Exception e) {
@@ -71,83 +77,60 @@ public class CommerceChatServiceImpl implements CommerceChatService {
         }
         return false;
     }
-    
+
+    @Override
+    public AIChatResponse handleCommerceRecommendBySession(String sessionId, String userText) {
+        log.info("PRODUCT_RECOMMEND 세션 연속 처리: sessionId={}", sessionId);
+        String text = (userText != null && !userText.trim().isEmpty()) ? userText : "";
+        return callCommerceRecommend(sessionId, text);
+    }
+
     /**
-     * 사용자 발화 텍스트를 받는 오버로드 메서드
+     * ai-server /commerce/recommend 호출 공통 로직.
+     * SESSION_EXPIRED 등 error 필드는 data에 그대로 담아 클라이언트에 전달.
      */
-    public AIChatResponse handleCommerceRecommend(IntentClassificationResult classification, String userText) {
-        log.info("PRODUCT_RECOMMEND 의도 처리 시작");
-        
+    private AIChatResponse callCommerceRecommend(String sessionId, String text) {
         try {
-            // 현재 사용자 확인
-            Long memberId = currentMemberService.getCurrentMemberOrThrow().getId();
-            
-            // 세션 ID 생성 (멤버 ID 기반으로 고정 - 같은 멤버는 항상 같은 세션 사용)
-            // 이렇게 하면 상품 추천 플로우에서 상태가 유지됨
-            String sessionId = "commerce_" + memberId;
-            
-            // 사용자 발화 텍스트가 없으면 aiAnswer 사용 (fallback)
-            if (userText == null || userText.trim().isEmpty()) {
-                userText = classification.getAiAnswer() != null 
-                    ? classification.getAiAnswer() 
-                    : "";
-            }
-            
-            // ai-server의 /commerce/recommend 엔드포인트 호출
-            // Authorization 헤더가 필요하므로 RestTemplate을 직접 사용
             String url = baseAIClient.getBaseUrl() + "/commerce/recommend";
-            
             Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("text", userText);
+            requestBody.put("text", text);
             requestBody.put("session_id", sessionId);
-            
-            // RestTemplate을 사용하여 Authorization 헤더 추가
+
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            
-            // 현재 요청의 Authorization 헤더 가져오기
             ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
             if (attributes != null) {
                 HttpServletRequest httpRequest = attributes.getRequest();
-                String authHeader = httpRequest.getHeader("Authorization");
+                String authHeader = httpRequest != null ? httpRequest.getHeader("Authorization") : null;
                 if (authHeader != null && !authHeader.trim().isEmpty()) {
                     headers.set("Authorization", authHeader);
-                    log.debug("Authorization 헤더를 ai-server로 전달: {}", authHeader.substring(0, Math.min(20, authHeader.length())) + "...");
-                } else {
-                    log.warn("현재 요청에 Authorization 헤더가 없습니다. ai-server에서 Backend API 호출 시 인증 실패할 수 있습니다.");
                 }
-            } else {
-                log.warn("RequestContextHolder에서 현재 요청을 가져올 수 없습니다.");
             }
-            
+
             HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
-            
-            ResponseEntity<Map> response = restTemplate.postForEntity(
-                url,
-                request,
-                Map.class
-            );
-            
+            ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
             Map<String, Object> commerceResponse = response.getBody();
-            
-            // 응답에서 메시지 추출
+            if (commerceResponse == null) {
+                return AIChatResponse.builder()
+                    .message("상품 추천 처리 중 오류가 발생했습니다.")
+                    .intent("PRODUCT_RECOMMEND")
+                    .build();
+            }
+
             String message = (String) commerceResponse.get("message");
             if (message == null || message.trim().isEmpty()) {
                 message = "상품 추천 처리 중 오류가 발생했습니다.";
             }
-            
-            log.info("PRODUCT_RECOMMEND 응답: state={}, messageLength={}", 
-                commerceResponse.get("state"), 
-                message.length());
-            
+            String state = (String) commerceResponse.get("state");
+            String error = (String) commerceResponse.get("error");
+            log.info("commerce 응답: sessionId={}, state={}, error={}", sessionId, state, error);
             return AIChatResponse.builder()
                 .message(message)
                 .intent("PRODUCT_RECOMMEND")
-                .data(commerceResponse)  // 상태머신 상태, 상품 정보 등 추가 데이터
+                .data(commerceResponse)
                 .build();
-                
         } catch (Exception e) {
-            log.error("PRODUCT_RECOMMEND 처리 실패", e);
+            log.error("PRODUCT_RECOMMEND 호출 실패", e);
             return AIChatResponse.builder()
                 .message("상품 추천 처리 중 오류가 발생했습니다. 다시 시도해주세요.")
                 .intent("PRODUCT_RECOMMEND")
