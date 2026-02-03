@@ -13,6 +13,9 @@ public class OrderBuyerSnapshotResponse {
     private String phone;
 
     public static OrderBuyerSnapshotResponse from(OrderBuyerSnapshot snapshot) {
+        if (snapshot == null) {
+            return null;
+        }
         return OrderBuyerSnapshotResponse.builder()
                 .name(snapshot.getBuyerName())
                 .email(snapshot.getBuyerEmail())

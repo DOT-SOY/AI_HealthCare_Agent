@@ -157,6 +157,8 @@ public class CartServiceImpl implements CartService {
             variant = ProductVariant.builder()
                     .product(product)
                     .optionText("기본 옵션")
+                    .optionJson("{}")
+                    .sku("SKU-DEFAULT-" + productId + "-" + java.util.UUID.randomUUID().toString().substring(0, 8))
                     .price(null)  // null이면 product.basePrice 사용
                     .stockQty(999)  // 기본 재고
                     .active(true)

@@ -12,6 +12,8 @@ export function useWebSocket() {
   const clientRef = useRef(null);
   const subscriptionRef = useRef(null);
   const callbackRef = useRef(null);
+  const routineGenerateCallbackRef = useRef(null);
+  const routineGenerateSubscriptionRef = useRef(null);
   const isConnectingRef = useRef(false);
 
   // 공통 메시지 처리 함수
@@ -54,6 +56,17 @@ export function useWebSocket() {
     }
   }, []);
 
+  const handleRoutineGenerateMessage = useCallback((message) => {
+    try {
+      const data = JSON.parse(message.body);
+      if (routineGenerateCallbackRef.current) {
+        routineGenerateCallbackRef.current(data);
+      }
+    } catch (error) {
+      console.error('WebSocket 루틴 생성 메시지 파싱 오류:', error);
+    }
+  }, []);
+
   // 실제 구독을 수행하는 함수
   const doSubscribe = useCallback(() => {
     if (!clientRef.current || !clientRef.current.connected) {
@@ -75,6 +88,22 @@ export function useWebSocket() {
       handleMessage
     );
   }, [handleMessage]);
+
+  const doSubscribeRoutineGenerate = useCallback(() => {
+    if (!clientRef.current?.connected) return;
+    if (routineGenerateSubscriptionRef.current) {
+      try {
+        routineGenerateSubscriptionRef.current.unsubscribe();
+      } catch (e) {}
+      routineGenerateSubscriptionRef.current = null;
+    }
+    if (routineGenerateCallbackRef.current) {
+      routineGenerateSubscriptionRef.current = clientRef.current.subscribe(
+        '/topic/routine/generate',
+        handleRoutineGenerateMessage
+      );
+    }
+  }, [handleRoutineGenerateMessage]);
 
   // WebSocket 연결 함수 (필요할 때만 호출)
   const connectWebSocket = useCallback(() => {
@@ -135,6 +164,9 @@ export function useWebSocket() {
           // 콜백이 이미 설정되어 있다면, 연결 완료 시점에 한 번 더 구독 시도
           if (callbackRef.current) {
             doSubscribe();
+          }
+          if (routineGenerateCallbackRef.current) {
+            doSubscribeRoutineGenerate();
           }
         },
         onDisconnect: () => {
@@ -197,6 +229,19 @@ export function useWebSocket() {
     [connectWebSocket, doSubscribe]
   );
 
+  const subscribeToRoutineGenerate = useCallback(
+    (callback) => {
+      routineGenerateCallbackRef.current = callback;
+      if (!clientRef.current?.connected && !isConnectingRef.current) {
+        connectWebSocket();
+        return null;
+      }
+      doSubscribeRoutineGenerate();
+      return routineGenerateSubscriptionRef.current;
+    },
+    [connectWebSocket, doSubscribeRoutineGenerate]
+  );
+
   const sendMessage = useCallback((destination, body) => {
     if (clientRef.current && clientRef.current.connected) {
       clientRef.current.publish({
@@ -211,6 +256,10 @@ export function useWebSocket() {
     if (subscriptionRef.current) {
       subscriptionRef.current.unsubscribe();
       subscriptionRef.current = null;
+    }
+    if (routineGenerateSubscriptionRef.current) {
+      routineGenerateSubscriptionRef.current.unsubscribe();
+      routineGenerateSubscriptionRef.current = null;
     }
     if (clientRef.current) {
       try {
@@ -228,6 +277,7 @@ export function useWebSocket() {
     connected,
     connectWebSocket,
     subscribeToReview,
+    subscribeToRoutineGenerate,
     sendMessage,
     disconnect,
   };

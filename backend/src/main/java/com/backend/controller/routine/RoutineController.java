@@ -1,11 +1,13 @@
 package com.backend.controller.routine;
 
+import com.backend.dto.request.ApplyPresetRequest;
 import com.backend.dto.request.ExerciseAddRequest;
 import com.backend.dto.request.ExerciseUpdateRequest;
 import com.backend.dto.request.RoutineCreateRequest;
 import com.backend.dto.request.RoutineUpdateRequest;
 import com.backend.dto.response.ExerciseResponse;
 import com.backend.dto.response.RoutineResponse;
+import com.backend.dto.response.RoutinePresetGroupDto;
 import com.backend.service.member.CurrentMemberService;
 import com.backend.service.routine.RoutineService;
 import lombok.RequiredArgsConstructor;
@@ -13,8 +15,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -107,6 +111,35 @@ public class RoutineController {
         Long memberId = currentMemberService.getCurrentMemberOrThrow().getId();
         RoutineResponse response = routineService.createRoutine(memberId, request);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 프리셋 루틴 그룹 목록 조회 (카드 1: 분할 4일, 카드 2: 상하체 2일).
+     */
+    @GetMapping("/presets")
+    public ResponseEntity<List<RoutinePresetGroupDto>> getPresets() {
+        List<RoutinePresetGroupDto> presets = routineService.getPresets();
+        return ResponseEntity.ok(presets);
+    }
+
+    /**
+     * 선택한 프리셋 적용. startDate부터 연속 일수만큼 루틴 저장.
+     * presetIndex 0 = 4일 (Push→Pull→Leg→Core+), 1 = 2일 (상체→하체).
+     */
+    @PostMapping("/apply-preset")
+    public ResponseEntity<Map<String, Object>> applyPreset(@RequestBody ApplyPresetRequest request) {
+        Long memberId = currentMemberService.getCurrentMemberOrThrow().getId();
+        LocalDate startDate = request.getStartDate() != null ? request.getStartDate() : LocalDate.now();
+        int presetIndex = request.getPresetIndex() != null ? request.getPresetIndex() : 0;
+        if (presetIndex < 0 || presetIndex > 1) {
+            return ResponseEntity.badRequest().body(Map.of("error", "presetIndex must be 0 or 1"));
+        }
+        routineService.applyPreset(memberId, startDate, presetIndex);
+        return ResponseEntity.ok(Map.of(
+                "message", "프리셋 루틴이 적용되었습니다.",
+                "startDate", startDate.toString(),
+                "presetIndex", presetIndex
+        ));
     }
     
     @PutMapping("/{routineId}/status")

@@ -7,7 +7,7 @@ SYSTEM_PROMPT = """사용자 질문을 intent(대분류)와 action(소분류)으
 [분류 규칙]
 1. WORKOUT (운동)
    - QUERY: "루틴"/"운동" + "뭐였"/"뭐 했"/"어땠"/"평가"/"회고" + 날짜 → WORKOUT (QUERY)
-   - RECOMMEND: "운동 추천"/"루틴 추천"/"다음 운동" → WORKOUT (RECOMMEND)
+   - RECOMMEND: "운동 추천"/"루틴 추천"/"다음 운동"/"루틴 짜달라"/"운동 짜줘"/"루틴 짜줘"/"운동 추천해줘" → WORKOUT (RECOMMEND)
    - MODIFY: "운동 추가"/"세트 수정"/"루틴 변경" → WORKOUT (MODIFY)
 2. PAIN_REPORT (통증)
    - REPORT: "아파"/"통증"/"뻐근" + 부위 → PAIN_REPORT (REPORT)

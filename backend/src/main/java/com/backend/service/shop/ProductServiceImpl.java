@@ -358,6 +358,8 @@ public class ProductServiceImpl implements ProductService {
             product.getVariants().add(ProductVariant.builder()
                     .product(product)
                     .optionText(req.getOptionText())
+                    .optionJson("{}")
+                    .sku(java.util.UUID.randomUUID().toString())
                     .price(req.getPrice())
                     .stockQty(req.getStockQty() != null ? req.getStockQty() : 0)
                     .active(req.getActive() != null ? req.getActive() : true)

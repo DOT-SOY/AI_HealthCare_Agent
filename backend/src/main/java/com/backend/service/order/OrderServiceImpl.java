@@ -246,5 +246,70 @@ public class OrderServiceImpl implements OrderService {
                 shipToDto.getAddress2()
         );
     }
+
+    @Override
+    public PageResponse<OrderSummaryResponse> getAdminOrders(OrderListRequest request) {
+        ZoneId zone = ZoneId.systemDefault();
+        Instant fromDateStart = request.getFromDate() == null
+                ? null
+                : request.getFromDate().atStartOfDay(zone).toInstant();
+        Instant toDateEnd = request.getToDate() == null
+                ? null
+                : request.getToDate().plusDays(1).atStartOfDay(zone).toInstant();
+
+        Page<OrderSummaryBaseProjection> page = orderRepository.findAllSummary(
+                fromDateStart,
+                toDateEnd,
+                request.getStatus(),
+                request.toPageable());
+
+        List<OrderSummaryBaseProjection> content = page.getContent();
+        if (content.isEmpty()) {
+            return PageResponse.<OrderSummaryResponse>builder()
+                    .items(List.of())
+                    .page(request.getPage())
+                    .pageSize(page.getSize())
+                    .total(page.getTotalElements())
+                    .pages(page.getTotalPages())
+                    .hasNext(page.hasNext())
+                    .hasPrevious(page.hasPrevious())
+                    .build();
+        }
+
+        List<Long> orderIds = content.stream().map(OrderSummaryBaseProjection::getId).toList();
+        List<OrderItemSummaryProjection> itemSummaries = orderRepository.findOrderItemSummaryByOrderIds(orderIds);
+        Map<Long, OrderItemSummaryProjection> itemSummaryByOrderId = itemSummaries.stream()
+                .collect(Collectors.toMap(OrderItemSummaryProjection::getOrderId, s -> s));
+
+        List<OrderSummaryResponse> items = content.stream()
+                .map(base -> OrderSummaryResponse.from(base, itemSummaryByOrderId.get(base.getId())))
+                .toList();
+
+        return PageResponse.<OrderSummaryResponse>builder()
+                .items(items)
+                .page(request.getPage())
+                .pageSize(page.getSize())
+                .total(page.getTotalElements())
+                .pages(page.getTotalPages())
+                .hasNext(page.hasNext())
+                .hasPrevious(page.hasPrevious())
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrderDetailResponse getOrderDetailForAdmin(String orderNo) {
+        Order order = orderRepository.findDetailByOrderNo(orderNo)
+                .orElseThrow(() -> new BusinessException(ErrorCode.SHOP_ORDER_NOT_FOUND, orderNo));
+        return OrderDetailResponse.from(order);
+    }
+
+    @Override
+    @Transactional
+    public void updateOrderStatusForAdmin(String orderNo, OrderStatus status) {
+        Order order = orderRepository.findByOrderNo(orderNo)
+                .orElseThrow(() -> new BusinessException(ErrorCode.SHOP_ORDER_NOT_FOUND, orderNo));
+        order.updateStatusByAdmin(status);
+    }
 }
 

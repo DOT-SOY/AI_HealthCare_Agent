@@ -1,9 +1,31 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { toggleChat, addMessage, setLoading, incrementNotification, clearNotification } from '../store/aiSlice';
 import { useAI } from '../hooks/useAI';
 import { useSTT } from '../hooks/useSTT';
 import { useWebSocket } from '../hooks/useWebSocket';
+import { useRoutines } from '../hooks/useRoutines';
+import { routineApi } from '../api/routineApi';
+
+// AI 코치 "루틴 짜달라" 시 모달에 표시할 프리셋 (ListPage·백엔드와 동일)
+const PRESET_CARDS = [
+  {
+    groupName: '분할 루틴',
+    days: [
+      { title: 'Push Day', summary: '가슴, 어깨, 삼두근을 사용하는 날입니다.', exerciseNames: ['벤치프레스', '오버헤드프레스'] },
+      { title: 'Pull Day', summary: '등, 이두근, 후면 사슬을 사용하는 날입니다.', exerciseNames: ['데드리프트', '바벨 컬'] },
+      { title: 'Leg Day', summary: '허벅지 앞/뒤, 엉덩이, 종아리를 사용하는 날입니다.', exerciseNames: ['스쿼트', '힙쓰러스트', '카프레이즈'] },
+      { title: 'Core Day', summary: '복부와 허리, 몸의 중심을 지탱하는 코어 근육을 사용하는 날입니다.', exerciseNames: ['플랭크', '행잉레그레이즈'] },
+    ],
+  },
+  {
+    groupName: '상하체 루틴',
+    days: [
+      { title: 'Upper Day', summary: '가슴, 어깨, 팔, 그리고 복근을 단련합니다.', exerciseNames: ['벤치프레스', '오버헤드프레스', '바벨 컬', '행잉레그레이즈', '플랭크'] },
+      { title: 'Leg Day', summary: '허벅지, 엉덩이, 종아리, 등 하부(후면 사슬)를 단련합니다.', exerciseNames: ['스쿼트', '데드리프트', '힙쓰러스트', '카프레이즈'] },
+    ],
+  },
+];
 
 export default function AIChatOverlay() {
   const dispatch = useDispatch();
@@ -11,7 +33,10 @@ export default function AIChatOverlay() {
   const { sendAIMessage } = useAI();
   const { isListening, transcript, startListening, stopListening } = useSTT();
   const { subscribeToReview, connectWebSocket, disconnect } = useWebSocket();
+  const { fetchTodayRoutine, fetchWeekRoutines } = useRoutines();
   const [inputText, setInputText] = useState('');
+  const [showPresetModal, setShowPresetModal] = useState(false);
+  const [applyLoading, setApplyLoading] = useState(false);
   const messagesEndRef = useRef(null);
 
   const lastMessageRef = useRef(null);
@@ -95,8 +120,28 @@ export default function AIChatOverlay() {
 
     const text = inputText.trim();
     setInputText('');
-    await sendAIMessage(text);
+    const response = await sendAIMessage(text);
+    if (response?.showPresetModal === true) {
+      setShowPresetModal(true);
+    }
   };
+
+  const handleApplyPreset = useCallback(async (presetIndex) => {
+    setApplyLoading(true);
+    try {
+      const todayStr = new Date().toISOString().split('T')[0];
+      await routineApi.applyPreset(todayStr, presetIndex);
+      setShowPresetModal(false);
+      dispatch(addMessage({ role: 'assistant', content: '루틴을 생성했어요. 루틴 페이지에서 확인해 주세요.' }));
+      await fetchTodayRoutine();
+      await fetchWeekRoutines();
+    } catch (err) {
+      console.error('프리셋 적용 실패:', err);
+      dispatch(addMessage({ role: 'assistant', content: '루틴 생성에 실패했어요. 다시 시도해 주세요.' }));
+    } finally {
+      setApplyLoading(false);
+    }
+  }, [dispatch, fetchTodayRoutine, fetchWeekRoutines]);
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -248,6 +293,65 @@ export default function AIChatOverlay() {
           </div>
         </div>
         </>
+      )}
+
+      {/* 프리셋 선택 모달 (AI 코치 "루틴 짜달라" 시) */}
+      {showPresetModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4"
+          onClick={() => !applyLoading && setShowPresetModal(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="preset-modal-title"
+        >
+          <div
+            className="bg-neutral-800 rounded-xl border border-neutral-600 shadow-xl w-full max-w-md overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 border-b border-neutral-600 flex items-center justify-between">
+              <h2 id="preset-modal-title" className="text-lg font-bold text-neutral-50">
+                  루틴 선택
+              </h2>
+              <button
+                type="button"
+                onClick={() => !applyLoading && setShowPresetModal(false)}
+                className="text-neutral-400 hover:text-neutral-50 p-1 rounded"
+                aria-label="닫기"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-4">
+              <p className="text-neutral-400 text-sm mb-4">
+                오늘부터 연속된 날짜에 루틴이 생성됩니다.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {PRESET_CARDS.map((preset, index) => (
+                  <button
+                    key={preset.groupName}
+                    type="button"
+                    disabled={applyLoading}
+                    onClick={() => handleApplyPreset(index)}
+                    className="text-left p-4 rounded-lg border-2 border-neutral-600 bg-neutral-700/50 hover:border-[#88ce02] hover:bg-neutral-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    <div className="font-semibold text-[#88ce02] mb-2">{preset.groupName}</div>
+                    <div className="text-neutral-400 text-xs space-y-2">
+                      {preset.days?.map((day, i) => (
+                        <div key={i} className="border-l-2 border-neutral-600 pl-1.5">
+                          <div className="font-medium text-neutral-300">{i + 1}. {day.title}</div>
+                          <div className="mt-0.5 text-neutral-500">{day.exerciseNames?.join(', ')}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {applyLoading && <div className="mt-2 text-neutral-500 text-xs">적용 중...</div>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

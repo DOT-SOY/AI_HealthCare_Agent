@@ -1,5 +1,7 @@
 package com.backend.controller.shop;
 
+import com.backend.domain.member.Member;
+import com.backend.domain.member.MemberRole;
 import com.backend.domain.shop.*;
 import com.backend.dto.shop.request.ProductCreateRequest;
 import com.backend.dto.shop.request.ProductVariantRequest;
@@ -10,8 +12,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
 
@@ -22,6 +26,7 @@ class ProductDummyDataTest {
     @Autowired ProductService productService;
     @Autowired MemberRepository memberRepository;
     @Autowired CategoryRepository categoryRepository;
+    @Autowired PasswordEncoder passwordEncoder;
 
     record VariantSpec(String optionText, BigDecimal price, int stockQty, boolean active) {}
     record ProductSpec(
@@ -36,8 +41,22 @@ class ProductDummyDataTest {
 
     @Test
     void createDummyProducts() {
-        Long adminId = 1L;
-        memberRepository.findById(adminId).orElseThrow();
+        Long adminId = memberRepository.findByEmail("Admin")
+                .map(Member::getId)
+                .orElseGet(() -> {
+                    String encoded = passwordEncoder.encode("1111");
+                    Member admin = Member.builder()
+                            .email("Admin")
+                            .pw(encoded)
+                            .name("관리자")
+                            .gender(Member.Gender.MALE)
+                            .birthDate(LocalDate.of(1990, 1, 1))
+                            .isDeleted(false)
+                            .build();
+                    admin.addRole(MemberRole.ADMIN);
+                    admin.addRole(MemberRole.USER);
+                    return memberRepository.save(admin).getId();
+                });
 
         String runSuffix = String.valueOf(System.currentTimeMillis());
 

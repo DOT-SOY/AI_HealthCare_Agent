@@ -8,6 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 @Entity
 @Getter
@@ -30,6 +31,14 @@ public class ProductVariant extends BaseEntity {
     @Column(name = "option_text", nullable = false)
     private String optionText;
 
+    /** DB 컬럼 option_json (NOT NULL). 구조화된 옵션 저장용, 없으면 "{}" */
+    @Column(name = "option_json", nullable = false)
+    private String optionJson = "{}";
+
+    /** 재고 관리 단위 코드. DB NOT NULL, 미입력 시 UUID로 자동 생성 */
+    @Column(name = "sku", nullable = false, unique = true, length = 100)
+    private String sku;
+
     // 가격 (null이면 product.basePrice 사용)
     @Column(precision = 18, scale = 2)
     private BigDecimal price;
@@ -45,11 +54,15 @@ public class ProductVariant extends BaseEntity {
     @Builder
     public ProductVariant(Product product,
                          String optionText,
+                         String optionJson,
+                         String sku,
                          BigDecimal price,
                          Integer stockQty,
                          Boolean active) {
         this.product = product;
         this.optionText = optionText;
+        this.optionJson = (optionJson != null && !optionJson.isBlank()) ? optionJson : "{}";
+        this.sku = (sku != null && !sku.isBlank()) ? sku : UUID.randomUUID().toString();
         this.price = price;
         this.stockQty = (stockQty != null) ? stockQty : 0;
         this.active = (active != null) ? active : true;

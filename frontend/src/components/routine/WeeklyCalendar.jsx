@@ -2,14 +2,13 @@ export default function WeeklyCalendar({ routines = [], selectedDate, onDateChan
   const days = ['일', '월', '화', '수', '목', '금', '토'];
   const today = new Date();
   
-  // 최근 7일 생성
+  // 이전 3일 + 오늘 + 앞 3일 (총 7일)
   const weekDates = [];
-  for (let i = 0; i < 7; i++) {
+  for (let i = -3; i <= 3; i++) {
     const date = new Date(today);
-    date.setDate(date.getDate() - i);
+    date.setDate(date.getDate() + i);
     weekDates.push(date);
   }
-  weekDates.reverse(); // 오래된 날짜부터
 
   const isSelected = (date) => {
     if (!selectedDate) return false;

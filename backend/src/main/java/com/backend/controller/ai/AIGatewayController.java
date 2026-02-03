@@ -191,22 +191,19 @@ public class AIGatewayController {
 
     /**
      * WORKOUT의 RECOMMEND 액션 처리 (소분류: action)
-     * 
-     * - 사용자의 상태, 목표, 과거 루틴 등을 분석하여 운동 추천
-     * - 추후 구현 예정
+     *
+     * - "루틴 짜달라" / "루틴 추천해줘" 등 요청 시 프리셋 선택 모달을 띄우도록 showPresetModal=true 반환
+     * - 프론트에서 카드 선택 후 applyPreset으로 루틴 생성
      */
     private AIChatResponse handleWorkoutRecommend(IntentClassificationResult classification) {
-        // TODO: 추후 구현
-        // - 사용자의 과거 루틴 분석
-        // - 통증 이력 확인
-        // - 목표 및 선호도 고려
-        // - AI 기반 운동 추천 생성
-        
-        log.info("WORKOUT RECOMMEND 요청 (추후 구현): {}", classification);
-        
+        log.info("WORKOUT RECOMMEND: 프리셋 모달 표시 요청");
+
+        String message = "아래에서 원하는 프로그램을 선택해 주세요. 오늘부터 연속된 날짜에 루틴이 생성됩니다.";
+
         return AIChatResponse.builder()
-            .message("운동 추천 기능은 곧 제공될 예정입니다.")
+            .message(message)
             .intent("WORKOUT")
+            .showPresetModal(true)
             .build();
     }
 

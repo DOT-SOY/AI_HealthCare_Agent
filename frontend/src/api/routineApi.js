@@ -56,5 +56,21 @@ export const routineApi = {
     const response = await jwtAxios.put(`/routines/${id}/status`, { status });
     return response.data;
   },
+
+  /** 프리셋 루틴 그룹 목록 (카드 1: 분할 4일, 카드 2: 상하체 2일) */
+  getPresets: async () => {
+    const response = await jwtAxios.get('/routines/presets');
+    return response.data;
+  },
+
+  /** 선택한 프리셋 적용. startDate부터 연속 일수만큼 루틴 저장. presetIndex 0=4일, 1=2일 */
+  applyPreset: async (startDate, presetIndex) => {
+    const dateStr = typeof startDate === 'string' ? startDate : startDate.toISOString().split('T')[0];
+    const response = await jwtAxios.post('/routines/apply-preset', {
+      startDate: dateStr,
+      presetIndex,
+    });
+    return response.data;
+  },
 };
 

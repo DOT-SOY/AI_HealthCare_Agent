@@ -2,21 +2,31 @@ import { Suspense, lazy } from "react";
 import { Navigate } from "react-router-dom";
 
 const Loading = <div>Loading...</div>;
-// 나중에 실제 관리자 페이지를 만들면 주석을 풀고 연결하세요
-// const AdminPage = lazy(() => import("../pages/admin/IndexPage"));
+const OrderListPage = lazy(() => import("../pages/admin/OrderListPage"));
+const AdminOrderDetailPage = lazy(() => import("../pages/admin/AdminOrderDetailPage"));
 
 const adminRouter = () => {
   return [
     {
-      path: "admin",
-      element: <Suspense fallback={Loading}><div>관리자 페이지 준비중</div></Suspense>,
-      children: [
-        {
-            path: "",
-            element: <Navigate to="dashboard" replace />
-        }
-      ]
-    }
+      path: "",
+      element: <Navigate to="orders" replace />,
+    },
+    {
+      path: "orders",
+      element: (
+        <Suspense fallback={Loading}>
+          <OrderListPage />
+        </Suspense>
+      ),
+    },
+    {
+      path: "orders/:orderNo",
+      element: (
+        <Suspense fallback={Loading}>
+          <AdminOrderDetailPage />
+        </Suspense>
+      ),
+    },
   ];
 };
 

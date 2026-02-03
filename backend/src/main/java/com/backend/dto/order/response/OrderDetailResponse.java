@@ -25,18 +25,29 @@ public class OrderDetailResponse {
     private List<OrderItemDetailResponse> items;
 
     public static OrderDetailResponse from(Order order) {
+        BigDecimal totalPayable = order.getTotalPayableAmount();
+        BigDecimal shippingFee = order.getShippingFee();
+        BigDecimal totalItemAmount = (totalPayable != null && shippingFee != null)
+                ? totalPayable.subtract(shippingFee)
+                : null;
         return OrderDetailResponse.builder()
                 .orderNo(order.getOrderNo())
                 .status(order.getStatus())
-                .totalItemAmount(order.getTotalItemAmount())
-                .shippingFee(order.getShippingFee())
-                .totalPayableAmount(order.getTotalPayableAmount())
+                .totalItemAmount(totalItemAmount)
+                .shippingFee(shippingFee)
+                .totalPayableAmount(totalPayable)
                 .createdAt(order.getCreatedAt())
-                .buyer(OrderBuyerSnapshotResponse.from(order.getBuyerSnapshot()))
-                .shipTo(OrderShipToSnapshotResponse.from(order.getShipToSnapshot()))
-                .items(order.getItems().stream()
-                        .map(OrderItemDetailResponse::from)
-                        .toList())
+                .buyer(order.getBuyerSnapshot() != null
+                        ? OrderBuyerSnapshotResponse.from(order.getBuyerSnapshot())
+                        : null)
+                .shipTo(order.getShipToSnapshot() != null
+                        ? OrderShipToSnapshotResponse.from(order.getShipToSnapshot())
+                        : null)
+                .items(order.getItems() != null
+                        ? order.getItems().stream()
+                                .map(OrderItemDetailResponse::from)
+                                .toList()
+                        : List.of())
                 .build();
     }
 }

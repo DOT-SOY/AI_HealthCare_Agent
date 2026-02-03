@@ -95,3 +95,48 @@ export const updateOrderShipTo = async (orderNo, body) => {
     body: JSON.stringify(body),
   });
 };
+
+/**
+ * 관리자 전체 주문 목록 조회 (ADMIN 권한 필요)
+ * @param {object} params - { page?, page_size?, from_date?, to_date?, status? }
+ * @returns {Promise<{ items, page, page_size, total, pages, has_next, has_previous }>}
+ */
+export const getAdminOrders = async (params = {}) => {
+  const {
+    page = 1,
+    page_size = 20,
+    from_date = null,
+    to_date = null,
+    status = null,
+  } = params;
+
+  const queryParams = new URLSearchParams({
+    page: String(page),
+    page_size: String(page_size),
+  });
+  if (from_date) queryParams.append('from_date', from_date);
+  if (to_date) queryParams.append('to_date', to_date);
+  if (status) queryParams.append('status', status);
+
+  return await fetchAPI(`/admin/orders?${queryParams.toString()}`);
+};
+
+/**
+ * 관리자 주문 상세 조회 (ADMIN 권한 필요, 배송 상태 관리용)
+ * @param {string} orderNo - 주문번호
+ */
+export const getAdminOrderDetail = async (orderNo) => {
+  return await fetchAPI(`/admin/orders/${encodeURIComponent(orderNo)}`);
+};
+
+/**
+ * 관리자 주문 배송 상태 변경 (ADMIN 권한 필요)
+ * @param {string} orderNo - 주문번호
+ * @param {string} status - SHIPPED | DELIVERED | CANCELED
+ */
+export const updateOrderStatusAdmin = async (orderNo, status) => {
+  return await fetchAPI(`/admin/orders/${encodeURIComponent(orderNo)}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  });
+};

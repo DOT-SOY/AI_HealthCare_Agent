@@ -11,12 +11,15 @@ import com.backend.dto.request.ExerciseUpdateRequest;
 import com.backend.dto.request.RoutineCreateRequest;
 import com.backend.dto.response.ExerciseResponse;
 import com.backend.dto.response.RoutineResponse;
+import com.backend.dto.response.RoutinePresetDayDto;
+import com.backend.dto.response.RoutinePresetGroupDto;
 import com.backend.repository.exercise.ExerciseRepository;
 import com.backend.repository.exercise.ExerciseTypeRepository;
 import com.backend.repository.member.MemberRepository;
 import com.backend.repository.routine.RoutineRepository;
 import com.backend.service.pain.WorkoutReviewService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,22 +29,53 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class RoutineServiceImpl implements RoutineService {
-    
+
     private final RoutineRepository routineRepository;
     private final ExerciseRepository exerciseRepository;
     private final ExerciseTypeRepository exerciseTypeRepository;
     private final MemberRepository memberRepository;
     private final WorkoutReviewService workoutReviewService;
+    private final SimpMessagingTemplate messagingTemplate;
+
+    /** 운동명 → category (9종목만 사용) */
+    private static final Map<String, String> EXERCISE_NAME_TO_CATEGORY = new HashMap<>();
+    static {
+        EXERCISE_NAME_TO_CATEGORY.put("데드리프트", "BACK");
+        EXERCISE_NAME_TO_CATEGORY.put("벤치프레스", "CHEST");
+        EXERCISE_NAME_TO_CATEGORY.put("오버헤드프레스", "SHOULDER");
+        EXERCISE_NAME_TO_CATEGORY.put("바벨 컬", "ARM");
+        EXERCISE_NAME_TO_CATEGORY.put("플랭크", "CORE");
+        EXERCISE_NAME_TO_CATEGORY.put("행잉레그레이즈", "ABS");
+        EXERCISE_NAME_TO_CATEGORY.put("힙쓰러스트", "GLUTE");
+        EXERCISE_NAME_TO_CATEGORY.put("스쿼트", "THIGH");
+        EXERCISE_NAME_TO_CATEGORY.put("카프레이즈", "CALF");
+    }
+
+    /** 카드 1: 분할 4일 (Push → Pull → Leg → Core Day) */
+    private static final List<RoutinePresetDayDto> PRESET_GROUP_0 = Arrays.asList(
+        RoutinePresetDayDto.builder().title("Push Day").summary("가슴, 어깨, 삼두근을 사용하는 날입니다.").exerciseNames(Arrays.asList("벤치프레스", "오버헤드프레스")).build(),
+        RoutinePresetDayDto.builder().title("Pull Day").summary("등, 이두근, 후면 사슬을 사용하는 날입니다.").exerciseNames(Arrays.asList("데드리프트", "바벨 컬")).build(),
+        RoutinePresetDayDto.builder().title("Leg Day").summary("허벅지 앞/뒤, 엉덩이, 종아리를 사용하는 날입니다.").exerciseNames(Arrays.asList("스쿼트", "힙쓰러스트", "카프레이즈")).build(),
+        RoutinePresetDayDto.builder().title("Core Day").summary("복부와 허리, 몸의 중심을 지탱하는 코어 근육을 사용하는 날입니다.").exerciseNames(Arrays.asList("플랭크", "행잉레그레이즈")).build()
+    );
+    /** 카드 2: 상하체 2일 */
+    private static final List<RoutinePresetDayDto> PRESET_GROUP_1 = Arrays.asList(
+        RoutinePresetDayDto.builder().title("Upper Day").summary("가슴, 어깨, 팔, 그리고 복근을 단련합니다.").exerciseNames(Arrays.asList("벤치프레스", "오버헤드프레스", "바벨 컬", "행잉레그레이즈", "플랭크")).build(),
+        RoutinePresetDayDto.builder().title("Leg Day").summary("허벅지, 엉덩이, 종아리, 등 하부(후면 사슬)를 단련합니다.").exerciseNames(Arrays.asList("스쿼트", "데드리프트", "힙쓰러스트", "카프레이즈")).build()
+    );
     
     @Override
     @Transactional(readOnly = true)
@@ -85,17 +119,18 @@ public class RoutineServiceImpl implements RoutineService {
     @Transactional(readOnly = true)
     public List<RoutineResponse> getWeeklyRoutines(Long memberId) {
         LocalDate today = LocalDate.now();
-        LocalDate weekStart = today.minusDays(6);
+        LocalDate weekStart = today.minusDays(3);
+        LocalDate weekEnd = today.plusDays(3);
         
-        log.info("주간 루틴 조회: memberId={}, weekStart={}, today={}", memberId, weekStart, today);
+        log.info("주간 루틴 조회: memberId={}, weekStart={}, today={}, weekEnd={}", memberId, weekStart, today, weekEnd);
         
-        List<Routine> routines = routineRepository.findByMemberIdAndDateBetween(memberId, weekStart, today);
+        List<Routine> routines = routineRepository.findByMemberIdAndDateBetween(memberId, weekStart, weekEnd);
         
         log.info("주간 루틴 조회 결과: routinesCount={}", routines.size());
         
         return routines.stream()
             .map(routine -> toRoutineResponse(routine, routine.getDate().equals(today)))
-            .sorted(Comparator.comparing(RoutineResponse::getDate).reversed())
+            .sorted(Comparator.comparing(RoutineResponse::getDate))
             .collect(Collectors.toList());
     }
     
@@ -479,9 +514,72 @@ public class RoutineServiceImpl implements RoutineService {
             .findFirst()
             .orElseThrow(() -> new IllegalArgumentException("운동을 찾을 수 없습니다: " + exerciseId));
         
-        exerciseRepository.delete(exercise);
+        // 컬렉션에서 제거 → Routine.orphanRemoval=true 로 DB에서도 삭제됨
+        routine.getExercises().remove(exercise);
     }
-    
+
+    @Override
+    @Transactional
+    public void saveRoutineWithExercisesFromAi(Long memberId, LocalDate date,
+                                               RoutineCreateRequest routineCreate,
+                                               List<ExerciseAddRequest> exercises) {
+        Long routineId;
+        Optional<Routine> existingOpt = routineRepository.findByDateAndMemberId(date, memberId);
+        if (existingOpt.isPresent()) {
+            // 해당 날짜 루틴이 있으면 수정: 기존 운동 제거 후 AI 결과로 갱신
+            Routine routine = existingOpt.get();
+            routineId = routine.getId();
+            routine.getExercises().clear(); // orphanRemoval 로 DB에서 삭제
+            if (routineCreate.getTitle() != null) {
+                routine.setTitle(routineCreate.getTitle());
+            }
+            if (routineCreate.getSummary() != null) {
+                routine.setAiSummary(routineCreate.getSummary());
+            }
+            routineRepository.save(routine);
+            log.info("[Async] 기존 루틴 수정 후 AI 운동 적용: routineId={}, date={}", routineId, date);
+        } else {
+            RoutineResponse created = createRoutine(memberId, routineCreate);
+            routineId = created.getId();
+        }
+        for (ExerciseAddRequest ex : exercises) {
+            addExercise(routineId, ex);
+        }
+        log.info("[Async] AI 루틴 생성/수정 완료: routineId={}, exercises={}", routineId, exercises.size());
+        messagingTemplate.convertAndSend("/topic/routine/generate", java.util.Map.of("completed", true, "memberId", memberId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<RoutinePresetGroupDto> getPresets() {
+        return Arrays.asList(
+            RoutinePresetGroupDto.builder().groupName("분할 루틴").days(PRESET_GROUP_0).build(),
+            RoutinePresetGroupDto.builder().groupName("상하체 루틴").days(PRESET_GROUP_1).build()
+        );
+    }
+
+    @Override
+    @Transactional
+    public void applyPreset(Long memberId, LocalDate startDate, int presetIndex) {
+        List<RoutinePresetDayDto> days = presetIndex == 0 ? PRESET_GROUP_0 : PRESET_GROUP_1;
+        for (int i = 0; i < days.size(); i++) {
+            RoutinePresetDayDto day = days.get(i);
+            LocalDate date = startDate.plusDays(i);
+            RoutineCreateRequest routineCreate = new RoutineCreateRequest();
+            routineCreate.setDate(date);
+            routineCreate.setTitle(day.getTitle());
+            routineCreate.setSummary(day.getSummary() != null ? day.getSummary() : (day.getTitle() + " 루틴"));
+            List<ExerciseAddRequest> exercises = new ArrayList<>();
+            for (String name : day.getExerciseNames()) {
+                String category = EXERCISE_NAME_TO_CATEGORY.getOrDefault(name, "CHEST");
+                exercises.add(new ExerciseAddRequest(name, category, 3, 10, null));
+            }
+            saveRoutineWithExercisesFromAi(memberId, date, routineCreate, exercises);
+        }
+        log.info("프리셋 적용 완료: memberId={}, presetIndex={}, startDate={}, days={}", memberId, presetIndex, startDate, days.size());
+        messagingTemplate.convertAndSend("/topic/routine/generate", java.util.Map.of("completed", true, "memberId", memberId));
+    }
+
     private RoutineResponse toRoutineResponse(Routine routine, boolean isToday) {
         List<ExerciseResponse> exerciseResponses = routine.getExercises().stream()
             .sorted(Comparator.comparing(Exercise::getOrderIndex))

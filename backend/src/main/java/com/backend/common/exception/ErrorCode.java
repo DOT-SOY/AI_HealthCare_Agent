@@ -83,7 +83,8 @@ public enum ErrorCode {
     JWT_REFRESH_REPLAY_DETECTED("JWT_009", "Refresh Token 재사용이 감지되었습니다. (Replay 공격)", HttpStatus.UNAUTHORIZED),
     JWT_REFRESH_TAMPERED("JWT_010", "변조된 Refresh Token이 감지되었습니다.", HttpStatus.UNAUTHORIZED),
     JWT_REFRESH_DEVICE_MISMATCH("JWT_011", "Refresh Token의 기기 정보가 일치하지 않습니다.", HttpStatus.UNAUTHORIZED),
-    JWT_REFRESH_IP_MISMATCH("JWT_012", "Refresh Token의 IP 주소가 일치하지 않습니다.", HttpStatus.UNAUTHORIZED);
+    JWT_REFRESH_IP_MISMATCH("JWT_012", "Refresh Token의 IP 주소가 일치하지 않습니다.", HttpStatus.UNAUTHORIZED),
+    JWT_NO_REFRESH_COOKIE("JWT_013", "Refresh Token 쿠키가 없습니다.", HttpStatus.UNAUTHORIZED);
     
     // ========== 루틴 (예시) ==========
     // ROUTINE_NOT_FOUND("ROUTINE_001", "루틴을 찾을 수 없습니다. (ID: %s)", HttpStatus.NOT_FOUND),

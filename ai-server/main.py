@@ -55,8 +55,6 @@ class PainAdviceResponse(BaseModel):
     sources: Optional[List[Dict[str, Any]]] = None
 
 
-
-
 # 엔드포인트
 @app.get("/health")
 async def health():

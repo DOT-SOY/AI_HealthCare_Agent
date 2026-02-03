@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
+import { useDispatch } from "react-redux";
 import "../../styles/Profile.css";
 import BasicLayout from "../../components/layout/BasicLayout";
+import { logout } from "../../slices/loginSlice";
 import { Home, User, Moon, Sun, X, Plus, Edit, Trash2 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip,
@@ -15,8 +17,14 @@ import {
 } from "../../services/memberInfoAddrApi";
 
 const ProfileIndex = () => {
+  const dispatch = useDispatch();
   const [isDark, setIsDark] = useState(false);
   const toggleDarkMode = () => setIsDark((prev) => !prev);
+
+  const handleLogout = async () => {
+    if (!window.confirm("로그아웃 하시겠습니까?")) return;
+    await dispatch(logout());
+  };
 
   const [historyData, setHistoryData] = useState([]);
   const [latestInfo, setLatestInfo] = useState(null);
@@ -238,7 +246,7 @@ const ProfileIndex = () => {
             <button className="btn-toggle-theme" onClick={toggleDarkMode}>
               {isDark ? <Sun size={20} /> : <Moon size={20} />}
             </button>
-            <button className="btn-logout">로그아웃</button>
+            <button type="button" className="btn-logout" onClick={handleLogout}>로그아웃</button>
           </div>
         </header>
 

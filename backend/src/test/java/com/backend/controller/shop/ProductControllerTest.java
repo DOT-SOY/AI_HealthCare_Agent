@@ -1,6 +1,7 @@
 package com.backend.controller.shop;
 
 import com.backend.domain.member.Member;
+import com.backend.domain.member.MemberRole;
 import com.backend.domain.shop.*;
 import com.backend.dto.shop.request.ProductCreateRequest;
 import com.backend.dto.shop.request.ProductUpdateRequest;
@@ -17,9 +18,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
@@ -51,6 +60,9 @@ class ProductControllerTest {
     @Autowired
     private MemberRepository memberRepository;
 
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     private Product fitnessProduct1;
     private Product fitnessProduct2;
     private Category fitnessCategory;
@@ -58,10 +70,22 @@ class ProductControllerTest {
 
     @BeforeEach
     void setUp() {
-        // Admin 멤버(id=1)가 미리 생성되어 있어야 함 (AdminMemberCreateTest에서 생성)
-        testMember = memberRepository.findById(1L)
-                .orElseThrow(() -> new IllegalStateException(
-                        "Admin member(id=1) not found. 먼저 AdminMemberCreateTest를 실행해 관리자 계정을 생성하세요."));
+        // Admin 멤버: 이메일 "Admin"으로 조회, 없으면 생성
+        testMember = memberRepository.findByEmail("Admin")
+                .orElseGet(() -> {
+                    String encoded = passwordEncoder.encode("1111");
+                    Member admin = Member.builder()
+                            .email("Admin")
+                            .pw(encoded)
+                            .name("관리자")
+                            .gender(Member.Gender.MALE)
+                            .birthDate(LocalDate.of(1990, 1, 1))
+                            .isDeleted(false)
+                            .build();
+                    admin.addRole(MemberRole.ADMIN);
+                    admin.addRole(MemberRole.USER);
+                    return memberRepository.save(admin);
+                });
 
         // 피트니스 관련 더미 데이터 생성 (이미 있으면 재생성하지 않음)
         if (fitnessProduct1 == null || fitnessProduct2 == null || fitnessCategory == null) {
@@ -105,6 +129,8 @@ class ProductControllerTest {
         ProductVariant variant1 = ProductVariant.builder()
                 .product(fitnessProduct1)
                 .optionText("weight: 20kg, color: black")
+                .optionJson("{}")
+                .sku("SKU-TEST-DUMBBELL-1")
                 .price(new BigDecimal("89000"))
                 .stockQty(10)
                 .active(true)
@@ -158,12 +184,24 @@ class ProductControllerTest {
         }
     }
 
+    /** addFilters=false 시 SecurityContext에 Admin(DB 이메일과 동일) 설정. 테스트 후 clearContext 필요. */
+    private void setSecurityContextAdmin() {
+        Authentication auth = new UsernamePasswordAuthenticationToken(
+                "Admin",
+                null,
+                List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
+        );
+        SecurityContextHolder.getContext().setAuthentication(auth);
+    }
+
     // ========== Product 테스트 ==========
 
     @Test
     @DisplayName("상품 등록 성공")
+    @WithMockUser(roles = "ADMIN")
     void createProduct_Success() throws Exception {
-        // given - Admin 멤버(id=1)가 이미 생성되어 있다고 가정 (AdminMemberCreateTest)
+        // given - Admin 멤버가 setUp()에서 생성됨 (이메일 "Admin")
+        setSecurityContextAdmin();
 
         // given - 고유한 이름 사용 (이전 테스트 데이터와 충돌 방지)
         String uniqueName = "옵티멈 골드 스탠다드 휘핑 프로틴 2.27kg " + System.currentTimeMillis();
@@ -172,17 +210,20 @@ class ProductControllerTest {
         request.setDescription("우유 단백질과 유청 단백질을 혼합한 고품질 프로틴 파우더입니다. 운동 후 근육 회복과 성장을 돕는 필수 아미노산을 함유하고 있습니다.");
         request.setBasePrice(new BigDecimal("45000"));
 
-        // when & then
-        mockMvc.perform(post("/api/products")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andDo(print())
-                .andExpect(status().isCreated())
-                .andExpect(header().exists("Location"))
-                .andExpect(jsonPath("$.id").exists())
-                .andExpect(jsonPath("$.name").value(uniqueName))
-                .andExpect(jsonPath("$.basePrice").value(45000))
-                .andExpect(jsonPath("$.status").value("DRAFT"));
+        try {
+            mockMvc.perform(post("/api/products")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andDo(print())
+                    .andExpect(status().isCreated())
+                    .andExpect(header().exists("Location"))
+                    .andExpect(jsonPath("$.id").exists())
+                    .andExpect(jsonPath("$.name").value(uniqueName))
+                    .andExpect(jsonPath("$.basePrice").value(45000))
+                    .andExpect(jsonPath("$.status").value("DRAFT"));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
     }
 
     @Test
@@ -261,45 +302,54 @@ class ProductControllerTest {
 
     @Test
     @DisplayName("상품 수정 성공")
+    @WithMockUser(roles = "ADMIN")
     void updateProduct_Success() throws Exception {
-        // given - setUp()에서 생성된 데이터 사용, 고유한 이름 사용 (이전 테스트 데이터와 충돌 방지)
         if (fitnessProduct1 == null) {
             createFitnessDummyData();
         }
+        setSecurityContextAdmin();
+
         String uniqueName = "아이언맥스 조정 가능 덤벨 세트 20kg 업그레이드 " + System.currentTimeMillis();
         ProductUpdateRequest request = new ProductUpdateRequest();
         request.setName(uniqueName);
         request.setBasePrice(new BigDecimal("95000"));
 
-        // when & then
-        mockMvc.perform(patch("/api/products/" + fitnessProduct1.getId())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andDo(print())
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(fitnessProduct1.getId()))
-                .andExpect(jsonPath("$.name").value(uniqueName))
-                .andExpect(jsonPath("$.basePrice").value(95000));
+        try {
+            mockMvc.perform(patch("/api/products/" + fitnessProduct1.getId())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andDo(print())
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(fitnessProduct1.getId()))
+                    .andExpect(jsonPath("$.name").value(uniqueName))
+                    .andExpect(jsonPath("$.basePrice").value(95000));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
     }
 
     @Test
     @DisplayName("상품 삭제 성공")
+    @WithMockUser(roles = "ADMIN")
     void deleteProduct_Success() throws Exception {
-        // given - setUp()에서 생성된 데이터 사용
         if (fitnessProduct2 == null) {
             createFitnessDummyData();
         }
+        setSecurityContextAdmin();
+
         Long productId = fitnessProduct2.getId();
 
-        // when & then
-        mockMvc.perform(delete("/api/products/" + productId))
-                .andDo(print())
-                .andExpect(status().isNoContent());
+        try {
+            mockMvc.perform(delete("/api/products/" + productId))
+                    .andDo(print())
+                    .andExpect(status().isNoContent());
 
-        // 삭제 후 조회 시 404가 나와야 함 (소프트 삭제)
-        mockMvc.perform(get("/api/products/" + productId))
-                .andDo(print())
-                .andExpect(status().isNotFound());
+            mockMvc.perform(get("/api/products/" + productId))
+                    .andDo(print())
+                    .andExpect(status().isNotFound());
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
     }
 
     @Test

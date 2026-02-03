@@ -34,5 +34,20 @@ public interface OrderService {
      * 회원 주문 배송지 스냅샷 수정
      */
     void updateShipToForMember(String orderNo, Long memberId, OrderCreateFromCartRequest.ShipToDto shipToDto);
+
+    /**
+     * 관리자용 전체 주문 목록 조회 (페이지네이션, 기간·상태 필터)
+     */
+    PageResponse<OrderSummaryResponse> getAdminOrders(OrderListRequest request);
+
+    /**
+     * 관리자용 주문 상세 조회 (orderNo만으로 조회)
+     */
+    OrderDetailResponse getOrderDetailForAdmin(String orderNo);
+
+    /**
+     * 관리자용 주문 배송 상태 변경 (SHIPPED, DELIVERED, CANCELED)
+     */
+    void updateOrderStatusForAdmin(String orderNo, com.backend.domain.order.OrderStatus status);
 }
 
