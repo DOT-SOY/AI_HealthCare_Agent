@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   setTodayRoutine,
@@ -15,7 +15,7 @@ export function useRoutines() {
     (state) => state.routines
   );
 
-  const fetchTodayRoutine = async () => {
+  const fetchTodayRoutine = useCallback(async () => {
     try {
       dispatch(setLoading(true));
       const data = await routineApi.getToday();
@@ -27,9 +27,9 @@ export function useRoutines() {
     } finally {
       dispatch(setLoading(false));
     }
-  };
+  }, [dispatch]);
 
-  const fetchWeekRoutines = async () => {
+  const fetchWeekRoutines = useCallback(async () => {
     try {
       dispatch(setLoading(true));
       const data = await routineApi.getWeek();
@@ -41,9 +41,9 @@ export function useRoutines() {
     } finally {
       dispatch(setLoading(false));
     }
-  };
+  }, [dispatch]);
 
-  const fetchHistoryRoutines = async (bodyPart = null) => {
+  const fetchHistoryRoutines = useCallback(async (bodyPart = null) => {
     try {
       dispatch(setLoading(true));
       const data = await routineApi.getHistory(bodyPart);
@@ -55,9 +55,9 @@ export function useRoutines() {
     } finally {
       dispatch(setLoading(false));
     }
-  };
+  }, [dispatch]);
 
-  const fetchRoutineByDate = async (date) => {
+  const fetchRoutineByDate = useCallback(async (date) => {
     try {
       dispatch(setLoading(true));
       const data = await routineApi.getByDate(date);
@@ -68,12 +68,12 @@ export function useRoutines() {
     } finally {
       dispatch(setLoading(false));
     }
-  };
+  }, [dispatch]);
 
   useEffect(() => {
     fetchTodayRoutine();
     fetchWeekRoutines();
-  }, []);
+  }, [fetchTodayRoutine, fetchWeekRoutines]);
 
   return {
     todayRoutine,

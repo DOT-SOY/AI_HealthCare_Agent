@@ -1,9 +1,23 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { mealApi } from '../../api/mealApi';
 
 const MealDashboard = () => {
+    const [searchParams] = useSearchParams();
     const [data, setData] = useState(null);
-    const [selectedDate, setSelectedDate] = useState(new Date());
+
+    const createDateFromString = (dateStr) => {
+        const [y, m, d] = dateStr.split('-').map(Number);
+        return new Date(y, m - 1, d);
+    };
+
+    const initialDateParam = searchParams.get('date');
+    const [selectedDate, setSelectedDate] = useState(() => {
+        if (initialDateParam) {
+            return createDateFromString(initialDateParam);
+        }
+        return new Date();
+    });
     const [showYearDropdown, setShowYearDropdown] = useState(false);
     const [showMonthDropdown, setShowMonthDropdown] = useState(false);
     const [showDayDropdown, setShowDayDropdown] = useState(false);

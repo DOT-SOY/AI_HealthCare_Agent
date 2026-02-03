@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useRoutines } from '../../hooks/useRoutines';
 import { useExercises } from '../../hooks/useExercises';
 import { useWebSocket } from '../../hooks/useWebSocket';
@@ -30,9 +31,21 @@ const FALLBACK_PRESETS = [
 
 export default function TodayRoutinePage() {
   const { todayRoutine, weekRoutines, loading, fetchRoutineByDate, fetchTodayRoutine, fetchWeekRoutines } = useRoutines();
+  const [searchParams] = useSearchParams();
+
+  const createDateFromString = (dateStr) => {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  };
   const { addExercise } = useExercises();
   const { subscribeToRoutineGenerate, connectWebSocket } = useWebSocket();
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const param = searchParams.get('date');
+    if (param) {
+      return createDateFromString(param);
+    }
+    return new Date();
+  });
   const [activeExerciseId, setActiveExerciseId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0); // 강제 리렌더링을 위한 키
   const [isAddExerciseModalOpen, setIsAddExerciseModalOpen] = useState(false);
@@ -40,11 +53,68 @@ export default function TodayRoutinePage() {
   const [presets, setPresets] = useState([]);
   const [presetsLoading, setPresetsLoading] = useState(false);
   const [applyLoading, setApplyLoading] = useState(false);
+  const [fetchedRoutine, setFetchedRoutine] = useState(null); // 직접 가져온 루틴
+
+  const formatDateKey = (date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  // URL 파라미터가 변경되면 selectedDate 업데이트
+  useEffect(() => {
+    const param = searchParams.get('date');
+    if (param) {
+      const newDate = createDateFromString(param);
+      setSelectedDate(newDate);
+      setFetchedRoutine(null); // 새로운 날짜면 초기화
+    }
+  }, [searchParams]);
+
+  // 선택된 날짜의 루틴을 가져오기
+  useEffect(() => {
+    const loadRoutineForDate = async () => {
+      const selectedDateStr = formatDateKey(selectedDate);
+      const todayStr = formatDateKey(new Date());
+
+      // 오늘 날짜면 todayRoutine 사용 (이미 로드됨)
+      if (selectedDateStr === todayStr) {
+        setFetchedRoutine(null);
+        return;
+      }
+
+      // 주간 루틴에 있으면 사용
+      const foundInWeek = weekRoutines.find(r => {
+        if (!r || !r.date) return false;
+        const routineDateStr = typeof r.date === 'string'
+          ? r.date
+          : formatDateKey(new Date(r.date));
+        return routineDateStr === selectedDateStr;
+      });
+
+      if (foundInWeek) {
+        setFetchedRoutine(null);
+        return;
+      }
+
+      // 주간 루틴에 없으면 직접 가져오기
+      try {
+        const routine = await fetchRoutineByDate(selectedDateStr);
+        setFetchedRoutine(routine);
+      } catch (error) {
+        console.error('루틴 조회 실패:', error);
+        setFetchedRoutine(null);
+      }
+    };
+
+    loadRoutineForDate();
+  }, [selectedDate, todayRoutine, weekRoutines, fetchRoutineByDate]);
 
   // 선택된 날짜에 따라 displayRoutine 계산 (Redux 상태에서 직접 계산, 메모이제이션)
   const displayRoutine = useMemo(() => {
-    const selectedDateStr = selectedDate.toISOString().split('T')[0];
-    const todayStr = new Date().toISOString().split('T')[0];
+    const selectedDateStr = formatDateKey(selectedDate);
+    const todayStr = formatDateKey(new Date());
     
     // 오늘 날짜면 todayRoutine 반환
     if (selectedDateStr === todayStr && todayRoutine) {
@@ -57,12 +127,17 @@ export default function TodayRoutinePage() {
       // date가 문자열이면 그대로 비교, Date 객체면 변환
       const routineDateStr = typeof r.date === 'string' 
         ? r.date 
-        : new Date(r.date).toISOString().split('T')[0];
+        : formatDateKey(new Date(r.date));
       return routineDateStr === selectedDateStr;
     });
     
+    // 주간 루틴에 없으면 직접 가져온 루틴 사용
+    if (!found && fetchedRoutine) {
+      return fetchedRoutine;
+    }
+
     return found || null;
-  }, [selectedDate, todayRoutine, weekRoutines, refreshKey]);
+  }, [selectedDate, todayRoutine, weekRoutines, fetchedRoutine, refreshKey]);
 
   // AI 루틴 생성 완료 시 WebSocket으로 수신 → 오늘/주간 루틴 자동 갱신
   useEffect(() => {
@@ -102,7 +177,7 @@ export default function TodayRoutinePage() {
       // 루틴이 없으면 먼저 생성
       let routineId = displayRoutine?.id;
       if (!routineId) {
-        const selectedDateStr = selectedDate.toISOString().split('T')[0];
+        const selectedDateStr = formatDateKey(selectedDate);
         const newRoutine = await routineApi.create(
           selectedDateStr,
           '새로운 루틴',

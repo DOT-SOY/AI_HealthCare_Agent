@@ -8,12 +8,14 @@ import com.backend.dto.request.RoutineUpdateRequest;
 import com.backend.dto.response.ExerciseResponse;
 import com.backend.dto.response.RoutineResponse;
 import com.backend.dto.response.RoutinePresetGroupDto;
+import com.backend.dto.response.VolumeStatsResponse;
 import com.backend.service.member.CurrentMemberService;
 import com.backend.service.routine.RoutineService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
@@ -49,7 +51,23 @@ public class RoutineController {
         List<RoutineResponse> response = routineService.getWeeklyRoutines(memberId);
         return ResponseEntity.ok(response);
     }
-    
+
+    /**
+     * 특정 날짜의 루틴 조회
+     */
+    @GetMapping("/by-date")
+    public ResponseEntity<RoutineResponse> getRoutineByDate(
+        @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
+    ) {
+        Long memberId = currentMemberService.getCurrentMemberOrThrow().getId();
+        log.debug("특정 날짜 루틴 조회 요청: memberId={}, date={}", memberId, date);
+        RoutineResponse response = routineService.getRoutineByDate(memberId, date);
+        if (response == null) {
+            return ResponseEntity.ok(null);
+        }
+        return ResponseEntity.ok(response);
+    }
+
     /**
      * 운동 기록 조회
      * - 과거 루틴 목록 조회 (최근 3개월)
@@ -141,7 +159,7 @@ public class RoutineController {
                 "presetIndex", presetIndex
         ));
     }
-    
+
     @PutMapping("/{routineId}/status")
     public ResponseEntity<RoutineResponse> updateRoutineStatus(
         @PathVariable Long routineId,
@@ -185,6 +203,20 @@ public class RoutineController {
         @PathVariable Long exerciseId
     ) {
         ExerciseResponse response = routineService.toggleExerciseCompleted(routineId, exerciseId);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 총 볼륨 통계 조회
+     * - period: "month" (월별) 또는 "week" (주별)
+     */
+    @GetMapping("/volume-stats")
+    public ResponseEntity<VolumeStatsResponse> getVolumeStats(
+        @RequestParam(value = "period", defaultValue = "month") String period
+    ) {
+        Long memberId = currentMemberService.getCurrentMemberOrThrow().getId();
+        log.debug("총 볼륨 통계 조회 요청: memberId={}, period={}", memberId, period);
+        VolumeStatsResponse response = routineService.getVolumeStats(memberId, period);
         return ResponseEntity.ok(response);
     }
 }

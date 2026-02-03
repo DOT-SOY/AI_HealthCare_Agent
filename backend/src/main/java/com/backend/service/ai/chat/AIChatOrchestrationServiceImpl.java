@@ -9,8 +9,11 @@ import com.backend.dto.response.AIChatResponse;
 import com.backend.dto.response.ImageClassificationResponse;
 import com.backend.dto.response.IntentClassificationResult;
 import com.backend.service.ai.AIIntentService;
+import com.backend.service.ai.ConversationContextService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -25,11 +28,14 @@ import java.util.Set;
 @Slf4j
 public class AIChatOrchestrationServiceImpl implements AIChatOrchestrationService {
 
-    private static final Set<String> TRIGGER_KEYWORDS = Set.of(
-            // 동의 / 승인
-            "응", "응응", "그래", "그래요", "좋아", "좋아요", "알겠어", "알겠습니다",
-            "오케이", "오케", "OK", "ㅇㅋ",
+    // Speech Act 트리거 키워드 (단순 반응형 발화)
+    private static final Set<String> SPEECH_ACT_KEYWORDS = Set.of(
+            "응", "네", "그래", "그래요", "알겠어", "알겠어요",
+            "좋아", "좋아요", "오케이", "OK", "ㅇㅇ"
+    );
 
+    // 기존 트리거 키워드 (이전 대화 지시, 이어서, 반복 등)
+    private static final Set<String> TRIGGER_KEYWORDS = Set.of(
             // 이전 대화 지시
             "그거", "그거 해줘", "그걸로", "그렇게", "그렇게 해줘",
             "그 내용", "그 방식", "그 방법", "그 기준",
@@ -47,6 +53,7 @@ public class AIChatOrchestrationServiceImpl implements AIChatOrchestrationServic
     );
 
     private final AIIntentService aiIntentService;
+    private final ConversationContextService conversationContextService;
     private final PainReportChatService painReportChatService;
     private final GeneralChatService generalChatService;
     private final WorkoutChatService workoutChatService;
@@ -72,12 +79,47 @@ public class AIChatOrchestrationServiceImpl implements AIChatOrchestrationServic
         
         log.info("AI 채팅 요청: text={}", text);
         
-        // 3. 트리거 키워드 감지
-        boolean isTrigger = isTriggerMessage(text);
+        // 3. Speech Act 감지 (단순 반응형 발화)
+        boolean isSpeechAct = isSpeechActMessage(text);
+        
+        // 4. Speech Act가 아닌 경우에만 트리거 키워드 감지 (기존 로직)
+        boolean isTrigger = !isSpeechAct && isTriggerMessage(text);
+        
         IntentClassificationResult classification;
         
-        if (isTrigger && request.getConversationHistory() != null && !request.getConversationHistory().isEmpty()) {
-            // 컨텍스트 포함 의도 분석
+        if (isSpeechAct) {
+            // Speech Act 감지 시: 저장된 컨텍스트 조회 (JWT에서 email 추출)
+            String email = getEmailIfNeeded();
+            if (email != null) {
+                IntentClassificationResult savedContext = conversationContextService.getContext(email);
+                if (savedContext != null) {
+                    // 저장된 컨텍스트가 있으면 재사용 (LLM 호출 없음)
+                    log.info("Speech Act 감지 - 저장된 컨텍스트 재사용: email={}, intent={}, action={}", 
+                        email, savedContext.getIntent(), savedContext.getAction());
+                    classification = savedContext;
+                } else {
+                    // 저장된 컨텍스트가 없거나 만료된 경우: 기존 방식으로 폴백
+                    log.info("Speech Act 감지 - 컨텍스트 없음, 기존 방식으로 폴백: email={}", email);
+                    if (request.getConversationHistory() != null && !request.getConversationHistory().isEmpty()) {
+                        String context = buildContext(request.getConversationHistory());
+                        classification = aiIntentService.classifyIntentWithContext(context, text);
+                    } else {
+                        // conversationHistory도 없으면 일반 의도 분석
+                        classification = aiIntentService.classifyIntent(text);
+                    }
+                }
+            } else {
+                // 이메일이 없으면 기존 방식으로 처리
+                log.info("Speech Act 감지 - 이메일 없음, 기존 방식으로 처리");
+                if (request.getConversationHistory() != null && !request.getConversationHistory().isEmpty()) {
+                    String context = buildContext(request.getConversationHistory());
+                    classification = aiIntentService.classifyIntentWithContext(context, text);
+                } else {
+                    classification = aiIntentService.classifyIntent(text);
+                }
+            }
+        } else if (isTrigger && request.getConversationHistory() != null && !request.getConversationHistory().isEmpty()) {
+            // 기존 트리거 키워드 감지 시: 컨텍스트 포함 의도 분석
             String context = buildContext(request.getConversationHistory());
             classification = aiIntentService.classifyIntentWithContext(context, text);
         } else {
@@ -85,9 +127,25 @@ public class AIChatOrchestrationServiceImpl implements AIChatOrchestrationServic
             classification = aiIntentService.classifyIntent(text);
         }
         
+        // 5. classification이 null인 경우 에러 처리
+        if (classification == null) {
+            log.error("의도 분류 결과가 null입니다.");
+            return createErrorResponse("의도 분류 중 오류가 발생했습니다.");
+        }
+        
+        // 6. 일반 요청 시 컨텍스트 저장 (Speech Act가 아닌 경우, JWT에서 email 추출)
+        if (!isSpeechAct) {
+            String email = getEmailIfNeeded();
+            if (email != null) {
+                conversationContextService.saveContext(email, classification);
+                log.debug("일반 요청 - 컨텍스트 저장: email={}, intent={}, action={}", 
+                    email, classification.getIntent(), classification.getAction());
+            }
+        }
+        
         String intent = classification.getIntent();
         
-        // 4. 의도에 따라 적절한 Service 호출
+        // 7. 의도에 따라 적절한 Service 호출
         AIChatResponse response = switch (intent) {
             case "PAIN_REPORT" -> painReportChatService.handlePainReport(classification);
             case "GENERAL_CHAT" -> generalChatService.handleGeneralChat(classification);
@@ -135,7 +193,26 @@ public class AIChatOrchestrationServiceImpl implements AIChatOrchestrationServic
     }
 
     /**
-     * 트리거 키워드 감지
+     * Speech Act 키워드 감지 (단순 반응형 발화)
+     */
+    private boolean isSpeechActMessage(String text) {
+        if (text == null) {
+            return false;
+        }
+        
+        String trimmedText = text.trim();
+        String lowerText = trimmedText.toLowerCase();
+        
+        return SPEECH_ACT_KEYWORDS.stream()
+            .anyMatch(keyword -> {
+                String lowerKeyword = keyword.toLowerCase();
+                return lowerText.equals(lowerKeyword) || 
+                       lowerText.startsWith(lowerKeyword + " ");
+            });
+    }
+
+    /**
+     * 기존 트리거 키워드 감지 (이전 대화 지시, 이어서, 반복 등)
      */
     private boolean isTriggerMessage(String text) {
         if (text == null) {
@@ -151,6 +228,32 @@ public class AIChatOrchestrationServiceImpl implements AIChatOrchestrationServic
                 return lowerText.equals(lowerKeyword) || 
                        lowerText.startsWith(lowerKeyword + " ");
             });
+    }
+
+    /**
+     * JWT claims에서 email을 추출합니다.
+     * DB 조회 없이 SecurityContext에서 직접 email을 가져옵니다.
+     * 
+     * @return 사용자 이메일, 조회 실패 시 null
+     */
+    private String getEmailIfNeeded() {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return null;
+            }
+            
+            // SecurityContext의 Principal은 email입니다 (JWTCheckFilter에서 설정)
+            Object principal = authentication.getPrincipal();
+            if (principal instanceof String) {
+                return (String) principal;
+            }
+            
+            return null;
+        } catch (Exception e) {
+            log.debug("JWT에서 이메일 추출 실패: {}", e.getMessage());
+            return null;
+        }
     }
 
     /**

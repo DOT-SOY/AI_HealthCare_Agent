@@ -6,6 +6,7 @@ import com.backend.dto.request.RoutineCreateRequest;
 import com.backend.dto.response.ExerciseResponse;
 import com.backend.dto.response.RoutineResponse;
 import com.backend.dto.response.RoutinePresetGroupDto;
+import com.backend.dto.response.VolumeStatsResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -75,5 +76,12 @@ public interface RoutineService {
      * presetIndex 0 = 4일 (Push→Pull→Leg→Core+), 1 = 2일 (상체→하체).
      */
     void applyPreset(Long memberId, java.time.LocalDate startDate, int presetIndex);
+
+    /**
+     * 총 볼륨 통계 조회
+     * - period: "month" (월별) 또는 "week" (주별)
+     * - 완료된 운동만 포함하여 총 볼륨 계산 (sets × reps × weight)
+     */
+    VolumeStatsResponse getVolumeStats(Long memberId, String period);
 }
 
