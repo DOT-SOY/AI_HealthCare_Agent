@@ -64,8 +64,10 @@ const KakaoRedirectPage = () => {
   }, [dispatch, navigate, searchParams]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-gray-600">카카오 로그인 처리 중...</div>
+    <div data-theme="dark" className="page-root flex items-center justify-center">
+      <div className="page-container">
+        <p className="text-text-sub">카카오 로그인 처리 중...</p>
+      </div>
     </div>
   );
 };

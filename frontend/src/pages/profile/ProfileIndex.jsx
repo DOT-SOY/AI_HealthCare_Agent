@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useDispatch } from "react-redux";
 import "../../styles/Profile.css";
 import BasicLayout from "../../components/layout/BasicLayout";
+import { User, Moon, Sun, X, Plus, Edit, Trash2 } from "lucide-react";
 import { logout } from "../../slices/loginSlice";
 import { Home, User, Moon, Sun, X, Plus, Edit, Trash2 } from "lucide-react";
 import {
@@ -28,6 +29,9 @@ const ProfileIndex = () => {
 
   const [historyData, setHistoryData] = useState([]);
   const [latestInfo, setLatestInfo] = useState(null);
+
+  // 대시보드 차트/레이아웃에서 사용할 다크 모드 플래그
+  const isDark = true;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editData, setEditData] = useState({});
@@ -241,7 +245,11 @@ const ProfileIndex = () => {
     <BasicLayout>
       <div className="dashboard-container" data-theme={isDark ? "dark" : "light"}>
         <header className="dashboard-header">
+             <h1 className="section-title">
+                        <span className="text-text-main">My </span>
+                        <span className="text-primary-500">Profile</span>
           <Home className="icon-home" size={24} />
+
           <div className="header-right">
             <button className="btn-toggle-theme" onClick={toggleDarkMode}>
               {isDark ? <Sun size={20} /> : <Moon size={20} />}
@@ -250,46 +258,39 @@ const ProfileIndex = () => {
           </div>
         </header>
 
-        <div className="dashboard-main">
+        <div className="dashboard-main mt-6">
           {/* === 좌측 패널 === */}
           <aside className="left-sidebar">
             <div className="info-card">
               <div className="card-header">
-                <h2>회원정보</h2>
+                <h2 className="text-text-main font-display font-bold">회원정보</h2>
               </div>
               <div className="card-content profile-details">
-                <div className="row name-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span className="name" style={{ fontSize: '20px', fontWeight: 'bold' }}>
+                <div className="row name-row flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="name text-lg font-bold text-text-main">
                       {latestInfo?.memberName || "사용자"}
                     </span>
-                    <span className="gender-icon" style={{ fontSize: '14px', color: '#666' }}>
+                    <span className="gender-icon text-sm text-text-sub">
                       {latestInfo?.gender === "MALE" ? "♂ 남성" : latestInfo?.gender === "FEMALE" ? "♀ 여성" : "-"}
                     </span>
                   </div>
-                  <button
-                    className="btn-edit"
-                    onClick={handleEditClick}
-                    style={{
-                      fontSize: '12px', padding: '4px 8px', backgroundColor: '#e0e0e0',
-                      border: '1px solid #ccc', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
-                    }}
-                  >
+                  <button type="button" className="btn-edit" onClick={handleEditClick}>
                     <User size={12} /> 수정
                   </button>
                 </div>
 
-                <div className="row date" style={{ marginTop: '5px', color: '#888' }}>
+                <div className="row date mt-1 text-text-sub text-sm">
                   {latestInfo?.birthDate} ({calculateAge(latestInfo?.birthDate)}세)
                 </div>
-                <div className="row stats">
+                <div className="row stats text-text-main">
                   <span>{val(latestInfo?.height, "cm")}</span> &nbsp;/&nbsp; <span>{val(latestInfo?.weight, "kg")}</span>
                 </div>
               </div>
             </div>
 
             <div className="info-card">
-              <h3 className="section-title">체성분 분석</h3>
+              <h3 className="section-title text-text-main">체성분 분석</h3>
               <div className="data-list">
                 <DataRow label="체수분(L)" value={val(latestInfo?.bodyWater, "L")} />
                 <DataRow label="단백질(kg)" value={val(latestInfo?.protein, "kg")} />
@@ -299,7 +300,7 @@ const ProfileIndex = () => {
             </div>
 
             <div className="info-card">
-              <h3 className="section-title">체중조절</h3>
+              <h3 className="section-title text-text-main">체중조절</h3>
               <div className="data-list">
                 <DataRow label="적정체중" value={val(latestInfo?.targetWeight, "kg")} />
                 <DataRow label="체중조절" value={val(latestInfo?.weightControl, "kg")} />

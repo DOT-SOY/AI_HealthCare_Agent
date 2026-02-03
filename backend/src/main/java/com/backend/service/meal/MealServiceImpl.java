@@ -321,4 +321,25 @@ public class MealServiceImpl implements MealService {
         log.info("[Meal] 최초 식단 생성 시작 - User: {}", userId);
         // AI 생성 로직 호출 및 저장 (생략된 상세 로직 구현부)
     }
+
+    @Override
+    public List<MealDto> getMealsByDateAndTime(Long userId, LocalDate date, Meal.MealTime mealTime) {
+        log.info("[Meal] 식단 조회 - User: {}, Date: {}, MealTime: {}", userId, date, mealTime);
+        
+        LocalDate targetDate = date != null ? date : LocalDate.now();
+        
+        List<Meal> meals;
+        if (mealTime != null) {
+            // 특정 식사 시간만 조회
+            Optional<Meal> mealOpt = mealRepository.findByUserIdAndMealDateAndMealTime(userId, targetDate, mealTime);
+            meals = mealOpt.map(List::of).orElse(List.of());
+        } else {
+            // 하루 전체 조회
+            meals = mealRepository.findByUserIdAndMealDate(userId, targetDate);
+        }
+        
+        return meals.stream()
+                .map(MealDto::fromEntity)
+                .collect(Collectors.toList());
+    }
 }

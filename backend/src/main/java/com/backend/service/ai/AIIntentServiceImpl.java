@@ -38,5 +38,31 @@ public class AIIntentServiceImpl implements AIIntentService {
             throw new RuntimeException("AI 서버 통신 실패: " + e.getMessage(), e);
         }
     }
+
+    @Override
+    public IntentClassificationResult classifyIntentWithContext(String context, String userInput) {
+        log.info("컨텍스트 포함 의도 분류 요청: context={}, userInput={}", context, userInput);
+
+        try {
+            ChatResponse chatResponse = chatClient.classifyIntentWithContext(context, userInput);
+
+            log.info("컨텍스트 포함 의도 분류 결과: intent={}, aiAnswer={}, aiAnswerLength={}",
+                chatResponse.getIntent(),
+                chatResponse.getAiAnswer() != null ? chatResponse.getAiAnswer().substring(0, Math.min(50, chatResponse.getAiAnswer().length())) : "null",
+                chatResponse.getAiAnswer() != null ? chatResponse.getAiAnswer().length() : 0);
+
+            return IntentClassificationResult.builder()
+                .intent(chatResponse.getIntent())
+                .action(chatResponse.getAction())
+                .entities(chatResponse.getEntities())
+                .aiAnswer(chatResponse.getAiAnswer())
+                .requiresDbCheck(chatResponse.isRequiresDbCheck())
+                .build();
+        } catch (Exception e) {
+            log.error("컨텍스트 포함 의도 분류 실패: context={}, userInput={}, error={}", 
+                context, userInput, e.getMessage(), e);
+            throw new RuntimeException("AI 서버 통신 실패: " + e.getMessage(), e);
+        }
+    }
 }
 

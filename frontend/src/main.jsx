@@ -5,13 +5,14 @@ import { CookiesProvider } from "react-cookie";
 import "./index.css";
 import App from "./App.jsx";
 import { store } from "./store.jsx";
+import { ThemeProvider } from "./contexts/ThemeContext";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <CookiesProvider>
-      <Provider store={store}>
+    <Provider store={store}>
+      <ThemeProvider>
         <App />
-      </Provider>
-    </CookiesProvider>
+      </ThemeProvider>
+    </Provider>
   </StrictMode>
 );

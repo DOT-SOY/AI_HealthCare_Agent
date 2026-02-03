@@ -70,6 +70,9 @@ export function useWebSocket() {
   // 실제 구독을 수행하는 함수
   const doSubscribe = useCallback(() => {
     if (!clientRef.current || !clientRef.current.connected) {
+      if (import.meta.env.DEV) {
+        console.log('WebSocket 구독 실패: 연결되지 않음');
+      }
       return;
     }
 
@@ -83,10 +86,17 @@ export function useWebSocket() {
       subscriptionRef.current = null;
     }
 
-    subscriptionRef.current = clientRef.current.subscribe(
-      '/topic/workout/review',
-      handleMessage
-    );
+    try {
+      subscriptionRef.current = clientRef.current.subscribe(
+        '/topic/workout/review',
+        handleMessage
+      );
+      if (import.meta.env.DEV) {
+        console.log('WebSocket 구독 성공: /topic/workout/review');
+      }
+    } catch (error) {
+      console.error('WebSocket 구독 오류:', error);
+    }
   }, [handleMessage]);
 
   const doSubscribeRoutineGenerate = useCallback(() => {
@@ -161,13 +171,20 @@ export function useWebSocket() {
           setConnected(true);
           isConnectingRef.current = false;
 
-          // 콜백이 이미 설정되어 있다면, 연결 완료 시점에 한 번 더 구독 시도
-          if (callbackRef.current) {
-            doSubscribe();
+          if (import.meta.env.DEV) {
+            console.log('WebSocket 연결 완료');
           }
-          if (routineGenerateCallbackRef.current) {
-            doSubscribeRoutineGenerate();
-          }
+
+          // 콜백이 이미 설정되어 있다면, 연결 완료 시점에 구독 수행
+          // 약간의 지연을 두어 연결이 완전히 안정화된 후 구독
+          setTimeout(() => {
+            if (callbackRef.current && clientRef.current?.connected) {
+              doSubscribe();
+              if (import.meta.env.DEV) {
+                console.log('WebSocket 구독 완료: /topic/workout/review');
+              }
+            }
+          }, 200);
         },
         onDisconnect: () => {
           setConnected(false);
@@ -216,15 +233,23 @@ export function useWebSocket() {
       // 콜백 저장
       callbackRef.current = callback;
 
-      // WebSocket이 연결되어 있지 않으면 연결 시도만 하고 반환
-      if (!clientRef.current?.connected && !isConnectingRef.current) {
-        connectWebSocket();
+      // WebSocket이 연결되어 있으면 즉시 구독 수행
+      if (clientRef.current?.connected) {
+        doSubscribe();
+        return subscriptionRef.current;
+      }
+
+      // 연결 중이면 연결 완료 후 구독될 것임 (onConnect에서 처리)
+      if (isConnectingRef.current) {
+        if (import.meta.env.DEV) {
+          console.log('WebSocket 연결 중... 연결 완료 후 구독됩니다.');
+        }
         return null;
       }
 
-      // 이미 연결되어 있으면 즉시 구독 수행
-      doSubscribe();
-      return subscriptionRef.current;
+      // 연결되어 있지 않으면 연결 시도
+      connectWebSocket();
+      return null;
     },
     [connectWebSocket, doSubscribe]
   );

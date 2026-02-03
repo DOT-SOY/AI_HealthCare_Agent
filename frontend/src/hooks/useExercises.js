@@ -139,8 +139,12 @@ export function useExercises() {
       
       // 2. 서버에 요청
       await exerciseApi.delete(routineId, exerciseId);
+      
+      // 3. 성공 후 루틴 새로고침
+      await refreshTodayRoutine();
+      await refreshWeekRoutines();
     } catch (error) {
-      // 3. 실패 시 롤백 (운동 다시 추가)
+      // 4. 실패 시 롤백 (운동 다시 추가)
       if (deletedExercise) {
         dispatch(addExerciseToRoutine({ routineId, exercise: deletedExercise }));
       }

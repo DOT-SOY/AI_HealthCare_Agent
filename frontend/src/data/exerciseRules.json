@@ -1,0 +1,141 @@
+{
+  "스쿼트": {
+    "detection": {
+      "keyPoints": ["left_hip", "right_hip", "left_knee", "right_knee", "left_ankle", "right_ankle"],
+      "threshold": {
+        "hip_angle_min": 90,
+        "hip_angle_max": 180,
+        "knee_angle_min": 60,
+        "knee_angle_max": 120
+      },
+      "description": "서 있는 자세에서 무릎과 엉덩이를 구부리는 동작",
+      "initialPose": "standing"
+    },
+    "counting": {
+      "keyPoints": ["left_hip", "right_hip", "left_knee", "right_knee"],
+      "threshold": {
+        "hip_angle": 120,
+        "knee_angle": 90
+      },
+      "direction": "down",
+      "resetThreshold": {
+        "hip_angle": 160,
+        "knee_angle": 170
+      }
+    },
+    "feedback": {
+      "back_leaning": {
+        "check": "back_angle",
+        "threshold": 170,
+        "message": "허리가 너무 숙여졌습니다. 등을 곧게 펴주세요."
+      },
+      "knee_too_bent": {
+        "check": "knee_angle",
+        "threshold": 60,
+        "message": "무릎이 너무 깊이 구부러졌습니다. 부상 위험이 있습니다."
+      },
+      "knee_caving": {
+        "check": "knee_alignment",
+        "threshold": 5,
+        "message": "무릎이 안쪽으로 들어가고 있습니다. 발목과 무릎을 정렬해주세요."
+      },
+      "not_low_enough": {
+        "check": "hip_angle",
+        "threshold": 140,
+        "message": "조금 더 낮게 내려가세요. 대퇴부가 수평이 될 때까지."
+      }
+    }
+  },
+  "턱걸이": {
+    "detection": {
+      "keyPoints": ["left_shoulder", "right_shoulder", "left_elbow", "right_elbow", "left_wrist", "right_wrist"],
+      "threshold": {
+        "arm_raised": true,
+        "elbow_angle_min": 30,
+        "elbow_angle_max": 180
+      },
+      "description": "팔을 위로 뻗어 팔꿈치를 구부리며 상체를 올리는 동작",
+      "initialPose": "hanging"
+    },
+    "counting": {
+      "keyPoints": ["left_shoulder", "right_shoulder", "left_elbow", "right_elbow"],
+      "threshold": {
+        "elbow_angle": 90
+      },
+      "direction": "up",
+      "resetThreshold": {
+        "elbow_angle": 160,
+        "shoulder_height": "above_chin"
+      }
+    },
+    "feedback": {
+      "incomplete_pull": {
+        "check": "chin_height",
+        "threshold": "below_bar",
+        "message": "턱이 바에 닿을 때까지 올려주세요."
+      },
+      "swinging": {
+        "check": "body_stability",
+        "threshold": 10,
+        "message": "몸이 흔들리고 있습니다. 몸통을 고정해주세요."
+      },
+      "elbow_flaring": {
+        "check": "elbow_position",
+        "threshold": 45,
+        "message": "팔꿈치가 너무 벌어지고 있습니다. 몸통에 가깝게 유지하세요."
+      },
+      "not_full_extension": {
+        "check": "elbow_angle",
+        "threshold": 150,
+        "message": "팔을 완전히 펴지 않았습니다. 내려올 때 완전히 펴주세요."
+      }
+    }
+  },
+  "윗몸일으키기": {
+    "detection": {
+      "keyPoints": ["left_shoulder", "right_shoulder", "left_hip", "right_hip", "left_knee", "right_knee"],
+      "threshold": {
+        "lying_down": true,
+        "torso_angle_min": 0,
+        "torso_angle_max": 90
+      },
+      "description": "누운 자세에서 상체를 앞으로 구부리는 동작",
+      "initialPose": "lying"
+    },
+    "counting": {
+      "keyPoints": ["left_shoulder", "right_shoulder", "left_hip", "right_hip"],
+      "threshold": {
+        "torso_angle": 45
+      },
+      "direction": "up",
+      "resetThreshold": {
+        "torso_angle": 20,
+        "shoulder_height": "near_ground"
+      }
+    },
+    "feedback": {
+      "neck_strain": {
+        "check": "neck_angle",
+        "threshold": 30,
+        "message": "목에 힘이 들어가고 있습니다. 턱을 가슴에 붙이지 말고 자연스럽게 하세요."
+      },
+      "using_arms": {
+        "check": "arm_movement",
+        "threshold": 20,
+        "message": "팔에 의존하고 있습니다. 복부 근육으로만 올려주세요."
+      },
+      "not_high_enough": {
+        "check": "torso_angle",
+        "threshold": 30,
+        "message": "조금 더 높이 올려주세요. 어깨가 바닥에서 떨어질 때까지."
+      },
+      "lower_back_arching": {
+        "check": "lower_back_angle",
+        "threshold": 15,
+        "message": "허리가 과도하게 아치형이 되고 있습니다. 복부에 집중하세요."
+      }
+    }
+  }
+}
+
+

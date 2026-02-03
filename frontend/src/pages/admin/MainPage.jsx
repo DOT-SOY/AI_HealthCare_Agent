@@ -1,7 +1,9 @@
 import { useEffect } from "react";
 import { Link, Outlet, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import BasicLayout from "../../components/layout/BasicLayout";
+import AdminComponent from "../../components/admin/AdminComponent";
 
 const AdminPage = () => {
   const loginState = useSelector((state) => state.loginSlice);

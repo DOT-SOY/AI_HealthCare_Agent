@@ -1,5 +1,5 @@
 import { useState, createContext, useContext, useCallback, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import BasicLayout from './BasicLayout';
 import FloatingCartButton from '../cart/FloatingCartButton';
 import CartDrawer from '../cart/CartDrawer';
@@ -8,18 +8,28 @@ import { addCartItem, getCart, updateCartItemQty, removeCartItem, clearCart } fr
 // 장바구니 Context 생성
 const CartContext = createContext(null);
 
-export const useCart = () => {
-  const context = useContext(CartContext);
-  if (!context) {
-    throw new Error('useCart must be used within ShopLayout');
-  }
-  return context;
+const emptyCart = { cartId: null, isGuest: true, items: [], totals: { itemCount: 0, totalQty: 0, totalPrice: 0 } };
+
+const fallbackCartContext = {
+  cartItems: [],
+  addToCart: async () => {},
+  updateQty: async () => {},
+  removeItem: async () => {},
+  resetCart: async () => {},
+  isDrawerOpen: false,
+  openDrawer: () => {},
+  closeDrawer: () => {},
+  toggleDrawer: () => {},
 };
 
-const emptyCart = { cartId: null, isGuest: true, items: [], totals: { itemCount: 0, totalQty: 0, totalPrice: 0 } };
+export const useCart = () => {
+  const context = useContext(CartContext);
+  return context ?? fallbackCartContext;
+};
 
 const ShopLayout = ({ children }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [cartState, setCartState] = useState(emptyCart);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [animateButton, setAnimateButton] = useState(false);
@@ -73,9 +83,19 @@ const ShopLayout = ({ children }) => {
       setTimeout(() => setAnimateButton(false), 600);
     } catch (error) {
       console.error('Failed to add item to cart:', error);
+      
+      // 401 에러 시 로그인 페이지로 안내
+      if (error.message?.includes('401') || error.message?.toLowerCase().includes('unauthorized')) {
+        const shouldLogin = confirm('로그인이 필요합니다. 로그인 페이지로 이동하시겠습니까?');
+        if (shouldLogin) {
+          navigate('/member/login', { state: { from: location.pathname } });
+        }
+        return;
+      }
+      
       alert('장바구니에 담는 중 오류가 발생했습니다: ' + (error.message || '알 수 없는 오류'));
     }
-  }, [refreshCart]);
+  }, [refreshCart, navigate, location.pathname]);
 
   // itemId 기준 수량 변경 — API 호출 후 GET /api/cart 재조회로 동기화
   const updateQty = useCallback(async (itemId, newQty) => {
@@ -118,12 +138,8 @@ const ShopLayout = ({ children }) => {
 
   return (
     <CartContext.Provider value={cartContextValue}>
-      <BasicLayout>
-        <div className="bg-baseBg min-h-screen">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
-            {children}
-          </div>
-        </div>
+      <BasicLayout containerClassName="page-container page-container-wide">
+        {children}
 
         {!isCheckoutPage && (
           <>

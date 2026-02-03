@@ -39,6 +39,8 @@ public enum ErrorCode {
     SHOP_VARIANT_NOT_FOUND("SHOP_VARIANT_001", "상품 변형을 찾을 수 없습니다. (ID: %s)", HttpStatus.NOT_FOUND),
     SHOP_VARIANT_OUT_OF_STOCK("SHOP_VARIANT_002", "재고가 부족합니다. (요청: %s, 현재: %s)", HttpStatus.BAD_REQUEST),
     SHOP_VARIANT_INACTIVE("SHOP_VARIANT_003", "판매 중지된 상품 변형입니다. (ID: %s)", HttpStatus.BAD_REQUEST),
+    /** 상품 옵션 전체 교체 시, 주문에 사용된 옵션이 있으면 500 대신 409 반환 */
+    SHOP_VARIANT_IN_USE("SHOP_VARIANT_004", "주문에 사용된 옵션이 있어 전체 교체할 수 없습니다. 기존 옵션은 수정만 가능합니다.", HttpStatus.CONFLICT),
     SHOP_CART_NOT_FOUND("SHOP_CART_001", "장바구니를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     SHOP_CART_ITEM_NOT_FOUND("SHOP_CART_ITEM_001", "장바구니 아이템을 찾을 수 없습니다. (ID: %s)", HttpStatus.NOT_FOUND),
     SHOP_CART_EMPTY("SHOP_CART_003", "장바구니가 비어 있습니다.", HttpStatus.BAD_REQUEST),

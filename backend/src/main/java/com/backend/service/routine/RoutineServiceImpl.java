@@ -76,7 +76,7 @@ public class RoutineServiceImpl implements RoutineService {
         RoutinePresetDayDto.builder().title("Upper Day").summary("가슴, 어깨, 팔, 그리고 복근을 단련합니다.").exerciseNames(Arrays.asList("벤치프레스", "오버헤드프레스", "바벨 컬", "행잉레그레이즈", "플랭크")).build(),
         RoutinePresetDayDto.builder().title("Leg Day").summary("허벅지, 엉덩이, 종아리, 등 하부(후면 사슬)를 단련합니다.").exerciseNames(Arrays.asList("스쿼트", "데드리프트", "힙쓰러스트", "카프레이즈")).build()
     );
-    
+
     @Override
     @Transactional(readOnly = true)
     public RoutineResponse getTodayRoutine(Long memberId) {
@@ -115,6 +115,67 @@ public class RoutineServiceImpl implements RoutineService {
         return toRoutineResponse(routine, date.equals(LocalDate.now()));
     }
     
+    @Override
+    @Transactional(readOnly = true)
+    public RoutineResponse getRoutineByDateWithFilters(Long memberId, LocalDate date, String exerciseName, Boolean completed) {
+        log.info("특정 날짜 루틴 조회 (필터링): memberId={}, date={}, exerciseName={}, completed={}",
+            memberId, date, exerciseName, completed);
+
+        Routine routine = routineRepository.findByDateAndMemberId(date, memberId)
+            .orElse(null);
+
+        if (routine == null) {
+            log.warn("해당 날짜의 루틴을 찾을 수 없습니다: memberId={}, date={}", memberId, date);
+            return null;
+        }
+
+        // 필터링이 필요한 경우 루틴 복사 및 필터링
+        if (exerciseName != null || completed != null) {
+            Routine filteredRoutine = filterRoutine(routine, exerciseName, completed);
+            if (filteredRoutine == null || filteredRoutine.getExercises().isEmpty()) {
+                log.info("필터링 결과 운동이 없습니다: memberId={}, date={}, exerciseName={}, completed={}",
+                    memberId, date, exerciseName, completed);
+                return null;
+            }
+            return toRoutineResponse(filteredRoutine, date.equals(LocalDate.now()));
+        }
+
+        return toRoutineResponse(routine, date.equals(LocalDate.now()));
+    }
+
+    /**
+     * 루틴의 운동 목록을 필터링합니다.
+     */
+    private Routine filterRoutine(Routine routine, String exerciseName, Boolean completed) {
+        Routine filteredRoutine = new Routine();
+        filteredRoutine.setId(routine.getId());
+        filteredRoutine.setMember(routine.getMember());
+        filteredRoutine.setDate(routine.getDate());
+        filteredRoutine.setTitle(routine.getTitle());
+        filteredRoutine.setAiSummary(routine.getAiSummary());
+        filteredRoutine.setStatus(routine.getStatus());
+        filteredRoutine.setExercises(new ArrayList<>());
+
+        for (Exercise exercise : routine.getExercises()) {
+            // 운동 이름 필터링
+            if (exerciseName != null) {
+                String exName = exercise.getExerciseType() != null ? exercise.getExerciseType().getName() : null;
+                if (exName == null || !exName.equals(exerciseName)) {
+                    continue;
+                }
+            }
+
+            // 완료 상태 필터링
+            if (completed != null && exercise.isCompleted() != completed) {
+                continue;
+            }
+
+            filteredRoutine.getExercises().add(exercise);
+        }
+
+        return filteredRoutine;
+    }
+
     @Override
     @Transactional(readOnly = true)
     public List<RoutineResponse> getWeeklyRoutines(Long memberId) {
@@ -578,8 +639,21 @@ public class RoutineServiceImpl implements RoutineService {
         }
         log.info("프리셋 적용 완료: memberId={}, presetIndex={}, startDate={}, days={}", memberId, presetIndex, startDate, days.size());
         messagingTemplate.convertAndSend("/topic/routine/generate", java.util.Map.of("completed", true, "memberId", memberId));
-    }
+        log.info("운동 삭제 시작: routineId={}, exerciseId={}, exerciseName={}",
+            routineId, exerciseId, exercise.getExerciseType() != null ? exercise.getExerciseType().getName() : "unknown");
 
+        // 양방향 관계에서 제거 (orphanRemoval이 있으므로 이것만으로도 삭제 가능하지만, 명시적으로 삭제)
+        routine.getExercises().remove(exercise);
+
+        // 명시적으로 삭제 (더 확실함)
+        exerciseRepository.deleteById(exerciseId);
+
+        // 즉시 플러시하여 DB에 반영
+        exerciseRepository.flush();
+
+        log.info("운동 삭제 완료: routineId={}, exerciseId={}", routineId, exerciseId);
+    }
+    
     private RoutineResponse toRoutineResponse(Routine routine, boolean isToday) {
         List<ExerciseResponse> exerciseResponses = routine.getExercises().stream()
             .sorted(Comparator.comparing(Exercise::getOrderIndex))

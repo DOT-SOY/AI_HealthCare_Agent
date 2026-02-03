@@ -139,7 +139,8 @@ public class SocialController {
         claims.put("auth_time", Instant.now().getEpochSecond());
         claims.put("amr", "kakao");
 
-        String accessToken = JWTUtil.generateToken(claims, 15);
+        // Access Token 만료: 15분
+        String accessToken = JWTUtil.generateToken(claims, 15 * 60L);
         String refreshToken = refreshTokenService.issueNewSessionRefreshToken(withRoles.getEmail(), request, "kakao");
         RefreshCookieUtil.set(request, response, refreshToken, refreshTokenService.refreshCookieMaxAgeSeconds());
 

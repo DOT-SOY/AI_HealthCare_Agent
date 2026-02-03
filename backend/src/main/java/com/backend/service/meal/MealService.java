@@ -1,9 +1,12 @@
 package com.backend.service.meal;
 
+import com.backend.domain.meal.Meal;
 import com.backend.dto.meal.MealDashboardDto;
 import com.backend.dto.meal.MealDto;
+
 import java.time.LocalDate;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * [식단 관리 및 변동 분석 서비스]
@@ -18,6 +21,15 @@ public interface MealService {
      * MealTargetService와 협력하여 그래프 수치 + 식단 리스트 + 분석 문구를 조립합니다.
      */
     MealDashboardDto getMealDashboard(Long userId, LocalDate date);
+
+    /**
+     * 날짜와 식사 시간으로 식단 조회
+     * @param userId 회원 ID
+     * @param date 날짜 (null이면 오늘)
+     * @param mealTime 식사 시간 (BREAKFAST/LUNCH/DINNER, null이면 하루 전체)
+     * @return 식단 목록
+     */
+    List<MealDto> getMealsByDateAndTime(Long userId, LocalDate date, Meal.MealTime mealTime);
 
     /**
      * [식단 수동 등록]
@@ -52,7 +64,7 @@ public interface MealService {
      * 
      * 변경: CompletableFuture 반환으로 진정한 비동기 처리
      */
-    java.util.concurrent.CompletableFuture<Void> asyncVisionAnalysis(Long userId, String base64Image);
+    CompletableFuture<Void> asyncVisionAnalysis(Long userId, String base64Image);
 
     /**
      * [비동기 AI 호출: 심층 상담]
@@ -60,7 +72,7 @@ public interface MealService {
      * 
      * 변경: CompletableFuture 반환으로 진정한 비동기 처리
      */
-    java.util.concurrent.CompletableFuture<Void> asyncDeepAdvice(Long userId, LocalDate date);
+    CompletableFuture<Void> asyncDeepAdvice(Long userId, LocalDate date);
 
     /**
      * [비동기 AI 호출: 식단 재구성]
@@ -68,7 +80,7 @@ public interface MealService {
      * 
      * 변경: CompletableFuture 반환으로 진정한 비동기 처리
      */
-    java.util.concurrent.CompletableFuture<Void> asyncMealReplan(Long userId, LocalDate date);
+    CompletableFuture<Void> asyncMealReplan(Long userId, LocalDate date);
 
     /**
      * [식단 계획 업데이트]

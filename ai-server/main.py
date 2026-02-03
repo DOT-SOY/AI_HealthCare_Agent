@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
@@ -14,6 +14,8 @@ load_dotenv(dotenv_path=env_path)
 from services.intent_service import classify_intent
 from services.chat_service import generate_ai_answer
 from services.pain_advice_service import generate_pain_advice
+from services.workout_feedback_service import generate_workout_feedback
+from services.image_classification_service import get_image_classification_service
 
 app = FastAPI(title="GrowLog AI Server")
 
@@ -31,6 +33,7 @@ app.add_middleware(
 class ChatRequest(BaseModel):
     text: str
     session_id: Optional[str] = None
+    context: Optional[str] = None  # 컨텍스트 (이전 대화)
 
 
 class ChatResponse(BaseModel):
@@ -55,6 +58,39 @@ class PainAdviceResponse(BaseModel):
     sources: Optional[List[Dict[str, Any]]] = None
 
 
+class WorkoutFeedbackRequest(BaseModel):
+    exercise_type: str
+    total_reps: int
+    duration_sec: int
+    main_issue: str
+    bad_posture_ratio: float
+
+
+class WorkoutFeedbackResponse(BaseModel):
+    feedback: str
+
+
+class ImageClassificationResponse(BaseModel):
+    type: str  # "inbody" or "food" or "unknown"
+    confidence: float
+    nearest_point_id: Optional[str] = None
+    error: Optional[str] = None
+
+
+class InbodyAnalyzeResponse(BaseModel):
+    intent: str = "INBODY_ANALYSIS"
+    message: str
+    data: Optional[Dict[str, Any]] = None
+
+
+class FoodAnalyzeResponse(BaseModel):
+    intent: str = "FOOD_ANALYSIS"
+    message: str
+    data: Optional[Dict[str, Any]] = None
+
+
+
+
 # 엔드포인트
 @app.get("/health")
 async def health():
@@ -64,8 +100,15 @@ async def health():
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     """의도 분류 및 기본 답변 생성"""
+    # 컨텍스트가 있으면 프롬프트 앞에 추가
+    if request.context:
+        # 컨텍스트 + 현재 입력을 하나의 텍스트로 구성
+        full_text = f"이전 대화:\n{request.context}\n\n현재 입력: {request.text}"
+    else:
+        full_text = request.text
+
     # 1. 의도 분류 (intent, action, entities, ai_answer 포함)
-    intent_result = classify_intent(request.text)
+    intent_result = classify_intent(full_text)
     intent = intent_result.get("intent", "GENERAL_CHAT")
     action = intent_result.get("action", "CHAT")
     entities = intent_result.get("entities", {}) or {}
@@ -76,7 +119,7 @@ async def chat(request: ChatRequest):
         ai_answer = generate_ai_answer(request.text, intent, entities)
 
     # 3. DB 체크 필요 여부 플래그 (백엔드 오케스트레이션 참고용)
-    requires_db_check = intent in ["PAIN_REPORT", "WORKOUT"]
+    requires_db_check = intent in ["PAIN_REPORT", "WORKOUT", "MEAL_QUERY", "BODY_QUERY", "DELIVERY_QUERY"]
 
     return ChatResponse(
         intent=intent,
@@ -102,6 +145,64 @@ async def pain_advice(request: PainAdviceRequest):
         level=result["level"],
         advice=result["advice"],
         sources=result["sources"]
+    )
+
+
+@app.post("/workout/feedback", response_model=WorkoutFeedbackResponse)
+async def workout_feedback(request: WorkoutFeedbackRequest):
+    """운동 세션 피드백 생성"""
+    feedback = generate_workout_feedback(
+        exercise_type=request.exercise_type,
+        total_reps=request.total_reps,
+        duration_sec=request.duration_sec,
+        main_issue=request.main_issue,
+        bad_posture_ratio=request.bad_posture_ratio
+    )
+
+    return WorkoutFeedbackResponse(feedback=feedback)
+
+
+@app.post("/image/classify", response_model=ImageClassificationResponse)
+async def classify_image(file: UploadFile = File(...)):
+    """이미지가 인바디인지 음식인지 분류"""
+    try:
+        image_bytes = await file.read()
+        classification_service = get_image_classification_service()
+        result = classification_service.classify_image(image_bytes)
+
+        return ImageClassificationResponse(
+            type=result.get("type", "unknown"),
+            confidence=result.get("confidence", 0.0),
+            nearest_point_id=result.get("nearest_point_id"),
+            error=result.get("error")
+        )
+    except Exception as e:
+        return ImageClassificationResponse(
+            type="unknown",
+            confidence=0.0,
+            error=str(e)
+        )
+
+
+@app.post("/inbody/analyze", response_model=InbodyAnalyzeResponse)
+async def analyze_inbody(file: UploadFile = File(...)):
+    """인바디 사진 분석 (나중에 외부 AI 연결)"""
+    # 일단 기본 응답만 반환
+    return InbodyAnalyzeResponse(
+        intent="INBODY_ANALYSIS",
+        message="인바디 분석 준비 중입니다. 곧 연결될 예정입니다.",
+        data=None
+    )
+
+
+@app.post("/food/analyze", response_model=FoodAnalyzeResponse)
+async def analyze_food(file: UploadFile = File(...)):
+    """음식 사진 분석 (나중에 외부 AI 연결)"""
+    # 일단 기본 응답만 반환
+    return FoodAnalyzeResponse(
+        intent="FOOD_ANALYSIS",
+        message="음식 분석 준비 중입니다. 곧 연결될 예정입니다.",
+        data=None
     )
 
 
