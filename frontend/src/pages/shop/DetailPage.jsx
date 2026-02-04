@@ -14,6 +14,7 @@ import { useCart } from '../../components/layout/ShopLayout';
 import QtyStepper from '../../components/cart/QtyStepper';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
+import LoadingModal from '../../components/common/LoadingModal';
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -181,11 +182,7 @@ const ProductDetail = () => {
   }, [id]);
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <div className="text-lg text-text-main">로딩 중...</div>
-      </div>
-    );
+    return <LoadingModal isOpen={true} message="로딩 중..." />;
   }
 
   if (error) {

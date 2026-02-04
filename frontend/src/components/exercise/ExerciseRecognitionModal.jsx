@@ -390,6 +390,22 @@ export default function ExerciseRecognitionModal({
           </div>
         )}
 
+        {isCompleted && !finalFeedback && (
+          <div className="flex-1 overflow-y-auto flex items-center justify-center">
+            <div className="text-center">
+              <div className="flex justify-center mb-4">
+                <div className="spinner-token" />
+              </div>
+              <h3 className="text-lg font-semibold text-neutral-50 mb-2">
+                운동에 대한 총평을 생성 중입니다...
+              </h3>
+              <p className="text-neutral-400 text-sm">
+                잠시만 기다려주세요
+              </p>
+            </div>
+          </div>
+        )}
+
         {isCompleted && finalFeedback && (
           <div className="flex-1 overflow-y-auto space-y-4">
             <div className="bg-neutral-800 rounded-lg p-4">

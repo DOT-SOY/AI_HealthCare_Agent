@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { gsap } from 'gsap';
 import { routineApi } from '../../api/routineApi';
+import LoadingModal from '../common/LoadingModal';
 
 export default function ExerciseDetailModal({ exerciseName, isOpen, onClose }) {
   const [routines, setRoutines] = useState([]);
@@ -357,9 +358,9 @@ export default function ExerciseDetailModal({ exerciseName, isOpen, onClose }) {
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center text-text-sub py-12">
+            <div className="text-center py-12">
               {loading ? (
-                <p className="text-xl">로딩 중...</p>
+                <LoadingModal isOpen={true} message="로딩 중..." />
               ) : (
                 <p className="text-xl">{exerciseName}에 대한 기록이 없습니다.</p>
               )}
