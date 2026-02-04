@@ -1,73 +1,76 @@
-"""
-Commerce 의도 분류 및 Slot 추출 프롬프트
-"""
+"""Commerce 의도·슬롯 추출 프롬프트."""
 
 SYSTEM_PROMPT = """사용자의 상품 추천 요청에서 intent와 slot을 추출해.
 
-[Intent 분류]
-- PRODUCT_RECOMMEND: 상품 추천 요청 ("추천해줘", "추천", "어떤게 좋아", "뭐 살까", "구매하고 싶어" 등)
+- intent: 항상 "PRODUCT_RECOMMEND"로 둔다.
 
-[Slot 추출]
-1. goal: 운동 목적
-   - "다이어트", "체중 감량", "살 빼기" → DIET
-   - "유지", "현재 유지" → MAINTAIN
-   - "벌크업", "근육 증가", "증량" → BULK_UP
-   - 없으면 ALL
+[goal]
+- 운동 목적: DIET / MAINTAIN / BULK_UP / ALL
+- "다이어트/컷/체지방 줄이기" 계열 → DIET
+- "유지/유지어트/체중 유지/린매스업/린메스업" 계열 → MAINTAIN
+- "벌크업/벌크/근성장/근비대/증량" 계열 → BULK_UP
+- 언급 없으면 ALL
 
-2. product_category: 상품 카테고리
-   - "음식", "식품" → FOOD
-   - "보충제", "영양제", "프로틴", "비타민" → SUPPLEMENT
-   - "헬스용품", "운동용품", "기구" → HEALTH_GOODS
-   - "의류", "운동복" → CLOTHING
-   - 없으면 ALL
+[product_category]
+- FOOD: 음식/식품/밥
+- SUPPLEMENT: 보충제/영양제/프로틴/비타민/단백질
+- HEALTH_GOODS: 헬스용품/운동용품/기구/보호대/스트랩/밴드/손목보호/무릎보호
+- CLOTHING: 의류/운동복/레깅스
+- 없으면 ALL
+- 통증·부위 + "뭐 사야 해/추천/사야 하는데" → 기본적으로 HEALTH_GOODS
 
-3. budget: 예산 (숫자만 추출, 단위는 무시)
-   - "5만원", "50000원", "5만" → 50000
-   - 없으면 null
+[기타 슬롯]
+- budget: 숫자만, 없으면 null
+- avoid: 간단한 키워드 배열 (["카페인"], ["알러지_대두"] 등)
+- keyword: 실제 검색에 쓸 핵심 한 문장 (예: "무릎 보호대", "손목 밴드", "다이어트 보충제")
+  - 통증 부위 + 보호대/스트랩/보충제 표현을 절대 잃지 말고 그대로 유지
+- variant_option: 색/사이즈 등 옵션 (예: "검은색", "L"), 없으면 null
+- address_mode: DEFAULT / NEW / null
+- pending_action: "PAYMENT" 또는 null
+- recipient_name: "OOO한테/OOO에게/OOO에 보내줘"에서 OOO 추출, 없으면 null
+- needs_personalization: 1인칭 + 몸/운동/보충제 맥락이면 true, 선물 위주면 false, 애매하면 false
 
-4. avoid: 회피 성분/알러지 (간단한 키워드만)
-   - "카페인", "커피" → ["카페인"]
-   - "대두", "콩" → ["알러지_대두"]
-   - "유제품", "우유" → ["알러지_유제품"]
-   - 없으면 []
+[부위/유형]
+- target_body_part:
+  - 무릎/하체운동/스쿼트/레그프레스 → KNEE 또는 LOWER_BODY
+  - 손목/손/그립 통증 → WRIST 또는 HAND
+  - 허리/등/데드리프트 허리 통증 → BACK
+  - 애매하면 null
+- product_usage:
+  - 보호대/니슬리브/니랩/무릎 감싸는 것 → PROTECTOR
+  - 덤벨/아령/운동기구/밴드/스트랩 → EQUIPMENT
+  - 보충제/영양제/프로틴/단백질 → SUPPLEMENT
+  - 애매하면 null
 
-5. keyword: 상품명·검색 키워드 (예: 레깅스, 프로틴, 밴드). 없으면 null
+[core/negative keywords]
+- core_keywords: 이번 추천에서 가장 중요한 2~3개의 단어/구.
+  - 부위(있으면) + 목적/운동 목표 + 상품 유형을 최대한 분리해서 넣어라.
+  - 예: "하체운동 할건데 무릎 보호대 추천" → ["하체", "무릎", "보호대"]
+  - 예: "유지어트용 단백질 보충제" → ["유지", "다이어트", "보충제"]
+  - 예: "벌크업/근성장용 보충제" → ["벌크업", "근성장", "보충제"]
+- negative_keywords: 명확히 피해야 할 부위/유형 있을 때만 0~2개 넣기.
+  - 하체/무릎 보호대 필요 → ["손목", "손"] 가능
+  - 손목 보호대/스트랩 필요 → ["무릎", "하체"] 가능
+  - 애매하면 [].
 
-6. variant_option: 색상·사이즈 등 옵션 (예: 검은색, 빨간색, L, 95). 없으면 null
-
-7. address_mode: 배송지 모드
-   - "기본배송지", "원래 주소", "기존 배송지" → "DEFAULT"
-   - "다른 주소", "새 주소", "회사로", "친구 집으로" 등 기존과 다른 곳을 명시 → "NEW"
-   - 명확하지 않으면 null
-
-8. pending_action: 이번 발화로 사용자가 바로 요청한 다음 액션
-   - "결제할게", "바로 결제", "지금 결제해줘" 등 → "PAYMENT"
-   - "보내줘", "보내 주세요", "배송해줘", "주문해줘"처럼 바로 보내 달라는 표현도 → "PAYMENT"
-   - 단순 추천 요청(예: "추천해줘", "뭐 살까?")은 null
-
-9. recipient_name: 수취인/배송지 이름
-   - "OOO한테", "OOO에게", "OOO에 보내줘" → "OOO"
-   - 예: "레깅스 하나 검은색으로 이젠아카데미한테 보내줘" → "이젠아카데미"
-   - 없으면 null
-
-10. needs_personalization: 이번 추천이 사용자 본인의 몸 상태/목표/프로필을 활용한 개인화가 필요한지 여부
-    - "나한테 필요한", "내가 먹을", "나 요즘 벌크업해야 하는데", "나 보충제 사야 해"처럼 1인칭 + 운동/보충제/건강 관련 표현 → true
-    - 선물/대리구매 중심 표현(예: "이젠아카데미한테 뭐 사주고 싶어", "친구 선물") → false
-    - 명확하지 않을 때는 false
-
-[응답]
-JSON만 반환:
-{{
+[응답 형식]
+자연어 설명 없이 JSON 객체만 반환:
+{
   "intent": "PRODUCT_RECOMMEND",
-  "goal": "DIET|MAINTAIN|BULK_UP|ALL",
-  "product_category": "FOOD|SUPPLEMENT|HEALTH_GOODS|CLOTHING|ETC|ALL",
-  "budget": 숫자 또는 null,
-  "avoid": ["키워드1", "키워드2", ...],
-  "keyword": "상품명 또는 null",
-  "variant_option": "색상/사이즈 또는 null",
-  "address_mode": "DEFAULT|NEW|null",
-  "pending_action": "PAYMENT|null",
-  "recipient_name": "이름 또는 null",
-  "needs_personalization": true 또는 false
-}}
+  "goal": "...",
+  "product_category": "...",
+  "budget": ... 또는 null,
+  "avoid": [...],
+  "keyword": ... 또는 null,
+  "variant_option": ... 또는 null,
+  "address_mode": "DEFAULT"|"NEW"|null,
+  "pending_action": "PAYMENT"|null,
+  "recipient_name": ... 또는 null,
+  "needs_personalization": true|false,
+  "target_body_part": "KNEE"|"LOWER_BODY"|"WRIST"|"HAND"|"BACK"|null,
+  "product_usage": "PROTECTOR"|"EQUIPMENT"|"SUPPLEMENT"|null,
+  "experience_level": "BEGINNER"|"INTERMEDIATE"|"ADVANCED"|null,
+  "core_keywords": [...],
+  "negative_keywords": [...]
+}
 """

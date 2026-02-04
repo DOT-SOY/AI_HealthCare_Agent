@@ -40,7 +40,6 @@ const ProductEditPage = () => {
     if (loginState?.roleNames?.includes('ADMIN') && id) {
       loadProduct();
     }
-  // loadProduct는 id 기반으로 내부에서 사용하므로 id 변경 시만 재실행
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, loginState?.roleNames]);
 
@@ -63,13 +62,11 @@ const ProductEditPage = () => {
         status: data.status || 'DRAFT',
       });
       setExistingImages(data.images || []);
-      
-      // Categories 설정
+
       if (data.categories && data.categories.length > 0) {
         setSelectedCategoryTypes(data.categories.map((c) => c.categoryType).filter(Boolean));
       }
-      
-      // Variants 설정
+
       if (data.variants && data.variants.length > 0) {
         setVariants(data.variants.map(v => ({
           id: v.id,
@@ -124,14 +121,12 @@ const ProductEditPage = () => {
       setIsUploading(true);
       setError(null);
 
-      // 업로드 진행률 초기화
       const progress = {};
       selectedFiles.forEach((_, index) => {
         progress[index] = 0;
       });
       setUploadProgress(progress);
 
-      // 파일 업로드
       const results = await uploadFiles(
         selectedFiles,
         'products',
@@ -144,7 +139,7 @@ const ProductEditPage = () => {
       );
 
       setUploadedFiles(prev => [...prev, ...results]);
-      setSelectedFiles([]); // 업로드 완료 후 선택 파일 초기화
+      setSelectedFiles([]);
     } catch (err) {
       setError(err.message || '파일 업로드에 실패했습니다.');
       console.error('Upload failed:', err);
@@ -165,19 +160,15 @@ const ProductEditPage = () => {
       setIsSubmitting(true);
       setError(null);
 
-      // 최종 이미지 filePath 수집 (유지할 기존 이미지 + 새로 업로드한 파일)
       const existingFilePaths = existingImages
-        .filter(img => img.filePath) // filePath가 있는 이미지만
+        .filter(img => img.filePath)
         .map(img => img.filePath);
-      
+
       const allImageFilePaths = [
         ...existingFilePaths,
         ...uploadedFiles.map(file => file.filePath),
       ];
 
-      // 덮어쓰기 방식: 최종 이미지 목록만 전송
-      // 빈 배열이면 모든 이미지 제거, null이면 기존 이미지 유지
-      // variants 배열 구성
       const variantsPayload = variants.map(v => ({
         id: v.id != null ? v.id : undefined,
         optionText: (v.optionDisplay ?? '').trim() || '기본 옵션',
@@ -253,7 +244,6 @@ const ProductEditPage = () => {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-token-6">
-        {/* 기본 정보 */}
         <Card className="p-token-6 space-y-4">
           <h2 className="text-lg font-semibold text-text-main">기본 정보</h2>
           <div className="space-y-4">
@@ -327,7 +317,6 @@ const ProductEditPage = () => {
           </div>
         </Card>
 
-        {/* 카테고리 */}
         <Card className="p-token-6 space-y-3">
           <h2 className="text-lg font-semibold text-text-main">카테고리</h2>
           <p className="text-sm text-text-muted">
@@ -468,7 +457,6 @@ const ProductEditPage = () => {
           )}
         </Card>
 
-        {/* 이미지 관리 */}
         <Card className="p-token-6 space-y-4">
           <h2 className="text-lg font-semibold text-text-main">상품 이미지</h2>
 

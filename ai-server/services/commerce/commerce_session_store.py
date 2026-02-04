@@ -1,7 +1,4 @@
-"""
-Commerce 세션 Redis 저장소 (SSOT).
-세션 존재 여부는 Redis 키 존재로만 판단.
-"""
+"""Commerce 세션 Redis 저장소."""
 import os
 import json
 from typing import Optional
@@ -11,7 +8,7 @@ from .commerce_types import SessionData, CommerceState
 
 _REDIS_CLIENT = None
 _KEY_PREFIX = "commerce:session:"
-_DEFAULT_TTL_SEC = 1800  # 30분
+_DEFAULT_TTL_SEC = 1800
 
 
 def _get_redis():
@@ -33,6 +30,9 @@ def _session_to_dict(data: SessionData) -> dict:
         "state": data.state.value,
         "recommendation_condition": data.recommendation_condition,
         "recommended_products": data.recommended_products,
+        "latest_condition": data.latest_condition,
+        "last_query_text": data.last_query_text,
+        "recommendation_id": data.recommendation_id,
         "selected_product_id": data.selected_product_id,
         "selected_variant_id": data.selected_variant_id,
         "quantity": data.quantity,
@@ -80,6 +80,9 @@ def _dict_to_session(d: dict) -> SessionData:
         state=state,
         recommendation_condition=d.get("recommendation_condition"),
         recommended_products=d.get("recommended_products") or [],
+        latest_condition=d.get("latest_condition"),
+        last_query_text=d.get("last_query_text"),
+        recommendation_id=d.get("recommendation_id"),
         selected_product_id=d.get("selected_product_id"),
         selected_variant_id=d.get("selected_variant_id"),
         quantity=d.get("quantity", 1),
@@ -108,7 +111,6 @@ def _dict_to_session(d: dict) -> SessionData:
 
 
 def get(session_id: str) -> Optional[SessionData]:
-    """세션 조회. 없으면 None. (만료 판정은 하지 않음)"""
     r = _get_redis()
     key = _KEY_PREFIX + session_id
     raw = r.get(key)
@@ -129,6 +131,5 @@ def set(session_id: str, data: SessionData, ttl_sec: int = _DEFAULT_TTL_SEC) -> 
 
 
 def delete(session_id: str) -> None:
-    """세션 삭제"""
     r = _get_redis()
     r.delete(_KEY_PREFIX + session_id)

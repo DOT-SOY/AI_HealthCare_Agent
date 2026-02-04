@@ -123,7 +123,17 @@ public class CommerceChatServiceImpl implements CommerceChatService {
             }
             String state = (String) commerceResponse.get("state");
             String error = (String) commerceResponse.get("error");
-            log.info("commerce 응답: sessionId={}, state={}, error={}", sessionId, state, error);
+            Boolean handoffToGeneralChat = (Boolean) commerceResponse.get("handoff_to_general_chat");
+            log.info("commerce 응답: sessionId={}, state={}, error={}, handoffToGeneralChat={}", sessionId, state, error, handoffToGeneralChat);
+
+            // 원하는 상품이 없는 질문으로 판단된 경우: 일반 챗 응답으로 넘겨 UI/톤을 일반 대화처럼 표시
+            if (Boolean.TRUE.equals(handoffToGeneralChat)) {
+                return AIChatResponse.builder()
+                    .message(message)
+                    .intent("GENERAL_CHAT")
+                    .data(commerceResponse)
+                    .build();
+            }
             return AIChatResponse.builder()
                 .message(message)
                 .intent("PRODUCT_RECOMMEND")

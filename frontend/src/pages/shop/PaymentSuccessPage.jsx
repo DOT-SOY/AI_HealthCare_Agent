@@ -7,7 +7,7 @@ const MAX_RETRY = 5;
 
 const PaymentSuccessPage = () => {
   const [searchParams] = useSearchParams();
-  const [status, setStatus] = useState('loading'); // 'loading' | 'success' | 'error'
+  const [status, setStatus] = useState('loading');
   const [detail, setDetail] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [retryCount, setRetryCount] = useState(0);
@@ -51,8 +51,10 @@ const PaymentSuccessPage = () => {
         }
       } catch (err) {
         if (cancelled) return;
-        const msg = err?.message ?? '';
-        const isProcessing = /기존 요청을 처리중|S008|FAILED_PAYMENT_INTERNAL_SYSTEM_PROCESSING|처리 중입니다/i.test(msg);
+        // 503 등 5xx 시 서버 메시지는 err.response.data.message에 있음 (axios는 err.message에 "Request failed with status code 503"만 넣음)
+        const msg = err?.response?.data?.message ?? err?.message ?? '';
+        const status503 = err?.response?.status === 503;
+        const isProcessing = status503 || /기존 요청을 처리중|S008|FAILED_PAYMENT_INTERNAL_SYSTEM_PROCESSING|처리 중입니다/i.test(msg);
         const isAlreadyProcessed = /이미 처리된 결제|ALREADY_PROCESSED_PAYMENT/i.test(msg);
         if (isAlreadyProcessed) {
           // 이미 승인 완료된 결제라면, 주문 상태는 DB 상으로는 PAID 이므로
@@ -70,7 +72,6 @@ const PaymentSuccessPage = () => {
         }
 
         if (isProcessing && retryCount < MAX_RETRY) {
-          // 토스 S008 등 "처리 중"이면 잠시 후 자동 재시도
           setStatus('loading');
           setErrorMessage('');
           setTimeout(() => {

@@ -1,18 +1,6 @@
-"""
-Commerce 상품 추천 조건 생성 프롬프트
-"""
+"""Commerce 추천 조건 생성 프롬프트."""
 
 def build_system_prompt(rag_context: str, user_profile: dict) -> str:
-    """
-    시스템 프롬프트 생성
-
-    Args:
-        rag_context: RAG 검색 결과 컨텍스트
-        user_profile: 사용자 프로필 정보
-
-    Returns:
-        시스템 프롬프트 문자열
-    """
     profile_text = ""
     if user_profile:
         profile_parts = []
@@ -45,13 +33,15 @@ def build_system_prompt(rag_context: str, user_profile: dict) -> str:
 
 [추천 조건 생성 규칙]
 1. goal: 사용자 발화에서 추출한 목적 (DIET, MAINTAIN, BULK_UP, ALL)
-   - 사용자 프로필의 goal 또는 세션 캐시의 goal_type이 있으면 우선 사용
-   - 없으면 발화에서 추출
-   - goal/goal_type이 BULK_UP이면 벌크업·근육 증가용(고칼로리 게이너, 고단백 보충제 등)을 우선 추천하고, 다이어트/저칼로리 전용 상품은 우선순위를 낮춘다.
-   - goal/goal_type이 DIET이면 체중 감량·체지방 감소에 도움 되는 저칼로리/저당/고단백 상품을 우선 추천하고, 벌크업/대용량 고칼로리 게이너는 피한다.
+   - **이번 발화에서 사용자가 목적을 명시했으면(추출된 Slot의 goal이 ALL이 아닌 경우) 반드시 그 값을 사용한다.** 프로필/세션의 goal은 사용하지 않는다.
+   - 이번 발화에서 목적을 말하지 않았을 때만(추출된 Slot의 goal이 ALL일 때만) 사용자 프로필의 goal 또는 세션 캐시의 goal_type을 사용한다. 없으면 ALL.
+   - goal이 BULK_UP이면 벌크업·근육 증가용(고칼로리 게이너, 고단백 보충제 등)을 우선 추천하고, 다이어트/저칼로리 전용 상품은 우선순위를 낮춘다.
+   - goal이 DIET이면 체중 감량·체지방 감소에 도움 되는 저칼로리/저당/고단백 상품을 우선 추천하고, 벌크업/대용량 고칼로리 게이너는 피한다.
 
 2. product_category: 상품 카테고리 (FOOD, SUPPLEMENT, HEALTH_GOODS, CLOTHING, ETC, ALL)
    - 발화에서 명시되지 않으면 ALL
+   - **추출된 Slot의 product_category가 ALL이 아닌 경우, 반드시 그 값을 그대로 사용한다.** LLM이 임의로 다른 카테고리로 바꾸지 말 것.
+   - **통증 부위·운동 종목·보호대/스트랩/밴드 등이 언급되면**: product_category는 반드시 HEALTH_GOODS로 설정하고, keyword(무릎 보호대, 손목 밴드, 리프팅 스트랩 등)를 덮어쓰지 말고 보존한다. 추출된 Slot의 keyword가 있으면 그대로 사용한다.
 
 3. budget_max: 예산 상한 (숫자 또는 null)
    - 발화에서 예산이 언급되면 숫자로 변환
@@ -63,9 +53,9 @@ def build_system_prompt(rag_context: str, user_profile: dict) -> str:
    - 발화에서 추가 회피 요청이 있으면 추가
    - 예: ["카페인", "알러지_대두"]
 
-5. must_have: 필수 포함 성분 리스트
-   - RAG 컨텍스트의 추천 기준을 참고하여 생성
-   - 예: ["단백질", "식이섬유"]
+5. must_have: 필수 포함 성분/키워드 리스트
+   - RAG 컨텍스트의 추천 기준과, intent 단계에서 추출한 core_keywords를 참고하여 생성
+   - 예: ["단백질", "식이섬유"] 또는 ["무릎", "하체", "보호대"], ["다이어트", "보충제"]
 
 6. priority: 우선순위 조건 리스트
    - RAG 컨텍스트의 추천 기준을 참고하여 생성
@@ -74,6 +64,7 @@ def build_system_prompt(rag_context: str, user_profile: dict) -> str:
 
 7. keyword: 상품명·검색 키워드 (발화에서 추출, 없으면 null)
    - 예: "레깅스", "프로틴", "밴드"
+   - **추출된 Slot에 keyword가 있으면 반드시 그대로 사용**: 특히 "무릎 보호대", "보호대", "손목 밴드", "리프팅 스트랩" 등 통증·부위·보호 용품 관련 키워드는 절대 생략하거나 다른 상품 유형(예: 프로틴)으로 대체하지 말 것.
 
 8. user_profile_used: 사용자 프로필 정보를 사용했는지 여부 (boolean)
 
@@ -112,29 +103,27 @@ def build_system_prompt(rag_context: str, user_profile: dict) -> str:
 
 
 def build_user_prompt(user_text: str, extracted_slots: dict) -> str:
-    """
-    사용자 프롬프트 생성
-
-    Args:
-        user_text: 사용자 발화
-        extracted_slots: 추출된 slot 정보
-
-    Returns:
-        사용자 프롬프트 문자열
-    """
+    goal_slot = extracted_slots.get("goal", "ALL")
+    core_keywords = extracted_slots.get("core_keywords", [])
+    negative_keywords = extracted_slots.get("negative_keywords", [])
     slots_text = f"""
 [추출된 Slot 정보]
-- goal: {extracted_slots.get('goal', 'ALL')}
+- goal: {goal_slot}
 - product_category: {extracted_slots.get('product_category', 'ALL')}
 - budget: {extracted_slots.get('budget')}
 - avoid: {extracted_slots.get('avoid', [])}
 - keyword: {extracted_slots.get('keyword')}
+- core_keywords: {core_keywords}
+- negative_keywords: {negative_keywords}
 - address_mode: {extracted_slots.get('address_mode')}
 - recipient_name: {extracted_slots.get('recipient_name')}
 """
+    goal_note = ""
+    if goal_slot and str(goal_slot).upper() != "ALL":
+        goal_note = "\n[중요] 사용자가 이번 발화에서 목적(goal)을 명시했으므로, 반드시 goal은 " + str(goal_slot).upper() + " 로 설정할 것. 프로필의 goal로 덮어쓰지 말 것.\n"
 
     return f"""사용자 발화: "{user_text}"
-
+{goal_note}
 {slots_text}
 
-위 정보를 바탕으로 추천 조건 JSON을 생성해."""
+위 정보를 바탕으로 추천 조건 JSON을 생성해. 특히 core_keywords는 must_have에 반영하고, negative_keywords는 avoid에 반영하는 것을 우선적으로 고려해."""

@@ -12,10 +12,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-/**
- * AI 전용 장바구니 컨트롤러
- * 멱등성 처리를 포함한 장바구니 담기 API
- */
 @Slf4j
 @RestController
 @RequestMapping("/api/cart/ai")
@@ -26,13 +22,6 @@ public class CartAIController {
     private final CartIdempotencyService cartIdempotencyService;
     private final CurrentMemberService currentMemberService;
     
-    /**
-     * AI 전용 장바구니 아이템 추가 (멱등성 처리 포함)
-     * 
-     * @param request 요청 DTO
-     * @param idempotencyKey 멱등키 (헤더)
-     * @return 204 No Content
-     */
     @PostMapping("/add-item")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public ResponseEntity<Void> addItemWithIdempotency(
@@ -58,8 +47,6 @@ public class CartAIController {
         } else {
             return ResponseEntity.badRequest().build();
         }
-        
-        // 멱등키 저장
         if (idempotencyKey != null && !idempotencyKey.trim().isEmpty()) {
             cartIdempotencyService.saveIdempotencyKey(idempotencyKey);
         }

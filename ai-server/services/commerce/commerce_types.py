@@ -1,6 +1,4 @@
-"""
-Commerce 세션/상태 공통 타입 (순환 임포트 방지용 분리).
-"""
+"""Commerce 세션/상태 타입."""
 from typing import Dict, Any, Optional, List
 from enum import Enum
 from dataclasses import dataclass, field
@@ -8,7 +6,6 @@ from datetime import datetime
 
 
 class CommerceState(str, Enum):
-    """상태 정의"""
     RECOMMEND = "RECOMMEND"
     CONFIRM_PRODUCT = "CONFIRM_PRODUCT"
     ADD_TO_CART = "ADD_TO_CART"
@@ -18,14 +15,16 @@ class CommerceState(str, Enum):
 
 @dataclass
 class SessionData:
-    """
-    세션 데이터.
-    - 슬롯·keyword·variant_option은 recommendation_condition 등으로 저장되며 세션 TTL/삭제와 동일 생애주기.
-    - goal_type, member_* , budget_max, profile_avoid 필드는 한 세션 동안 조회한 회원/프로필 정보를 캐시하는 용도로도 사용된다.
-    """
     state: CommerceState
     recommendation_condition: Optional[Dict[str, Any]] = None
     recommended_products: list = field(default_factory=list)
+
+    # 이번 턴 기준 확정된 RecommendationCondition (dict 형태로 저장)
+    latest_condition: Optional[Dict[str, Any]] = None
+    # 정규화된 쿼리 문자열 (semantic embedding 계산용 캐시)
+    last_query_text: Optional[str] = None
+    # 추천 요청 ID (로깅/AB 테스트용)
+    recommendation_id: Optional[str] = None
 
     selected_product_id: Optional[int] = None
     selected_variant_id: Optional[int] = None

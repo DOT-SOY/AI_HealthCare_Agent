@@ -71,7 +71,8 @@ def _fake_classify_intent(text: str) -> Dict[str, Any]:
     return {"intent": "PRODUCT_RECOMMEND"}
 
 
-co.classify_intent = _fake_classify_intent
+# CONFIRM_* 상태에서 문장형 발화 시 호출하는 상위 의도 분류 (classify_intent_top_level)
+co.classify_intent_top_level = _fake_classify_intent
 
 
 def _fake_extract_slots(text: str) -> Dict[str, Any]:
@@ -210,7 +211,7 @@ def test_info_lack_then_recommend() -> None:
 
 
 def test_off_topic() -> None:
-    """루틴 질문 등 다른 도메인 발화 시 OFF_TOPIC + 세션 삭제."""
+    """CONFIRM_PRODUCT 상태에서 루틴 질문 시 OFF_TOPIC + 세션 삭제."""
     session_id = "test_off_topic"
     auth = "Bearer dummy"
 
@@ -223,11 +224,24 @@ def test_off_topic() -> None:
     assert session_id not in _SESSIONS
 
 
+def test_recommend_state_off_topic() -> None:
+    """RECOMMEND 상태에서 문장형 비커머스 발화 시 OFF_TOPIC + 세션 삭제 (시나리오 4)."""
+    session_id = "test_recommend_off_topic"
+    auth = "Bearer dummy"
+
+    # RECOMMEND 상태에서 바로 "오늘 루틴 뭐였지?" 입력
+    r = co.handle_commerce_recommend("오늘 루틴 뭐였지?", session_id, auth_token=auth)
+    assert r["error"] == "OFF_TOPIC", r
+    assert r.get("intent") == "ROUTINE_QUERY", r
+    assert session_id not in _SESSIONS
+
+
 def main() -> None:
     tests = [
         ("happy_path", test_happy_path),
         ("info_lack_then_recommend", test_info_lack_then_recommend),
         ("off_topic", test_off_topic),
+        ("recommend_state_off_topic", test_recommend_state_off_topic),
     ]
 
     print("== Commerce flow tests (mocked) ==")
@@ -242,6 +256,86 @@ def main() -> None:
             print(f"[FAIL] {name} - Exception: {e}")
 
 
+# ---- 키워드 분류 테스트 ----
+
+def test_classify_keywords() -> None:
+    """core_keywords 분류 로직 테스트 (부위/상품유형/영양 분리)"""
+    from services.commerce.commerce_recommendation_service import _classify_keywords
+    
+    # 테스트 1: 하체 보호대 키워드
+    result1 = _classify_keywords(["하체", "보호대"])
+    assert "하체" in result1["body_parts"], f"하체는 body_parts에 있어야 함: {result1}"
+    assert "보호대" in result1["type_must"], f"보호대는 type_must에 있어야 함: {result1}"
+    assert len(result1["priority"]) == 0, f"priority는 비어있어야 함: {result1}"
+    print(f"  [케이스1] 하체 보호대: {result1}")
+    
+    # 테스트 2: 다이어트 음식 (단백질/식이섬유)
+    result2 = _classify_keywords(["단백질", "식이섬유", "다이어트"])
+    assert "단백질" in result2["priority"], f"단백질은 priority에 있어야 함: {result2}"
+    assert "식이섬유" in result2["priority"], f"식이섬유는 priority에 있어야 함: {result2}"
+    assert "다이어트" in result2["priority"], f"다이어트는 priority에 있어야 함: {result2}"
+    print(f"  [케이스2] 다이어트 음식: {result2}")
+    
+    # 테스트 3: 덤벨 키워드
+    result3 = _classify_keywords(["덤벨"])
+    assert "덤벨" in result3["type_must"], f"덤벨은 type_must에 있어야 함: {result3}"
+    print(f"  [케이스3] 덤벨: {result3}")
+    
+    # 테스트 4: 무릎 보호대 (부위+유형 복합)
+    result4 = _classify_keywords(["무릎 보호대"])
+    # "무릎 보호대"는 상품 유형("보호대")을 포함하므로 type_must에 있어야 함
+    assert "무릎 보호대" in result4["type_must"], f"무릎 보호대는 type_must에 있어야 함: {result4}"
+    print(f"  [케이스4] 무릎 보호대: {result4}")
+    
+    # 테스트 5: 혼합 케이스 (손목 + 스트랩 + 벌크업)
+    result5 = _classify_keywords(["손목", "스트랩", "벌크업"])
+    assert "손목" in result5["body_parts"], f"손목은 body_parts에 있어야 함: {result5}"
+    assert "스트랩" in result5["type_must"], f"스트랩은 type_must에 있어야 함: {result5}"
+    assert "벌크업" in result5["priority"], f"벌크업은 priority에 있어야 함: {result5}"
+    print(f"  [케이스5] 손목+스트랩+벌크업: {result5}")
+
+
+def test_recommendation_condition_body_parts() -> None:
+    """RecommendationCondition의 body_parts 속성 테스트"""
+    
+    # body_parts가 없는 경우
+    cond1 = RecommendationCondition(
+        goal="DIET",
+        product_category="HEALTH_GOODS",
+    )
+    assert cond1.body_parts == [], f"body_parts가 없으면 빈 리스트: {cond1.body_parts}"
+    
+    # body_parts가 있는 경우
+    cond2 = RecommendationCondition(
+        goal="ALL",
+        product_category="HEALTH_GOODS",
+        derived_constraints={"body_parts": ["하체", "무릎"]},
+    )
+    assert cond2.body_parts == ["하체", "무릎"], f"body_parts가 있으면 해당 리스트: {cond2.body_parts}"
+    
+    # to_summary_log 테스트
+    log = cond2.to_summary_log()
+    assert "body_parts" in log, f"summary_log에 body_parts 포함: {log}"
+    print(f"  summary_log: {log}")
+
+
 if __name__ == "__main__":
     main()
+    
+    print("\n== Keyword classification tests ==")
+    try:
+        test_classify_keywords()
+        print("[OK]   test_classify_keywords")
+    except AssertionError as e:
+        print(f"[FAIL] test_classify_keywords - {e}")
+    except Exception as e:
+        print(f"[FAIL] test_classify_keywords - Exception: {e}")
+    
+    try:
+        test_recommendation_condition_body_parts()
+        print("[OK]   test_recommendation_condition_body_parts")
+    except AssertionError as e:
+        print(f"[FAIL] test_recommendation_condition_body_parts - {e}")
+    except Exception as e:
+        print(f"[FAIL] test_recommendation_condition_body_parts - Exception: {e}")
 

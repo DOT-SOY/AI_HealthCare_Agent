@@ -36,7 +36,8 @@ public class MemberProfileServiceImpl implements MemberProfileService {
         // 프로필 응답 생성
         MemberProfileResponse.MemberProfileResponseBuilder builder = MemberProfileResponse.builder()
                 .name(member.getName())
-                .email(member.getEmail());
+                .email(member.getEmail())
+                .gender(member.getGender() != null ? member.getGender().name() : null);
 
         if (bodyInfo != null) {
             builder.heightCm(bodyInfo.getHeight())

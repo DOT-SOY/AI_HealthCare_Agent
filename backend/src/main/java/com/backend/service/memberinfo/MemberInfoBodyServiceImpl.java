@@ -96,13 +96,16 @@ public class MemberInfoBodyServiceImpl implements MemberInfoBodyService {
     public MemberInfoBodyResponseDTO getLatest(Long memberId) {
         log.info("최신 신체 정보 조회 요청: memberId={}", memberId);
 
-        MemberInfoBody entity = memberInfoBodyRepository
-                .findFirstByMemberIdAndDeletedAtIsNullOrderByMeasuredTimeDescCreatedAtDesc(memberId)
-                .orElse(null);
+        // getHistory와 동일한 @Query로 조회 후 최신 1건 사용 (DB에 있는 bodyInfo 확실히 조회)
+        List<MemberInfoBody> list = memberInfoBodyRepository
+                .findByMemberIdAndNotDeletedOrderByMeasuredTimeDesc(memberId);
+        MemberInfoBody entity = list.isEmpty() ? null : list.get(0);
 
-        // Member 정보 조회
         Member member = memberRepository.findById(memberId).orElse(null);
 
+        if (entity == null) {
+            log.debug("최신 신체 정보 없음: memberId={} (삭제되지 않은 건수=0)", memberId);
+        }
         return MemberInfoBodyResponseDTO.fromEntityWithMember(entity, member);
     }
 

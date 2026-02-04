@@ -7,7 +7,6 @@ import { getMyAddressList } from '../../services/memberInfoAddrApi';
 
 const TOSS_V1_URL = 'https://js.tosspayments.com/v1/payment.js';
 const TOSS_V2_URL = 'https://js.tosspayments.com/v2/payment.js';
-/** localhost에서 CDN 403 회피용 (vite proxy: /tosspayments-proxy → js.tosspayments.com) */
 const getTossProxyUrl = () => (typeof window !== 'undefined' ? `${window.location.origin}/tosspayments-proxy/v2/standard` : '');
 
 const loadScript = (url, runId) =>
@@ -41,7 +40,6 @@ const loadTossScript = () => {
           })
           .then(resolve)
           .catch(async () => {
-            // v1/v2 CDN·프록시 모두 실패 → NPM + 프록시 src 시도 (localhost 회피용)
             try {
               const mod = await import('@tosspayments/tosspayments-sdk');
               const loadTossPayments = mod.loadTossPayments ?? mod.default;
@@ -89,23 +87,15 @@ const CheckoutPage = () => {
     memo: '',
     paymentMethod: 'CARD',
   });
-  /** 결제위젯 연동 키 사용 시: 'widget_ready'면 위젯이 렌더된 뒤 결제하기 대기 */
   const [checkoutPhase, setCheckoutPhase] = useState('form');
   const [widgetOrderPayload, setWidgetOrderPayload] = useState(null);
   const widgetInstanceRef = useRef(null);
-
-  /** 저장된 배송지 목록 (기본 배송지 우선) */
   const [addressList, setAddressList] = useState([]);
-  /** 배송지 불러오기 드롭다운 표시 여부 */
   const [showAddressSelect, setShowAddressSelect] = useState(false);
-  /** 기본 배송지 자동 기입 한 번만 수행 */
   const defaultAppliedRef = useRef(false);
-  /** AI에서 온 주문인지 여부 */
   const fromAIRef = useRef(false);
-  /** 결제하기 이중 클릭/재호출 방지 (state보다 즉시 반영) */
   const submitLockRef = useRef(false);
 
-  /** 토스 requestPayment method 코드 ↔ 화면 라벨 (API 개별 연동 키 + 결제창용) */
   const PAYMENT_METHODS = [
     { value: 'CARD', label: '카드(신용/체크/간편결제)', description: '네이버페이·카카오페이 등은 결제창에서 선택' },
     { value: 'TRANSFER', label: '계좌이체(실시간 이체)' },
@@ -143,7 +133,6 @@ const CheckoutPage = () => {
       .catch(() => setAddressList([]));
   }, []);
 
-  /** 저장된 기본 배송지가 있으면 한 번만 자동 기입 */
   useEffect(() => {
     if (addressList.length === 0 || defaultAppliedRef.current) return;
     const defaultAddr = addressList.find((a) => a.isDefault);
@@ -169,14 +158,11 @@ const CheckoutPage = () => {
       fromAIRef.current = true;
       
       const { orderNo, paymentReady } = state;
-      
-      // 주문 정보 불러와서 폼에 자동 입력
+
       const loadOrderAndInitPayment = async () => {
         try {
-          // 주문 상세 정보 불러오기
           const orderDetail = await getOrderDetail(orderNo);
-          
-          // 배송지 및 주문자 정보 자동 입력
+
           if (orderDetail.shipTo) {
             setForm((prev) => ({
               ...prev,
@@ -200,8 +186,7 @@ const CheckoutPage = () => {
               },
             }));
           }
-          
-          // 결제 위젯 렌더링
+
           const clientKey = paymentReady?.clientKey ?? '';
           const customerKey = paymentReady?.customerKey ?? `guest-${orderNo}`;
           const orderName = paymentReady?.orderName ?? `주문 ${orderNo}`;
@@ -256,7 +241,6 @@ const CheckoutPage = () => {
     }));
   };
 
-  /** DTO 항목을 form.shipTo로 적용 (배송지 불러오기 선택 시) */
   const applyAddressToForm = (addr) => {
     if (!addr) return;
     setForm((prev) => ({
@@ -277,7 +261,6 @@ const CheckoutPage = () => {
     if (submitLockRef.current || submitting) return;
     submitLockRef.current = true;
 
-    // 결제위젯 연동 키: 위젯 렌더 후 "결제하기" 두 번째 클릭 → requestPayment
     if (checkoutPhase === 'widget_ready' && widgetInstanceRef.current && widgetOrderPayload) {
       setSubmitting(true);
       try {
@@ -372,7 +355,6 @@ const CheckoutPage = () => {
         return;
       }
 
-      // API 개별 연동 키(ck): sdk.payment().requestPayment() 사용
       const method = form.paymentMethod ?? 'CARD';
       if (sdk?.payment) {
         const payment = sdk.payment({ customerKey });
@@ -590,7 +572,6 @@ const CheckoutPage = () => {
           />
         </section>
 
-        {/* 결제 수단 */}
         <section aria-label="결제 수단" className="bg-bg-card border border-border-default rounded-token p-6">
           <h2 className="text-lg font-semibold mb-3 text-text-main">결제 수단</h2>
           {checkoutPhase === 'widget_ready' && (

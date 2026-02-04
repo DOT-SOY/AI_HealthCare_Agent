@@ -10,7 +10,6 @@ import java.util.List;
 
 @Repository
 public interface ProductCategoryRepository extends JpaRepository<ProductCategory, ProductCategoryId> {
-    // 페치 조인으로 N+1 문제 방지 (category, category.parent 한 번에 조회)
     @EntityGraph(attributePaths = {"category", "category.parent"})
     List<ProductCategory> findById_ProductId(Long productId);
 

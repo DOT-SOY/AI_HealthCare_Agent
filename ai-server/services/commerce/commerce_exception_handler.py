@@ -1,21 +1,9 @@
-"""
-Commerce 예외 처리 및 사용자 메시지 가이드
-"""
+"""Commerce 예외 → 사용자 메시지."""
 from typing import Dict, Any
 import httpx
 
 
 def handle_exception(error: Exception, context: str = "") -> Dict[str, Any]:
-    """
-    예외를 사용자 친화적인 메시지로 변환
-
-    Args:
-        error: 발생한 예외
-        context: 컨텍스트 정보
-
-    Returns:
-        에러 응답 딕셔너리
-    """
     error_type = type(error).__name__
 
     if isinstance(error, httpx.TimeoutException):
@@ -91,18 +79,9 @@ def handle_exception(error: Exception, context: str = "") -> Dict[str, Any]:
 
 
 def get_user_message_for_error(error_code: str, context: Dict[str, Any] = None) -> str:
-    """
-    에러 코드에 따른 사용자 메시지 반환
-
-    Args:
-        error_code: 에러 코드
-        context: 추가 컨텍스트
-
-    Returns:
-        사용자 메시지
-    """
     messages = {
         "NO_PRODUCTS_FOUND": "조건에 맞는 상품을 찾지 못했습니다. 다른 조건으로 검색해볼까요?",
+        "CONDITION_NO_MATCH": "요청하신 조건(예: 무릎 보호대, 손목 밴드)에 맞는 상품이 없어요. 다른 키워드로 검색하시거나, 참고용 추천만 받아보실 수 있어요.",
         "PRODUCT_OUT_OF_STOCK": "선택하신 상품이 품절되었습니다. 다른 상품을 추천해드릴까요?",
         "NO_ADDRESS": "배송지를 입력해주세요.",
         "ADDRESS_NOT_FOUND": "배송지를 찾을 수 없습니다. 배송지를 입력해주세요.",
@@ -116,3 +95,13 @@ def get_user_message_for_error(error_code: str, context: Dict[str, Any] = None) 
     }
 
     return messages.get(error_code, "오류가 발생했습니다. 다시 시도해주세요.")
+
+
+# 상품 없음 → 일반 챗 핸드오프용 시스템 프롬프트
+HANDOFF_TO_GENERAL_SYSTEM_PROMPT = """당신은 친근한 운동·건강 AI 코치입니다.
+사용자가 "뭐 사야 해?", "뭘 사야 할까"처럼 구매 조언을 구했는데, 우리 쇼핑에는 요청하신 조건에 맞는 상품이 없습니다.
+다음 규칙으로 답변하세요:
+1. 사용자 상황(예: 등운동 시 손이 아픔, 무릎이 아픔)에 공감하고, 일반적인 조언을 2~4문장으로 친절하게 전달하세요.
+2. 예: 손목/무릎 보호 시 손목 밴드·리프팅 스트랩·무릎 보호대 등 대안을 언급하고, 우리 쇼핑에는 해당 상품이 없어 다른 구매처(온라인·스포츠용품점)를 찾아보시라고 권해주세요.
+3. 의료적 효능을 단정하지 말고, "도움이 될 수 있어요" 수준으로만 표현하세요.
+4. 자연스러운 구어체로, 짧고 따뜻하게 답하세요."""

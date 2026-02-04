@@ -14,7 +14,6 @@ class Goal(str, Enum):
 
 
 class ProductCategory(str, Enum):
-    """상품 카테고리"""
     FOOD = "FOOD"
     SUPPLEMENT = "SUPPLEMENT"
     HEALTH_GOODS = "HEALTH_GOODS"
@@ -24,25 +23,6 @@ class ProductCategory(str, Enum):
 
 
 class RecommendationCondition:
-    """
-    추천 조건 JSON 스키마
-
-    예시:
-    {
-        "goal": "DIET",
-        "product_category": "SUPPLEMENT",
-        "budget_max": 50000,
-        "avoid": ["카페인", "알러지_대두"],
-        "must_have": ["단백질", "식이섬유"],
-        "priority": ["칼로리_낮음", "단백질_높음"],
-        "user_profile_used": true,
-        "derived_constraints": {
-            "avoid": ["알러지_대두", "카페인"],
-            "reason": "사용자 프로필에서 알러지 정보 반영"
-        }
-    }
-    """
-
     def __init__(
         self,
         goal: str,
@@ -53,7 +33,8 @@ class RecommendationCondition:
         priority: Optional[List[str]] = None,
         user_profile_used: bool = False,
         derived_constraints: Optional[Dict[str, Any]] = None,
-        keyword: Optional[str] = None
+        keyword: Optional[str] = None,
+        search_type: Optional[str] = None,
     ):
         self.goal = goal
         self.product_category = product_category
@@ -64,9 +45,9 @@ class RecommendationCondition:
         self.user_profile_used = user_profile_used
         self.derived_constraints = derived_constraints or {}
         self.keyword = (keyword or "").strip() or None
+        self.search_type = (search_type or "all").strip().lower()
 
     def to_dict(self) -> Dict[str, Any]:
-        """딕셔너리로 변환"""
         return {
             "goal": self.goal,
             "product_category": self.product_category,
@@ -76,7 +57,8 @@ class RecommendationCondition:
             "priority": self.priority,
             "user_profile_used": self.user_profile_used,
             "derived_constraints": self.derived_constraints,
-            "keyword": self.keyword
+            "keyword": self.keyword,
+            "search_type": self.search_type,
         }
 
     @classmethod
@@ -94,11 +76,11 @@ class RecommendationCondition:
             priority=data.get("priority", []),
             user_profile_used=data.get("user_profile_used", False),
             derived_constraints=data.get("derived_constraints", {}),
-            keyword=kw
+            keyword=kw,
+            search_type=data.get("search_type", "all"),
         )
 
     def validate(self) -> bool:
-        """스키마 유효성 검증"""
         if self.goal not in [g.value for g in Goal]:
             return False
         if self.product_category not in [c.value for c in ProductCategory]:
@@ -106,3 +88,48 @@ class RecommendationCondition:
         if self.budget_max is not None and self.budget_max < 0:
             return False
         return True
+
+    @property
+    def body_parts(self) -> List[str]:
+        """derived_constraints에서 body_parts 추출 (없으면 빈 리스트)"""
+        if not self.derived_constraints:
+            return []
+        return self.derived_constraints.get("body_parts") or []
+
+    def to_summary_log(self) -> str:
+        """디버깅용 요약 로그 문자열"""
+        parts = [f"goal={self.goal}", f"category={self.product_category}"]
+        if self.keyword:
+            parts.append(f"keyword={self.keyword}")
+        if self.must_have:
+            parts.append(f"must_have={self.must_have}")
+        if self.priority:
+            parts.append(f"priority={self.priority}")
+        if self.body_parts:
+            parts.append(f"body_parts={self.body_parts}")
+        if self.avoid:
+            parts.append(f"avoid={self.avoid}")
+        return ", ".join(parts)
+
+    def to_normalized_query_text(self, user_query: Optional[str] = None) -> str:
+        """
+        정규화된 쿼리 문자열 생성 (semantic embedding 계산용).
+        형식: "goal={goal}; category={category}; must=[...]; avoid=[...]; keyword={keyword}; user_query=\"...\""
+        """
+        parts = [
+            f"goal={self.goal}",
+            f"category={self.product_category}",
+        ]
+        if self.must_have:
+            parts.append(f"must={self.must_have}")
+        if self.priority:
+            parts.append(f"priority={self.priority}")
+        if self.body_parts:
+            parts.append(f"body_parts={self.body_parts}")
+        if self.avoid:
+            parts.append(f"avoid={self.avoid}")
+        if self.keyword:
+            parts.append(f"keyword={self.keyword}")
+        if user_query and user_query.strip():
+            parts.append(f'user_query="{user_query.strip()}"')
+        return "; ".join(parts)

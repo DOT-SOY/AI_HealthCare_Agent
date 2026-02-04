@@ -23,7 +23,10 @@ public class MemberProfileResponse {
     // 회원 기본 정보 (주문 생성 시 필요)
     private String name;
     private String email;
-    
+
+    /** 성별 (MALE, FEMALE) - Redis 세션/추천 조건 개인화용 */
+    private String gender;
+
     // 신체 정보
     private Double heightCm;
     private Double weightKg;

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { Link } from 'react-router-dom';
 import {
   toggleChat,
   addMessage,
@@ -315,6 +316,55 @@ export default function AIChatOverlay() {
                             </span>
                           </div>
                         ))}
+                      </div>
+                    )}
+
+                    {/* CONDITION_NO_MATCH: 참고용 추천(alternativeCandidates) 표시 (일반 챗 핸드오프가 아닐 때만) */}
+                    {message.intent !== 'GENERAL_CHAT' && message.data?.error === 'CONDITION_NO_MATCH' && message.data?.alternativeCandidates?.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-border-default/50">
+                        <p className="text-xs text-text-sub mb-2">참고용 추천</p>
+                        <ul className="space-y-1.5">
+                          {message.data.alternativeCandidates.map((item, idx) => (
+                            <li key={idx}>
+                              <Link
+                                to={`/shop/detail/${item.productId}`}
+                                className="text-xs text-primary-500 hover:underline block py-1"
+                              >
+                                {item.name}
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* CONFIRM_PRODUCT: 다른 옵션(optionCandidates) 참고용 블록 */}
+                    {message.data?.state === 'CONFIRM_PRODUCT' && message.data?.optionCandidates?.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-border-default/50">
+                        <p className="text-xs text-text-sub mb-2">다른 옵션</p>
+                        <ul className="space-y-1.5">
+                          {message.data.optionCandidates.map((item, idx) => (
+                            <li key={idx} className="text-xs text-text-main py-1">
+                              {idx + 1}. {item.variantName || item.name}
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="text-[10px] text-text-sub mt-1">원하는 옵션을 말씀해 주시면 해당 옵션으로 진행할게요.</p>
+                      </div>
+                    )}
+
+                    {/* CONFIRM_ADDRESS: 배송지 선택(addressCandidates) 참고용 블록 */}
+                    {message.data?.state === 'CONFIRM_ADDRESS' && message.data?.addressCandidates?.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-border-default/50">
+                        <p className="text-xs text-text-sub mb-2">저장된 배송지</p>
+                        <ul className="space-y-1.5">
+                          {message.data.addressCandidates.map((addr, idx) => (
+                            <li key={addr.id ?? idx} className="text-xs text-text-main py-1">
+                              {addr.display}
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="text-[10px] text-text-sub mt-1">수취인 이름(예: 이젠아카데미한테 보내줘)을 말씀하시면 해당 배송지로 진행할게요.</p>
                       </div>
                     )}
                   </div>

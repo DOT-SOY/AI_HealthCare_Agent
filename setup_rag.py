@@ -103,7 +103,12 @@ def split_by_domain(items: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], 
 
 
 def make_payload(item: Dict[str, Any]) -> Dict[str, Any]:
-    """payload 통합(두 스크립트 필드 합집합)"""
+    """payload 통합(두 스크립트 필드 합집합)
+
+    - exercise/통증 도메인: 기존 필드만 유지
+    - commerce 도메인: 정책/예시 문서를 풍부하게 활용하기 위해 rules, per_category,
+      utterance, intent_result 등도 payload에 포함한다.
+    """
     payload: Dict[str, Any] = {
         "category": item.get("category", ""),
         "title": item.get("title", ""),
@@ -113,7 +118,7 @@ def make_payload(item: Dict[str, Any]) -> Dict[str, Any]:
         "tags": item.get("tags", []),
     }
 
-    # 확장 필드 (있으면 싣기)
+    # 공통 확장 필드 (있으면 싣기)
     for k in [
         "doc_id",
         "chunk_id",
@@ -123,6 +128,18 @@ def make_payload(item: Dict[str, Any]) -> Dict[str, Any]:
         "domain",
         "version",
         "section",
+    ]:
+        if k in item:
+            payload[k] = item.get(k)
+
+    # commerce RAG 정책/예시 문서 전용 확장 필드
+    # - goal/category 정책: rules, per_category
+    # - intent 예시: utterance, intent_result
+    for k in [
+        "rules",
+        "per_category",
+        "utterance",
+        "intent_result",
     ]:
         if k in item:
             payload[k] = item.get(k)
@@ -170,6 +187,81 @@ def make_point_id(item: Dict[str, Any], fallback_idx: int):
     # 3) fallback: 정수
     return int(fallback_idx)
 
+
+def _build_text_for_item(item: Dict[str, Any]) -> str:
+    """
+    Qdrant 임베딩에 사용할 텍스트 생성.
+
+    - 기본: title + content
+    - commerce 정책(goal/category) 문서:
+      - title + rules + per_category 요약을 함께 포함
+    - commerce intent 예시:
+      - title + utterance + intent_result(JSON) 를 포함
+    """
+    title = str(item.get("title", "") or "")
+    content = str(item.get("content", "") or "")
+    domain = item.get("domain")
+    doc_type = item.get("doc_type")
+
+    # commerce 도메인 이외에는 기존 동작 유지 (title + content)
+    if domain != "commerce":
+        return f"{title} {content}".strip()
+
+    # commerce goal/category 정책 문서
+    if doc_type in ("goal_policy", "category_policy"):
+        parts: List[str] = []
+        if title:
+            parts.append(title)
+
+        rules = item.get("rules") or {}
+        per_category = item.get("per_category") or {}
+
+        if rules:
+            parts.append("주요 규칙:")
+            try:
+                parts.append(json.dumps(rules, ensure_ascii=False))
+            except Exception:
+                parts.append(str(rules))
+
+        if per_category:
+            parts.append("카테고리별 규칙:")
+            try:
+                parts.append(json.dumps(per_category, ensure_ascii=False))
+            except Exception:
+                parts.append(str(per_category))
+
+        if content:
+            parts.append(content)
+
+        text = "\n".join(p for p in parts if p).strip()
+        return text or f"{title} {content}".strip()
+
+    # commerce intent 예시 문서
+    if doc_type == "intent_example":
+        parts: List[str] = []
+        utterance = item.get("utterance") or ""
+        intent_result = item.get("intent_result") or {}
+
+        if title:
+            parts.append(title)
+        if utterance:
+            parts.append(f"사용자 발화: {utterance}")
+
+        if intent_result:
+            try:
+                intent_json = json.dumps(intent_result, ensure_ascii=False)
+            except Exception:
+                intent_json = str(intent_result)
+            parts.append(f"의도/슬롯 결과: {intent_json}")
+
+        if content:
+            parts.append(content)
+
+        text = "\n".join(p for p in parts if p).strip()
+        return text or f"{title} {content}".strip()
+
+    # 그 외 commerce 문서는 기존과 동일하게 title + content 사용
+    return f"{title} {content}".strip()
 
 
 def get_embedding(text: str) -> Optional[List[float]]:
@@ -226,7 +318,7 @@ def build_points(items: List[Dict[str, Any]]) -> Tuple[List[PointStruct], int]:
     vector_size = 0
 
     for idx, item in enumerate(items, start=1):
-        text = f"{item.get('title', '')} {item.get('content', '')}".strip()
+        text = _build_text_for_item(item)
 
         emb = get_embedding(text)
         if not emb:
