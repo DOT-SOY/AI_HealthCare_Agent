@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { getProduct } from '../../services/productApi';
@@ -38,8 +38,8 @@ const ProductDetail = () => {
   const [editReviewForm, setEditReviewForm] = useState({ rating: 5, content: '' });
   const [replyFormByReviewId, setReplyFormByReviewId] = useState({});
   const [submitting, setSubmitting] = useState(false);
-  const isLoggedIn = !!loginState?.email;
-  const currentMemberId = loginState?.memberId ?? loginState?.id;
+  const isLoggedIn = !!loginState?.email || loginState?.id != null;
+  const currentMemberId = loginState?.id ?? null;
 
   const loadReviews = useCallback(async () => {
     if (!id) return;
@@ -60,6 +60,17 @@ const ProductDetail = () => {
     }
   }, [id, reviewPage]);
 
+  // 상품의 최신 리뷰 상태(review_status)만 다시 가져오기 위한 헬퍼
+  const refreshProductReviewStatus = useCallback(async () => {
+    if (!id) return;
+    try {
+      const data = await getProduct(id); // 별도 AbortController 없이 단순 조회
+      setProduct(data);
+    } catch (err) {
+      console.error('Failed to refresh product review status:', err);
+    }
+  }, [id]);
+
   useEffect(() => {
     loadReviews();
   }, [loadReviews]);
@@ -73,6 +84,8 @@ const ProductDetail = () => {
       setReviewForm({ rating: 5, content: '' });
       setReviewFormOpen(false);
       loadReviews();
+      // 리뷰 작성 후 상품의 review_status도 최신 상태로 갱신
+      refreshProductReviewStatus();
     } catch (err) {
       const msg = err.response?.data?.message ?? err.message ?? '리뷰 작성에 실패했습니다.';
       alert(msg);
@@ -89,6 +102,8 @@ const ProductDetail = () => {
       await updateReview(reviewId, { rating: editReviewForm.rating, content: editReviewForm.content || null });
       setEditingReviewId(null);
       loadReviews();
+      // 리뷰 수정 후에도 상품의 review_status를 한 번 동기화 (상태는 ALREADY_REVIEWED 유지)
+      refreshProductReviewStatus();
     } catch (err) {
       const msg = err.response?.data?.message ?? err.message ?? '리뷰 수정에 실패했습니다.';
       alert(msg);
@@ -102,6 +117,8 @@ const ProductDetail = () => {
     try {
       await deleteReview(reviewId);
       loadReviews();
+      // 리뷰 삭제 후 상품의 review_status를 최신 상태로 갱신 (예: CAN_REVIEW 등)
+      refreshProductReviewStatus();
     } catch (err) {
       const msg = err.response?.data?.message ?? err.message ?? '리뷰 삭제에 실패했습니다.';
       alert(msg);
@@ -388,18 +405,54 @@ const ProductDetail = () => {
           {reviewsData.total !== undefined && product.reviewSummary == null && (
             <span className="text-text-muted text-sm">총 {reviewsData.total}개</span>
           )}
-          {isLoggedIn && (
-            <Button
-              type="button"
-              variant={product.canReview === false ? 'ghost' : 'primary'}
-              size="sm"
-              onClick={() => product.canReview !== false && setReviewFormOpen((prev) => !prev)}
-              disabled={product.canReview === false}
-              className={product.canReview === false ? 'opacity-50 cursor-not-allowed' : ''}
-            >
-              {product.canReview === false ? '구매 후 작성 가능' : (reviewFormOpen ? '취소' : '리뷰 작성')}
-            </Button>
-          )}
+          {isLoggedIn ? (
+            (() => {
+              const reviewStatus = product?.review_status ?? product?.reviewStatus ?? null;
+
+              if (reviewStatus === 'CAN_REVIEW') {
+                return (
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    onClick={() => setReviewFormOpen((prev) => !prev)}
+                  >
+                    {reviewFormOpen ? '취소' : '리뷰 작성'}
+                  </Button>
+                );
+              }
+
+              if (reviewStatus === 'ALREADY_REVIEWED') {
+                return (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled
+                    className="opacity-50 cursor-not-allowed"
+                  >
+                    리뷰가 존재합니다
+                  </Button>
+                );
+              }
+
+              if (reviewStatus === 'NOT_PURCHASED') {
+                return (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled
+                    className="opacity-50 cursor-not-allowed"
+                  >
+                    구매 후 작성 가능
+                  </Button>
+                );
+              }
+
+              return null;
+            })()
+          ) : null}
         </div>
 
         {reviewFormOpen && (
@@ -482,23 +535,29 @@ const ProductDetail = () => {
                         <p className="text-text-sub text-sm whitespace-pre-wrap">{review.content || '(내용 없음)'}</p>
                       )}
                     </div>
-                    {!editingReviewId && currentMemberId != null && Number(review.memberId) === Number(currentMemberId) && (
-                      <div className="flex gap-2 flex-shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingReviewId(review.id);
-                            setEditReviewForm({ rating: review.rating, content: review.content ?? '' });
-                          }}
-                          className="text-xs text-primary-500 hover:underline"
-                        >
-                          수정
-                        </button>
-                        <button type="button" onClick={() => handleDeleteReview(review.id)} className="text-xs text-primary-400 hover:underline">
-                          삭제
-                        </button>
-                      </div>
-                    )}
+                    {!editingReviewId &&
+                      currentMemberId != null &&
+                      (review.member_id === Number(currentMemberId) || review.memberId === Number(currentMemberId)) && (
+                        <div className="flex gap-2 flex-shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingReviewId(review.id);
+                              setEditReviewForm({ rating: review.rating, content: review.content ?? '' });
+                            }}
+                            className="text-xs text-primary-500 hover:underline"
+                          >
+                            수정
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteReview(review.id)}
+                            className="text-xs text-primary-400 hover:underline"
+                          >
+                            삭제
+                          </button>
+                        </div>
+                      )}
                   </div>
                   {review.replies && review.replies.length > 0 && (
                     <ul className="ml-4 mt-2 pl-4 border-l-2 border-border-default space-y-2">
