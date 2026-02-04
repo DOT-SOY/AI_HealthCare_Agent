@@ -1,15 +1,28 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { Search, RotateCcw, LayoutGrid, UtensilsCrossed, Pill, Dumbbell, Shirt, Package } from 'lucide-react';
 import { getProductList } from '../../services/productApi';
-import { useCart } from '../../components/layout/ShopLayout';
-import QtyStepper from '../../components/cart/QtyStepper';
+import ProductCard from '../../components/shop/ProductCard';
+import Button from '../../components/common/Button';
 
+/** 카테고리: 전체, 음식, 보충제, 헬스용품, 의류, 기타 (아이콘 포함) */
+const SEGMENT_CARDS = [
+  { id: null, label: '전체', Icon: LayoutGrid },
+  { id: 1, label: '음식', Icon: UtensilsCrossed },
+  { id: 2, label: '보충제', Icon: Pill },
+  { id: 3, label: '헬스용품', Icon: Dumbbell },
+  { id: 4, label: '의류', Icon: Shirt },
+  { id: 5, label: '기타', Icon: Package },
+];
+
+/**
+ * 상품 목록 페이지 — 클릭 시 상세 이동, 장바구니 담기는 상세에서만
+ */
 const ProductList = () => {
   const navigate = useNavigate();
   const loginState = useSelector((state) => state.loginSlice);
   const isAdmin = !!loginState?.roleNames?.includes('ADMIN');
-  const { addToCart } = useCart();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -20,34 +33,13 @@ const ProductList = () => {
   const [hasPrevious, setHasPrevious] = useState(false);
   const [keyword, setKeyword] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const [searchType, setSearchType] = useState('all'); // 'name' | 'description' | 'all'
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
-  const [productQtys, setProductQtys] = useState({});
-  const [selectedVariants, setSelectedVariants] = useState({}); // 각 상품별 선택된 variant 저장
-  const isAddingToCartRef = useRef(false);
-  
-  // 카테고리 타입 정의 (CategoryType enum과 일치)
-  // TODO: 실제 카테고리 API가 추가되면 동적으로 가져오도록 수정
-  const categoryTypes = [
-    { type: 'FOOD', name: '음식' },
-    { type: 'SUPPLEMENT', name: '보충제' },
-    { type: 'HEALTH_GOODS', name: '헬스용품' },
-    { type: 'CLOTHING', name: '의류' },
-    { type: 'ETC', name: '기타' },
-  ];
-  
-  // 카테고리 타입을 카테고리 ID로 매핑 (임시)
-  // 실제로는 백엔드에서 카테고리 API를 통해 동적으로 가져와야 합니다
-  const categoryTypeToIdMap = {
-    'FOOD': 1,
-    'SUPPLEMENT': 2,
-    'HEALTH_GOODS': 3,
-    'CLOTHING': 4,
-    'ETC': 5,
-  };
+  const productsRef = useRef(null);
 
   useEffect(() => {
     const abortController = new AbortController();
-    
+
     const loadProducts = async () => {
       try {
         setLoading(true);
@@ -56,331 +48,342 @@ const ProductList = () => {
           page,
           page_size: pageSize,
           keyword,
+          searchType,
           categoryId: selectedCategoryId,
-          signal: abortController.signal, // AbortController signal 전달
+          signal: abortController.signal,
         });
-        
-        // 요청이 취소되었는지 확인
+
         if (abortController.signal.aborted) return;
-        
+
         setProducts(response.items || []);
         setTotal(response.total || 0);
         setHasNext(response.has_next || false);
         setHasPrevious(response.has_previous || false);
       } catch (err) {
-        // AbortError는 무시 (요청 취소)
         if (err.name === 'AbortError') return;
-        
-        // 요청이 취소되었는지 확인
         if (abortController.signal.aborted) return;
-        
         setError(err.message || '상품 목록을 불러오는데 실패했습니다.');
         console.error('Failed to load products:', err);
       } finally {
-        // 요청이 취소되었는지 확인
         if (!abortController.signal.aborted) {
           setLoading(false);
         }
       }
     };
-    
+
     loadProducts();
-    
-    // cleanup: 컴포넌트 언마운트 또는 의존성 변경 시 이전 요청 취소
     return () => {
       abortController.abort();
     };
-  }, [page, keyword, selectedCategoryId]);
+  }, [page, keyword, searchType, selectedCategoryId]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [page]);
 
   const handleSearch = (e) => {
     e.preventDefault();
     setKeyword(searchInput);
-    setPage(1); // 검색 시 첫 페이지로
+    setPage(1);
   };
+
+  const handleResetSearch = () => {
+    setSearchInput('');
+    setKeyword('');
+    setSearchType('all');
+    setPage(1);
+  };
+
+  const hasActiveSearch = keyword || searchType !== 'all';
 
   const handleCategoryFilter = (categoryId) => {
     setSelectedCategoryId(categoryId === selectedCategoryId ? null : categoryId);
-    setPage(1); // 카테고리 필터 변경 시 첫 페이지로
+    setPage(1);
+  };
+
+  const handleScrollToProducts = () => {
+    productsRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const handlePageChange = (newPage) => {
     setPage(newPage);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleAddToCart = (e, product) => {
-    // 중복 호출 방지
-    if (isAddingToCartRef.current) {
-      return;
-    }
-    
-    e.preventDefault();
-    e.stopPropagation();
-    isAddingToCartRef.current = true;
-    
-    // 옵션이 있는 경우 선택된 variant 확인
-    const hasVariants = product.variants && product.variants.length > 0;
-    const selectedVariant = hasVariants ? selectedVariants[product.id] : null;
-    
-    // 옵션이 있는데 선택되지 않은 경우 처리하지 않음
-    if (hasVariants && !selectedVariant) {
-      isAddingToCartRef.current = false;
-      return;
-    }
-    
-    // 현재 QtyStepper에 표시된 수량을 가져옴 (productQtys 상태와 동기화)
-    const currentQty = productQtys[product.id] ?? 1;
-    addToCart(product, selectedVariant, currentQty);
-    
-    // 다음 프레임에서 플래그 리셋 (React의 배치 업데이트 후)
-    setTimeout(() => {
-      isAddingToCartRef.current = false;
-    }, 0);
-  };
-
-  const handleQtyChange = (productId, newQty) => {
-    setProductQtys((prev) => ({
-      ...prev,
-      [productId]: newQty,
-    }));
-  };
-
-  const handleVariantChange = (productId, variant) => {
-    setSelectedVariants((prev) => ({
-      ...prev,
-      [productId]: variant,
-    }));
-  };
-
-  // 대표 이미지 URL 가져오기
   const getPrimaryImageUrl = (product) => {
     if (!product.images || product.images.length === 0) {
       return 'https://via.placeholder.com/300x300?text=No+Image';
     }
-    const primaryImage = product.images.find(img => img.primaryImage);
+    const primaryImage = product.images.find((img) => img.primaryImage);
     return primaryImage ? primaryImage.url : product.images[0].url;
-  };
-
-  // 상품의 표시 가격 계산 (선택된 variant가 있으면 variant 가격, 없으면 기본 가격)
-  const getDisplayPrice = (product) => {
-    const selectedVariant = selectedVariants[product.id];
-    if (selectedVariant && selectedVariant.price != null) {
-      return Number(selectedVariant.price);
-    }
-    return product.basePrice;
   };
 
   if (loading && products.length === 0) {
     return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <div className="text-lg">로딩 중...</div>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-token-4 bg-bg-root">
+        <div className="spinner-token" />
+        <p className="text-text-sub font-medium">로딩 중...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <div className="text-red-500">{error}</div>
+      <div className="flex flex-col items-center justify-center min-h-[40vh] gap-token-4">
+        <p className="text-accent-secondary font-medium">{error}</p>
+        <Button variant="ghost" onClick={() => window.location.reload()}>
+          다시 시도
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="w-full">
-      <div className="mb-8">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-          <h1 className="text-3xl font-bold">상품 목록</h1>
-          {isAdmin && (
-            <button
-              type="button"
-              onClick={() => navigate('/shop/admin/create')}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium"
-            >
-              상품 등록
-            </button>
-          )}
+    <div className="w-full bg-bg-root">
+      {/* 히어로: 강한 카피 + 그래픽 배경 + CTA */}
+      <section className="relative min-h-0 flex flex-col justify-center py-8 sm:py-10 lg:py-12 overflow-hidden">
+        {/* 배경: 그라데이션 + 그리드 패턴 */}
+        <div
+          className="absolute inset-0 bg-gradient-to-br from-bg-root via-gray-100/30 to-bg-root"
+          aria-hidden
+        />
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: `linear-gradient(var(--primary-500) 1px, transparent 1px),
+              linear-gradient(90deg, var(--primary-500) 1px, transparent 1px)`,
+            backgroundSize: '48px 48px',
+          }}
+          aria-hidden
+        />
+        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-bg-root to-transparent" aria-hidden />
+
+        <div className="relative z-10 container-token">
+          <div className="flex flex-wrap items-start justify-between gap-token-6">
+            <div>
+              <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl tracking-tighter text-text-main uppercase">
+                TRAIN.
+              </h1>
+              <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl tracking-tighter text-primary-500 uppercase">
+                FUEL.
+              </h1>
+              <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl tracking-tighter text-text-main uppercase">
+                PERFORM.
+              </h1>
+              <p className="mt-2 text-text-sub text-base sm:text-lg max-w-md tracking-wide">
+                지금 필요한 보충제로 퍼포먼스를 올려보세요.
+              </p>
+              <Button
+                type="button"
+                variant="primary"
+                size="md"
+                onClick={handleScrollToProducts}
+                className="mt-4 bg-transparent hover:scale-[1.02] border-primary-500"
+                style={{
+                  backgroundImage: 'var(--gradient-cta)',
+                  backgroundSize: '200% 100%',
+                  backgroundPosition: '0% 50%',
+                }}
+              >
+                지금 필요한 보충제 찾기
+              </Button>
+            </div>
+            {isAdmin && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate('/shop/admin/create')}
+              >
+                상품 등록
+              </Button>
+            )}
+          </div>
         </div>
-        
-        {/* 검색 폼 */}
-        <form onSubmit={handleSearch} className="mb-6">
-          <div className="flex gap-2">
+      </section>
+
+      {/* 카테고리: 전체, 음식, 보충제, 헬스용품, 의류, 기타 */}
+      <section className="relative z-10 container-token -mt-2 mb-token-4">
+        <div className="flex flex-wrap items-center gap-2">
+          {SEGMENT_CARDS.map(({ id, label, Icon }) => {
+            const isSelected = selectedCategoryId === id;
+            return (
+              <button
+                key={id ?? 'all'}
+                type="button"
+                onClick={() => handleCategoryFilter(id)}
+                className={`segment-btn ${isSelected ? 'segment-btn-active' : ''}`}
+              >
+                <Icon className="w-5 h-5 shrink-0" strokeWidth={2} />
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* 검색 바 — 검색 타입 드롭다운 + 검색어 + 검색 초기화 */}
+      <section className="container-token mb-token-8">
+        <form onSubmit={handleSearch} className="max-w-2xl flex flex-wrap items-stretch gap-2">
+          <select
+            value={searchType}
+            onChange={(e) => setSearchType(e.target.value)}
+            className="select-token w-auto min-w-[140px] h-11"
+            aria-label="검색 대상"
+          >
+            <option value="all">전체</option>
+            <option value="name">상품명</option>
+            <option value="description">상품내용</option>
+          </select>
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted pointer-events-none" aria-hidden />
             <input
+              id="product-search"
               type="text"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="상품명으로 검색..."
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="상품 검색..."
+              className="input-token input-token-with-icon pr-24 w-full h-11"
+              aria-label="상품 검색"
             />
-            <button
+            <Button
               type="submit"
-              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
+              variant="primary"
+              size="md"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 h-9 bg-gradient-to-r from-primary-600 to-primary-500 hover:shadow-glow transition-all duration-200 ease-out-quart"
             >
               검색
-            </button>
+            </Button>
           </div>
-        </form>
-
-        {/* 카테고리 필터 */}
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold mb-3">카테고리</h2>
-          <div className="flex flex-wrap gap-2">
-            <button
+          {hasActiveSearch && (
+            <Button
               type="button"
-              onClick={() => handleCategoryFilter(null)}
-              className={`px-4 py-2 rounded-lg font-medium transition ${
-                selectedCategoryId === null
-                  ? 'bg-blue-500 text-white hover:bg-blue-600 shadow-md'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+              variant="ghost"
+              size="md"
+              onClick={handleResetSearch}
+              className="shrink-0 h-11 gap-1.5 text-text-sub hover:text-text-main"
+              aria-label="검색 초기화"
             >
-              전체
-            </button>
-            {categoryTypes.map((category) => {
-              const categoryId = categoryTypeToIdMap[category.type];
-              return (
-                <button
-                  key={category.type}
-                  type="button"
-                  onClick={() => {
-                    handleCategoryFilter(categoryId);
-                  }}
-                  className={`px-4 py-2 rounded-lg font-medium transition ${
-                    selectedCategoryId === categoryId
-                      ? 'bg-blue-500 text-white hover:bg-blue-600 shadow-md'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {category.name}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* 상품 그리드 */}
-      {products.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
-          상품이 없습니다.
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
-            {products.map((product) => (
-              <div
-                key={product.id}
-                className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow flex flex-col"
-              >
-                <Link to={`/shop/detail/${product.id}`} className="block">
-                  <div className="aspect-square bg-gray-100 overflow-hidden">
-                    <img
-                      src={getPrimaryImageUrl(product)}
-                      alt={product.name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.src = 'https://via.placeholder.com/300x300?text=No+Image';
-                      }}
-                    />
-                  </div>
-                  <div className="p-4">
-                    <h3 className="font-semibold text-lg mb-2 line-clamp-2">{product.name}</h3>
-                    <p className="text-gray-600 text-sm mb-3 line-clamp-2">{product.description}</p>
-                    <div className="flex justify-between items-center mb-3">
-                      <span className="text-2xl font-bold text-blue-600">
-                        {getDisplayPrice(product)?.toLocaleString()}원
-                      </span>
-                      <span className={`px-2 py-1 rounded text-xs ${
-                        product.status === 'ACTIVE' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {product.status === 'ACTIVE' ? '판매중' : '품절'}
-                      </span>
-                    </div>
-                  </div>
-                </Link>
-                <div className="p-4 pt-0 mt-auto border-t">
-                  {/* 옵션 선택 */}
-                  {product.variants && product.variants.filter(v => v.active).length > 0 && (
-                    <div className="mb-3">
-                      <span className="text-sm text-gray-600 mb-2 block">옵션:</span>
-                      <div className="flex flex-wrap gap-2">
-                        {product.variants
-                          .filter((v) => v.active)
-                          .map((v) => {
-                            const label = v.optionText || `옵션 #${v.id}`;
-                            const isSelected = selectedVariants[product.id]?.id === v.id;
-                            return (
-                              <button
-                                key={v.id}
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  handleVariantChange(product.id, isSelected ? null : v);
-                                }}
-                                className={`px-3 py-1 rounded text-xs font-medium transition border ${
-                                  isSelected
-                                    ? 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600'
-                                    : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:bg-blue-50'
-                                }`}
-                              >
-                                {label}
-                              </button>
-                            );
-                          })}
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-sm text-gray-600">수량:</span>
-                    <QtyStepper
-                      value={productQtys[product.id] ?? 1}
-                      onChange={(newQty) => handleQtyChange(product.id, newQty)}
-                      disabled={product.status !== 'ACTIVE'}
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={(e) => handleAddToCart(e, product)}
-                    disabled={
-                      product.status !== 'ACTIVE' ||
-                      (product.variants && product.variants.filter(v => v.active).length > 0 && !selectedVariants[product.id])
-                    }
-                    className="w-full py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition font-medium"
-                  >
-                    담기
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* 페이지네이션 */}
-          {total > 0 && (
-            <div className="flex justify-center items-center gap-2">
-              <button
-                onClick={() => handlePageChange(page - 1)}
-                disabled={!hasPrevious}
-                className="px-4 py-2 border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
-              >
-                이전
-              </button>
-              <span className="px-4 py-2">
-                {page} / {Math.ceil(total / pageSize)}
-              </span>
-              <button
-                onClick={() => handlePageChange(page + 1)}
-                disabled={!hasNext}
-                className="px-4 py-2 border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
-              >
-                다음
-              </button>
-            </div>
+              <RotateCcw className="w-4 h-4" strokeWidth={2} />
+              검색 초기화
+            </Button>
           )}
-        </>
-      )}
+        </form>
+      </section>
+
+      {/* 상품 그리드 — 루틴·기록·식사와 동일 섹션 톤 */}
+      <section ref={productsRef} className="container-token pb-14">
+        {products.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-token-4 text-center">
+            <p className="text-text-muted text-lg">등록된 상품이 없습니다.</p>
+          </div>
+        ) : (
+          <>
+            <header className="section-header-token">
+              <h2 className="section-title text-text-main">
+                상품 목록
+              </h2>
+              <p className="section-desc">{total}개의 상품</p>
+            </header>
+
+            <div
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
+              role="list"
+              aria-label="상품 목록"
+            >
+              {products.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  displayPrice={product.basePrice ?? 0}
+                  getPrimaryImageUrl={getPrimaryImageUrl}
+                />
+              ))}
+            </div>
+
+            {total > 0 && (() => {
+              const totalPages = Math.ceil(total / pageSize);
+              const getDisplayPages = () => {
+                if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+                const pages = [1];
+                if (page > 3) pages.push('ellipsis-start');
+                const midStart = Math.max(2, page - 1);
+                const midEnd = Math.min(totalPages - 1, page + 1);
+                for (let p = midStart; p <= midEnd; p++) pages.push(p);
+                if (page < totalPages - 2) pages.push('ellipsis-end');
+                if (totalPages > 1) pages.push(totalPages);
+                return pages;
+              };
+              return (
+                <nav
+                  className="flex flex-wrap justify-center items-center gap-1 sm:gap-2 pt-token-8 border-t border-border-default"
+                  aria-label="페이지 네비게이션"
+                >
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handlePageChange(1)}
+                    disabled={page <= 1}
+                    aria-label="맨 앞"
+                  >
+                    맨 앞
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handlePageChange(page - 1)}
+                    disabled={!hasPrevious}
+                    aria-label="이전 페이지"
+                  >
+                    이전
+                  </Button>
+                  <div className="flex items-center gap-1 mx-1">
+                    {getDisplayPages().map((p, i) =>
+                      p === 'ellipsis-start' || p === 'ellipsis-end' ? (
+                        <span key={`ellipsis-${i}`} className="px-1 text-text-muted">
+                          …
+                        </span>
+                      ) : (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => handlePageChange(p)}
+                          className={`page-btn ${page === p ? 'page-btn-active' : ''}`}
+                          aria-label={`${p}페이지`}
+                          aria-current={page === p ? 'page' : undefined}
+                        >
+                          {p}
+                        </button>
+                      )
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handlePageChange(page + 1)}
+                    disabled={!hasNext}
+                    aria-label="다음 페이지"
+                  >
+                    다음
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handlePageChange(totalPages)}
+                    disabled={page >= totalPages}
+                    aria-label="맨 뒤"
+                  >
+                    맨 뒤
+                  </Button>
+                </nav>
+              );
+            })()}
+          </>
+        )}
+      </section>
     </div>
   );
 };

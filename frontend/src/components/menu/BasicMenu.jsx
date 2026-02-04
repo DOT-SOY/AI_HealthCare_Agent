@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
-import { logout } from "../../slices/loginSlice";
+import { useSelector } from "react-redux";
+import { useTheme } from "../../contexts/ThemeContext";
 
-// 간단한 SVG 아이콘 컴포넌트들
 const HomeIcon = ({ className }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -46,12 +45,24 @@ const UserIcon = ({ className }) => (
   </svg>
 );
 
+const SunIcon = ({ className }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+  </svg>
+);
+
+const MoonIcon = ({ className }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+  </svg>
+);
+
 const BasicMenu = () => {
   const location = useLocation();
+  const { theme, setTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [shopDropdownOpen, setShopDropdownOpen] = useState(false);
   const [shopMobileOpen, setShopMobileOpen] = useState(false);
-  const dispatch = useDispatch();
   const loginState = useSelector((state) => state.loginSlice);
   const isLogin = !!loginState?.email;
 
@@ -60,11 +71,6 @@ const BasicMenu = () => {
     setIsMobileMenuOpen(false);
     setShopMobileOpen(false);
   };
-  const handleClickLogout = async () => {
-    await dispatch(logout());
-    closeMobileMenu();
-  };
-
   const menuItems = [
     { icon: HomeIcon, label: "메인", path: "/" },
     { icon: ClockIcon, label: "루틴", path: "/routine" },
@@ -74,7 +80,7 @@ const BasicMenu = () => {
       icon: ShoppingBagIcon,
       label: "쇼핑",
       path: "/shop",
-      children: [
+        children: [
         { label: "상품 목록", path: "/shop/list" },
         { label: "내 주문 내역", path: "/shop/orders" },
       ],
@@ -84,37 +90,44 @@ const BasicMenu = () => {
   ];
 
   const isActive = (path) => {
-    if (path === "/") {
-      return location.pathname === path;
-    }
+    if (path === "/") return location.pathname === path;
     return location.pathname.startsWith(path);
   };
 
+  const linkBase =
+    "flex items-center gap-3 px-4 py-3 rounded-token transition-all duration-200 origin-left group ";
+  const linkInactive =
+    "text-text-main hover:bg-gray-100 hover:scale-105";
+  const linkActive =
+    "text-primary-500 font-bold scale-105";
+
   const getMenuClass = (path) => {
-    const baseClass = "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors duration-200 ";
+    return linkBase + (isActive(path) ? linkActive : linkInactive);
+  };
+
+  const subLinkClass = (path) => {
+    const base = "block px-3 py-2 text-sm rounded-token transition-all duration-200 ";
     return isActive(path)
-      ? baseClass + "bg-blue-600 text-white"
-      : baseClass + "text-gray-700 hover:bg-gray-100";
+      ? base + "text-primary-500 font-bold"
+      : base + "text-text-sub hover:bg-gray-100 hover:text-text-main hover:scale-[1.02]";
   };
 
   return (
     <>
-      {/* 데스크톱 사이드바 */}
-      <aside className="hidden lg:flex fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 flex-col shadow-lg z-50">
-        {/* 로고 */}
-        <div className="p-6 border-b border-gray-200">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">H</span>
+      {/* 데스크톱 사이드바 — 쇼핑몰 리스트와 동일한 다크·네온 그린 스타일 */}
+      <aside className="hidden lg:flex fixed left-0 top-0 h-full w-64 bg-bg-card border-r border-border-default flex-col z-50">
+        <div className="p-5 border-b border-border-default">
+          <Link to="/" className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-primary-500 rounded-token flex items-center justify-center flex-shrink-0">
+              <span className="text-bg-root font-display font-bold text-xl">H</span>
             </div>
-            <span className="text-xl font-semibold text-gray-900">
+            <span className="font-display text-xl tracking-tight text-text-main uppercase">
               Healthcare
             </span>
           </Link>
         </div>
 
-        {/* 메뉴 아이템 */}
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {menuItems.map((item) => {
             const Icon = item.icon;
             if (item.children) {
@@ -124,142 +137,152 @@ const BasicMenu = () => {
                   onMouseEnter={() => setShopDropdownOpen(true)}
                   onMouseLeave={() => setShopDropdownOpen(false)}
                 >
-                  <Link
-                    to={item.path}
-                    className={getMenuClass(item.path)}
-                  >
-                    <Icon className="w-5 h-5" />
+                  <Link to={item.path} className={getMenuClass(item.path)}>
+                    <Icon
+                      className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 ${isActive(item.path) ? "scale-110" : "group-hover:scale-110"}`}
+                      strokeWidth={2}
+                    />
                     <span>{item.label}</span>
                   </Link>
-                  {shopDropdownOpen && (
-                    <div className="pl-4 mt-1 space-y-1 border-l-2 border-gray-200 ml-4">
-                      {item.children.map((child) => (
-                        <Link
-                          key={child.path}
-                          to={child.path}
-                          className={`block px-3 py-2 text-sm rounded-lg transition-colors duration-200 ${
-                            isActive(child.path)
-                              ? "bg-blue-600 text-white"
-                              : "text-gray-700 hover:bg-gray-100"
-                          }`}
-                        >
-                          {child.label}
-                        </Link>
-                      ))}
+                  {/* 아코디언: grid-template-rows로 높이 애니메이션 */}
+                  <div
+                    className="grid transition-[grid-template-rows] duration-300 ease-out"
+                    style={{ gridTemplateRows: shopDropdownOpen ? "1fr" : "0fr" }}
+                  >
+                    <div className="min-h-0 overflow-hidden">
+                      <div className="pl-4 mt-1 space-y-1 border-l-2 border-border-default ml-4">
+                        {item.children.map((child) => (
+                          <Link
+                            key={child.path}
+                            to={child.path}
+                            className={subLinkClass(child.path)}
+                          >
+                            {child.label}
+                          </Link>
+                        ))}
+                      </div>
                     </div>
-                  )}
+                  </div>
                 </div>
               );
             }
             return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={getMenuClass(item.path)}
-              >
-                <Icon className="w-5 h-5" />
+              <Link key={item.path} to={item.path} className={getMenuClass(item.path)}>
+                <Icon
+                  className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 ${isActive(item.path) ? "scale-110" : "group-hover:scale-110"}`}
+                  strokeWidth={2}
+                />
                 <span>{item.label}</span>
               </Link>
             );
           })}
         </nav>
 
-        {/* 로그인/로그아웃 (좌측 하단 중앙쯤) */}
-        <div className="mt-auto p-4 border-t border-gray-200 flex flex-col items-center gap-3">
-          {!isLogin ? (
+        {isLogin && (
+          <div className="p-4">
             <Link
-              to="/member/login"
-              className="ui-btn-primary w-full text-center"
+              to="/profile"
               onClick={closeMobileMenu}
+              className="block rounded-token p-3 text-center border border-transparent hover:bg-primary-500/10 hover:border-primary-500/40 transition-all duration-200 group"
+              aria-label="마이페이지"
             >
-              Login
-            </Link>
-          ) : (
-            <>
-              <div className="text-center">
-                <div className="text-xs text-gray-500">Welcome</div>
-                <div className="text-sm font-semibold text-gray-900">
-                  {(loginState?.name || loginState?.email)
-                    ? `${loginState?.name || loginState?.email}님`
-                    : ""}
-                </div>
+              <div className="text-sm font-medium text-text-sub group-hover:text-primary-500">Welcome</div>
+              <div className="text-base font-bold text-primary-400 mt-0.5 group-hover:text-primary-500">
+                {(loginState?.name || loginState?.email)
+                  ? `${loginState?.name || loginState?.email}님`
+                  : ""}
               </div>
-              <button
-                onClick={handleClickLogout}
-                className="ui-btn-ghost text-xs px-4 py-2"
-              >
-                Logout
-              </button>
-            </>
-          )}
+            </Link>
+          </div>
+        )}
+
+        {/* 테마 토글 — Welcome 밑 (데스크톱 사이드바) */}
+        <div className="p-3 border-t border-border-default">
+          <div
+            className="relative flex w-full rounded-full border border-border-default bg-bg-surface p-0.5"
+            role="group"
+            aria-label="테마 선택"
+          >
+            <span
+              className="absolute top-0.5 bottom-0.5 w-[calc(50%-6px)] rounded-full bg-primary-500/20 transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)]"
+              style={{ left: theme === "dark" ? "4px" : "calc(50% + 2px)" }}
+              aria-hidden
+            />
+            <button
+              type="button"
+              onClick={() => setTheme("dark")}
+              className="relative z-10 flex flex-1 items-center justify-center gap-2 py-2.5 rounded-full text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+              aria-pressed={theme === "dark"}
+              aria-label="다크 모드"
+            >
+              <MoonIcon
+                className={`h-5 w-5 flex-shrink-0 transition-transform duration-200 ${
+                  theme === "dark" ? "text-primary-500 scale-110" : "text-text-sub"
+                }`}
+              />
+              <span className={theme === "dark" ? "text-primary-500" : "text-text-sub"}>다크</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme("light")}
+              className="relative z-10 flex flex-1 items-center justify-center gap-2 py-2.5 rounded-full text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+              aria-pressed={theme === "light"}
+              aria-label="라이트 모드"
+            >
+              <SunIcon
+                className={`h-5 w-5 flex-shrink-0 transition-transform duration-200 ${
+                  theme === "light" ? "text-primary-500 scale-110" : "text-text-sub"
+                }`}
+              />
+              <span className={theme === "light" ? "text-primary-500" : "text-text-sub"}>라이트</span>
+            </button>
+          </div>
         </div>
       </aside>
 
       {/* 모바일 햄버거 버튼 */}
       <button
         onClick={toggleMobileMenu}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-md border border-gray-200"
+        className="lg:hidden fixed top-4 left-4 z-50 p-2.5 bg-bg-card rounded-token border border-border-default shadow-card text-text-main hover:border-primary-500 hover:text-primary-500 transition-all duration-200"
         aria-label="메뉴 열기"
       >
         {isMobileMenuOpen ? (
-          <svg
-            className="w-6 h-6 text-gray-700"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         ) : (
-          <svg
-            className="w-6 h-6 text-gray-700"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 6h16M4 12h16M4 18h16"
-            />
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         )}
       </button>
 
-      {/* 모바일 사이드바 오버레이 */}
       {isMobileMenuOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
+          className="lg:hidden fixed inset-0 bg-bg-root/80 z-40"
           onClick={closeMobileMenu}
+          aria-hidden
         />
       )}
 
       {/* 모바일 사이드바 */}
       <aside
-        className={`lg:hidden fixed left-0 top-0 h-full w-64 bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${
+        className={`lg:hidden fixed left-0 top-0 h-full w-64 bg-bg-card border-r border-border-default shadow-card z-50 transform transition-transform duration-300 ease-out-quart flex flex-col ${
           isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        {/* 로고 */}
-        <div className="p-6 border-b border-gray-200">
-          <Link to="/" className="flex items-center gap-2" onClick={closeMobileMenu}>
-            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">H</span>
+        <div className="p-5 border-b border-border-default">
+          <Link to="/" className="flex items-center gap-3" onClick={closeMobileMenu}>
+            <div className="w-10 h-10 bg-primary-500 rounded-token flex items-center justify-center flex-shrink-0">
+              <span className="text-bg-root font-display font-bold text-xl">H</span>
             </div>
-            <span className="text-xl font-semibold text-gray-900">
+            <span className="font-display text-xl tracking-tight text-text-main uppercase">
               Healthcare
             </span>
           </Link>
         </div>
 
-        {/* 메뉴 아이템 */}
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {menuItems.map((item) => {
             const Icon = item.icon;
             if (item.children) {
@@ -270,20 +293,19 @@ const BasicMenu = () => {
                     onClick={() => setShopMobileOpen((prev) => !prev)}
                     className={`w-full text-left ${getMenuClass(item.path)}`}
                   >
-                    <Icon className="w-5 h-5" />
+                    <Icon
+                      className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 ${isActive(item.path) ? "scale-110" : "group-hover:scale-110"}`}
+                      strokeWidth={2}
+                    />
                     <span>{item.label}</span>
                   </button>
                   {shopMobileOpen && (
-                    <div className="pl-4 mt-1 space-y-1 border-l-2 border-gray-200 ml-4">
+                    <div className="pl-4 mt-1 space-y-1 border-l-2 border-border-default ml-4">
                       {item.children.map((child) => (
                         <Link
                           key={child.path}
                           to={child.path}
-                          className={`block px-3 py-2 text-sm rounded-lg transition-colors duration-200 ${
-                            isActive(child.path)
-                              ? "bg-blue-600 text-white"
-                              : "text-gray-700 hover:bg-gray-100"
-                          }`}
+                          className={subLinkClass(child.path)}
                           onClick={closeMobileMenu}
                         >
                           {child.label}
@@ -301,41 +323,75 @@ const BasicMenu = () => {
                 className={getMenuClass(item.path)}
                 onClick={closeMobileMenu}
               >
-                <Icon className="w-5 h-5" />
+                <Icon
+                  className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 ${isActive(item.path) ? "scale-110" : "group-hover:scale-110"}`}
+                  strokeWidth={2}
+                />
                 <span>{item.label}</span>
               </Link>
             );
           })}
         </nav>
 
-        {/* 로그인/로그아웃 (모바일: 하단 중앙) */}
-        <div className="mt-auto p-4 border-t border-gray-200 flex flex-col items-center gap-3">
-          {!isLogin ? (
+        {isLogin && (
+          <div className="p-4">
             <Link
-              to="/member/login"
-              className="ui-btn-primary w-full text-center"
+              to="/profile"
               onClick={closeMobileMenu}
+              className="block rounded-token p-3 text-center border border-transparent hover:bg-primary-500/10 hover:border-primary-500/40 transition-all duration-200 group"
+              aria-label="마이페이지"
             >
-              Login
-            </Link>
-          ) : (
-            <>
-              <div className="text-center">
-                <div className="text-xs text-gray-500">Welcome</div>
-                <div className="text-sm font-semibold text-gray-900">
-                  {(loginState?.name || loginState?.email)
-                    ? `${loginState?.name || loginState?.email}님`
-                    : ""}
-                </div>
+              <div className="text-sm font-medium text-text-sub group-hover:text-primary-500">Welcome</div>
+              <div className="text-base font-bold text-primary-400 mt-0.5 group-hover:text-primary-500">
+                {(loginState?.name || loginState?.email)
+                  ? `${loginState?.name || loginState?.email}님`
+                  : ""}
               </div>
-              <button
-                onClick={handleClickLogout}
-                className="ui-btn-ghost text-xs px-4 py-2"
-              >
-                Logout
-              </button>
-            </>
-          )}
+            </Link>
+          </div>
+        )}
+
+        {/* 테마 토글 — Welcome 밑 (모바일 사이드바) */}
+        <div className="p-3 border-t border-border-default">
+          <div
+            className="relative flex w-full rounded-full border border-border-default bg-bg-surface p-0.5"
+            role="group"
+            aria-label="테마 선택"
+          >
+            <span
+              className="absolute top-0.5 bottom-0.5 w-[calc(50%-6px)] rounded-full bg-primary-500/20 transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)]"
+              style={{ left: theme === "dark" ? "4px" : "calc(50% + 2px)" }}
+              aria-hidden
+            />
+            <button
+              type="button"
+              onClick={() => setTheme("dark")}
+              className="relative z-10 flex flex-1 items-center justify-center gap-2 py-2.5 rounded-full text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+              aria-pressed={theme === "dark"}
+              aria-label="다크 모드"
+            >
+              <MoonIcon
+                className={`h-5 w-5 flex-shrink-0 transition-transform duration-200 ${
+                  theme === "dark" ? "text-primary-500 scale-110" : "text-text-sub"
+                }`}
+              />
+              <span className={theme === "dark" ? "text-primary-500" : "text-text-sub"}>다크</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme("light")}
+              className="relative z-10 flex flex-1 items-center justify-center gap-2 py-2.5 rounded-full text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+              aria-pressed={theme === "light"}
+              aria-label="라이트 모드"
+            >
+              <SunIcon
+                className={`h-5 w-5 flex-shrink-0 transition-transform duration-200 ${
+                  theme === "light" ? "text-primary-500 scale-110" : "text-text-sub"
+                }`}
+              />
+              <span className={theme === "light" ? "text-primary-500" : "text-text-sub"}>라이트</span>
+            </button>
+          </div>
         </div>
       </aside>
     </>

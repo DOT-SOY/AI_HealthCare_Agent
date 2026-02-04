@@ -190,9 +190,9 @@ const JoinComponent = () => {
   return (
     <div className="ui-card p-8 lg:p-10">
       <div className="flex flex-col items-center mb-6">
-        <div className="text-xs uppercase tracking-widest text-baseMuted mb-2">JOIN</div>
+        <div className="text-xs uppercase tracking-widest text-text-sub mb-2">JOIN</div>
         <h1 className="ui-title">회원가입</h1>
-        <p className="text-baseMuted text-xs mt-2">
+        <p className="text-text-sub text-xs mt-2">
           {step === 1 && "계정을 생성하세요"}
           {step === 2 && "기본 정보를 입력해주세요"}
           {step === 3 && "신체 정보를 입력해주세요"}
@@ -204,8 +204,8 @@ const JoinComponent = () => {
         {[1, 2, 3].map((s) => (
           <div
             key={s}
-            className={`h-1 flex-1 rounded-full ${
-              step >= s ? "bg-green-500" : "bg-gray-200 dark:bg-gray-700"
+            className={`h-1 flex-1 rounded-full transition-colors duration-200 ${
+              step >= s ? "bg-primary-500" : "bg-bg-surface"
             }`}
           />
         ))}
@@ -216,14 +216,14 @@ const JoinComponent = () => {
         {step === 1 && (
           <>
             <div>
-              <label className="block text-xs font-semibold text-baseMuted mb-2">이메일</label>
+              <label className="block text-xs font-semibold text-text-sub mb-2">이메일</label>
               <div className="flex gap-2">
                 <input
                   className={`ui-input flex-1 ${
                     emailCheckStatus.checked && !emailCheckStatus.available
-                      ? "border-red-500"
+                      ? "border-accent-secondary"
                       : emailCheckStatus.checked && emailCheckStatus.available
-                        ? "border-green-500"
+                        ? "border-primary-500"
                         : ""
                   }`}
                   name="email"
@@ -244,7 +244,7 @@ const JoinComponent = () => {
               {emailCheckStatus.message && (
                 <p
                   className={`text-xs mt-1 ${
-                    emailCheckStatus.available ? "text-green-600" : "text-red-500"
+                    emailCheckStatus.available ? "text-primary-500" : "text-accent-secondary"
                   }`}
                 >
                   {emailCheckStatus.available ? "✓ " : "✗ "}
@@ -254,20 +254,20 @@ const JoinComponent = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-baseMuted mb-2">비밀번호</label>
+              <label className="block text-xs font-semibold text-text-sub mb-2">비밀번호</label>
               <input
-                className={`ui-input ${passwordError ? "border-red-500" : ""}`}
+                className={`ui-input ${passwordError ? "border-accent-secondary" : ""}`}
                 name="pw"
                 type="password"
                 onChange={handleChange}
                 placeholder="비밀번호를 입력하세요"
               />
-              {passwordError && <p className="text-xs text-red-500 mt-1">{passwordError}</p>}
+              {passwordError && <p className="text-xs text-accent-secondary mt-1">{passwordError}</p>}
               {!passwordError && joinParam.pw && (
-                <p className="text-xs text-green-600 mt-1">✓ 비밀번호 규칙을 만족합니다</p>
+                <p className="text-xs text-primary-500 mt-1">✓ 비밀번호 규칙을 만족합니다</p>
               )}
               {!joinParam.pw && (
-                <p className="text-xs text-baseMuted mt-1">{getPasswordPolicyText()}</p>
+                <p className="text-xs text-text-sub mt-1">{getPasswordPolicyText()}</p>
               )}
             </div>
           </>
@@ -277,7 +277,7 @@ const JoinComponent = () => {
         {step === 2 && (
           <>
             <div>
-              <label className="block text-xs font-semibold text-baseMuted mb-2">이름</label>
+              <label className="block text-xs font-semibold text-text-sub mb-2">이름</label>
               <input
                 className="ui-input"
                 name="name"
@@ -288,18 +288,19 @@ const JoinComponent = () => {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-baseMuted mb-2">생년월일</label>
+              <label className="block text-xs font-semibold text-text-sub mb-2">생년월일</label>
               <input
                 className="ui-input"
                 name="birthDate"
-                type="text"
+                type="date"
                 value={joinParam.birthDate}
                 onChange={handleChange}
-                placeholder="YYYY-MM-DD (예: 2001-10-09)"
+                min="1900-01-01"
+                max={new Date().toISOString().slice(0, 10)}
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-baseMuted mb-2">성별</label>
+              <label className="block text-xs font-semibold text-text-sub mb-2">성별</label>
               <select
                 name="gender"
                 value={joinParam.gender}
@@ -317,7 +318,7 @@ const JoinComponent = () => {
         {step === 3 && (
           <>
             <div>
-              <label className="block text-xs font-semibold text-baseMuted mb-2">키(cm)</label>
+              <label className="block text-xs font-semibold text-text-sub mb-2">키(cm)</label>
               <input
                 className="ui-input"
                 name="height"
@@ -328,7 +329,7 @@ const JoinComponent = () => {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-baseMuted mb-2">몸무게(kg)</label>
+              <label className="block text-xs font-semibold text-text-sub mb-2">몸무게(kg)</label>
               <input
                 className="ui-input"
                 name="weight"

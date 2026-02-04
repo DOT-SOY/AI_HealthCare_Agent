@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import BasicLayout from "../../components/layout/BasicLayout";
 import AdminComponent from "../../components/admin/AdminComponent";
 
 const AdminPage = () => {
@@ -15,13 +16,11 @@ const AdminPage = () => {
   }, [loginState, navigate]);
 
   return (
-    <div className="w-full bg-baseBg min-h-screen py-6 lg:py-8">
-      <div className="ui-container">
-        <div className="p-6 lg:p-8 min-h-[600px]">
-          <AdminComponent />
-        </div>
+    <BasicLayout>
+      <div className="min-h-[600px]">
+        <AdminComponent />
       </div>
-    </div>
+    </BasicLayout>
   );
 };
 

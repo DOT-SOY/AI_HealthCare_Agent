@@ -38,7 +38,7 @@ public class CustomSecurityConfig {
 
     private final CustomUserDetailsService customUserDetailsService;
 
-    // application.properties의 refresh.token.storage 설정에 따라 자동으로 Redis 또는 DB가 주입됨
+    // Refresh Token 저장소: Redis (RefreshTokenConfig에서 주입)
     private final RefreshTokenService refreshTokenService;
     private final LoginLockService loginLockService;
     private final MemberRepository memberRepository;

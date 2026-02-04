@@ -1,9 +1,9 @@
-function RankingList() {
+import RankingView from "../../components/ranking/RankingView";
+
+export default function RankingList() {
   return (
-    <div>
-      <h1>랭킹 목록 페이지</h1>
+    <div className="w-full">
+      <RankingView />
     </div>
   );
 }
-
-export default RankingList;

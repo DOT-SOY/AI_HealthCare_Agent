@@ -31,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
@@ -245,6 +246,52 @@ public class OrderServiceImpl implements OrderService {
                 shipToDto.getAddress1(),
                 shipToDto.getAddress2()
         );
+    }
+
+    @Override
+    public List<OrderSummaryResponse> getOrdersByFilters(Long memberId, LocalDate date, String productName, OrderStatus status) {
+        log.info("주문 필터링 조회 요청: memberId={}, date={}, productName={}, status={}", memberId, date, productName, status);
+        
+        ZoneId zone = ZoneId.systemDefault();
+        Instant dateStart = null;
+        Instant dateEnd = null;
+        
+        if (date != null) {
+            dateStart = date.atStartOfDay(zone).toInstant();
+            dateEnd = date.plusDays(1).atStartOfDay(zone).toInstant();
+        }
+        
+        // productName에 LIKE 패턴 추가 (% 포함)
+        String productNamePattern = null;
+        if (productName != null && !productName.trim().isEmpty()) {
+            productNamePattern = "%" + productName.trim() + "%";
+        }
+        
+        List<Order> orders = orderRepository.findByFilters(memberId, dateStart, dateEnd, productNamePattern, status);
+        
+        // 모든 필터가 null이면 최신 1개만 반환
+        if (date == null && (productName == null || productName.trim().isEmpty()) && status == null) {
+            if (!orders.isEmpty()) {
+                orders = List.of(orders.get(0));
+            }
+        }
+        
+        // OrderSummaryResponse로 변환
+        return orders.stream()
+                .map(order -> {
+                    String firstProductName = order.getItems().isEmpty() 
+                        ? null 
+                        : order.getItems().get(0).getProductNameSnapshot();
+                    return OrderSummaryResponse.builder()
+                            .orderNo(order.getOrderNo())
+                            .status(order.getStatus())
+                            .totalPayableAmount(order.getTotalPayableAmount())
+                            .createdAt(order.getCreatedAt())
+                            .firstProductName(firstProductName)
+                            .itemCount(order.getItems().size())
+                            .build();
+                })
+                .collect(Collectors.toList());
     }
 }
 

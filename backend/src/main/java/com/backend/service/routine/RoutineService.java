@@ -5,9 +5,11 @@ import com.backend.dto.request.ExerciseUpdateRequest;
 import com.backend.dto.request.RoutineCreateRequest;
 import com.backend.dto.response.ExerciseResponse;
 import com.backend.dto.response.RoutineResponse;
+import com.backend.dto.response.VolumeStatsResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -18,7 +20,14 @@ public interface RoutineService {
      * 특정 날짜의 루틴을 조회합니다.
      * AI 운동 회고(Workout Review)에서 사용됩니다.
      */
-    RoutineResponse getRoutineByDate(Long memberId, java.time.LocalDate date);
+    RoutineResponse getRoutineByDate(Long memberId, LocalDate date);
+    
+    /**
+     * 특정 날짜의 루틴을 필터링하여 조회합니다.
+     * - exerciseName: 특정 운동 이름으로 필터링 (null이면 필터링 안 함)
+     * - completed: 완료 여부로 필터링 (null이면 필터링 안 함, true면 완료된 운동만, false면 미완료 운동만)
+     */
+    RoutineResponse getRoutineByDateWithFilters(Long memberId, LocalDate date, String exerciseName, Boolean completed);
     
     List<RoutineResponse> getWeeklyRoutines(Long memberId);
     
@@ -47,5 +56,12 @@ public interface RoutineService {
     ExerciseResponse updateExercise(Long routineId, Long exerciseId, ExerciseUpdateRequest request);
     
     void deleteExercise(Long routineId, Long exerciseId);
+    
+    /**
+     * 총 볼륨 통계 조회
+     * - period: "month" (월별) 또는 "week" (주별)
+     * - 완료된 운동만 포함하여 총 볼륨 계산 (sets × reps × weight)
+     */
+    VolumeStatsResponse getVolumeStats(Long memberId, String period);
 }
 

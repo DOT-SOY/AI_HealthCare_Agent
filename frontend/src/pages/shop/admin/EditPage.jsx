@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import Button from '../../../components/common/Button';
+import Card from '../../../components/common/Card';
 import { getProduct, updateProduct } from '../../../services/productApi';
 import { uploadFiles } from '../../../services/fileApi';
 import { CATEGORY_TYPES } from '../../../constants/categoryTypes';
@@ -175,20 +177,26 @@ const ProductEditPage = () => {
 
       // 덮어쓰기 방식: 최종 이미지 목록만 전송
       // 빈 배열이면 모든 이미지 제거, null이면 기존 이미지 유지
+      // variants 배열 구성
+      const variantsPayload = variants.map(v => ({
+        id: v.id != null ? v.id : undefined,
+        optionText: (v.optionDisplay ?? '').trim() || '기본 옵션',
+        price: v.price !== '' && v.price != null ? parseFloat(v.price) : null,
+        stockQty: v.stockQty != null ? Number(v.stockQty) : 0,
+        active: v.active !== undefined ? v.active : true,
+      }));
+
       const productData = {
         name: formData.name.trim(),
         description: formData.description.trim(),
         basePrice: parseFloat(formData.basePrice),
         status: formData.status,
         imageFilePaths: allImageFilePaths.length > 0 ? allImageFilePaths : [],
-        variants: variants.length > 0 ? variants.map(v => ({
-          optionText: (v.optionDisplay ?? '').trim(),
-          price: v.price ? parseFloat(v.price) : null,
-          stockQty: parseInt(v.stockQty) || 0,
-          active: v.active !== undefined ? v.active : true,
-        })) : [],
+        variants: variantsPayload,
         categoryTypes: selectedCategoryTypes.length > 0 ? selectedCategoryTypes : [],
       };
+
+      console.log('[EditPage] 전송할 productData:', JSON.stringify(productData, null, 2));
 
       await updateProduct(id, productData);
       navigate(`/shop/detail/${id}`);
@@ -202,22 +210,19 @@ const ProductEditPage = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <div className="text-lg">로딩 중...</div>
+      <div className="flex justify-center items-center min-h-[400px] text-text-main">
+        <p className="text-text-sub">로딩 중...</p>
       </div>
     );
   }
 
   if (!product) {
     return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <div>상품을 찾을 수 없습니다.</div>
-        <button
-          onClick={() => navigate('/shop/list')}
-          className="ml-4 text-blue-500 hover:underline"
-        >
+      <div className="flex flex-col justify-center items-center min-h-[400px] gap-4 text-text-main">
+        <p>상품을 찾을 수 없습니다.</p>
+        <Button variant="ghost" size="md" onClick={() => navigate('/shop/list')}>
           목록으로 돌아가기
-        </button>
+        </Button>
       </div>
     );
   }
@@ -235,24 +240,26 @@ const ProductEditPage = () => {
   ];
 
   return (
-    <div className="w-full max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">상품 수정</h1>
+    <div className="w-full max-w-4xl mx-auto space-y-token-6 text-text-main">
+      <header className="section-header-token">
+        <h1 className="section-title">상품 수정</h1>
+        <p className="section-desc">등록된 상품 정보를 수정합니다. 변경 후 저장하면 상품 상세에 반영됩니다.</p>
+      </header>
 
       {error && (
-        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+        <Card className="p-token-4 border border-accent-secondary/50 text-accent-secondary bg-accent-secondary/10">
           {error}
-        </div>
+        </Card>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-token-6">
         {/* 기본 정보 */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">기본 정보</h2>
-          
+        <Card className="p-token-6 space-y-4">
+          <h2 className="text-lg font-semibold text-text-main">기본 정보</h2>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-2">
-                상품명 <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium mb-2 text-text-main">
+                상품명 <span className="text-accent-secondary">*</span>
               </label>
               <input
                 type="text"
@@ -260,13 +267,14 @@ const ProductEditPage = () => {
                 value={formData.name}
                 onChange={handleInputChange}
                 required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="input-token w-full"
+                placeholder="상품명을 입력하세요"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">
-                상품 설명 <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium mb-2 text-text-main">
+                상품 설명 <span className="text-accent-secondary">*</span>
               </label>
               <textarea
                 name="description"
@@ -274,77 +282,86 @@ const ProductEditPage = () => {
                 onChange={handleInputChange}
                 required
                 rows={5}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="input-token w-full min-h-[140px] resize-y"
+                placeholder="상품 설명을 입력하세요"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                가격 <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                name="basePrice"
-                value={formData.basePrice}
-                onChange={handleInputChange}
-                required
-                min="0"
-                step="0.01"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2 text-text-main">
+                  가격 <span className="text-accent-secondary">*</span>
+                </label>
+                <input
+                  type="number"
+                  name="basePrice"
+                  value={formData.basePrice}
+                  onChange={handleInputChange}
+                  required
+                  min="0"
+                  step="0.01"
+                  className="input-token w-full"
+                  placeholder="0"
+                />
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                판매 상태
-              </label>
-              <select
-                name="status"
-                value={formData.status}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="DRAFT">임시 저장 (DRAFT)</option>
-                <option value="ACTIVE">판매 중 (ACTIVE)</option>
-                <option value="INACTIVE">판매 중지 (INACTIVE)</option>
-              </select>
-              <p className="mt-1 text-xs text-gray-500">
-                상품의 판매 상태를 선택하세요.
-              </p>
+              <div>
+                <label className="block text-sm font-medium mb-2 text-text-main">
+                  판매 상태
+                </label>
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleInputChange}
+                  className="select-token w-full"
+                >
+                  <option value="DRAFT">임시 저장 (DRAFT)</option>
+                  <option value="ACTIVE">판매 중 (ACTIVE)</option>
+                  <option value="INACTIVE">판매 중지 (INACTIVE)</option>
+                </select>
+                <p className="mt-1 text-xs text-text-muted">
+                  상품의 판매 상태를 선택하세요.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        </Card>
 
-        {/* 카테고리 선택 (Enum · 버튼) */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">카테고리</h2>
-          <p className="text-sm text-gray-500 mb-3">선택한 카테고리는 버튼을 다시 눌러 해제할 수 있습니다.</p>
+        {/* 카테고리 */}
+        <Card className="p-token-6 space-y-3">
+          <h2 className="text-lg font-semibold text-text-main">카테고리</h2>
+          <p className="text-sm text-text-muted">
+            선택한 카테고리는 버튼을 다시 눌러 해제할 수 있습니다.
+          </p>
           <div className="flex flex-wrap gap-2">
-            {CATEGORY_TYPES.map(({ value, label }) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => toggleCategory(value)}
-                className={`px-4 py-2 rounded-lg font-medium transition ${
-                  selectedCategoryTypes.includes(value)
-                    ? 'bg-blue-500 text-white hover:bg-blue-600'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+            {CATEGORY_TYPES.map(({ value, label }) => {
+              const isSelected = selectedCategoryTypes.includes(value);
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => toggleCategory(value)}
+                  className={`segment-btn ${isSelected ? 'segment-btn-active' : ''}`}
+                >
+                  <span>{label}</span>
+                </button>
+              );
+            })}
           </div>
-        </div>
+        </Card>
 
         {/* 상품 변형(Variants) */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">상품 변형</h2>
+        <Card className="p-token-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-text-main">상품 변형</h2>
             <button
               type="button"
-              onClick={() => setVariants([...variants, { optionDisplay: '', price: '', stockQty: 0, active: true }])}
-              className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setVariants((prev) => [...prev, { optionDisplay: '', price: '', stockQty: 0, active: true }]);
+              }}
+              className="inline-flex items-center justify-center px-3 py-1.5 text-sm bg-gray-default text-text-main border border-gray-default font-medium rounded-token hover:border-primary-500 hover:text-primary-500 hover:bg-primary-500/10"
             >
               + 변형 추가
             </button>
@@ -353,22 +370,25 @@ const ProductEditPage = () => {
           {variants.length > 0 && (
             <div className="space-y-4">
               {variants.map((variant, index) => (
-                <div key={variant.id || index} className="border border-gray-200 rounded-lg p-4">
+                <Card key={variant.id ?? index} className="p-token-4 border border-border-default/70">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-medium">변형 #{index + 1}</h3>
+                    <h3 className="font-medium text-text-main">변형 #{index + 1}</h3>
                     <button
                       type="button"
-                      onClick={() => setVariants(variants.filter((_, i) => i !== index))}
-                      className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setVariants((prev) => prev.filter((_, i) => i !== index));
+                      }}
+                      className="inline-flex items-center justify-center px-3 py-1.5 text-sm text-accent-secondary border border-transparent rounded-token hover:bg-accent-secondary/10"
                     >
                       삭제
                     </button>
                   </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium mb-1">
-                        옵션 <span className="text-red-500">*</span>
+                      <label className="block text-sm font-medium mb-1 text-text-main">
+                        옵션 <span className="text-accent-secondary">*</span>
                       </label>
                       <input
                         type="text"
@@ -378,14 +398,14 @@ const ProductEditPage = () => {
                             i === index ? { ...v, optionDisplay: e.target.value } : v
                           ));
                         }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="input-token w-full"
                         placeholder="예: 색상: 빨강, 사이즈: L"
                         required
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium mb-1">
+                      <label className="block text-sm font-medium mb-1 text-text-main">
                         가격 (선택)
                       </label>
                       <input
@@ -398,82 +418,83 @@ const ProductEditPage = () => {
                         }}
                         min="0"
                         step="0.01"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="input-token w-full"
                         placeholder="기본 가격 사용 시 비워두기"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium mb-1">
-                        재고 수량 <span className="text-red-500">*</span>
+                      <label className="block text-sm font-medium mb-1 text-text-main">
+                        재고 수량 <span className="text-accent-secondary">*</span>
                       </label>
                       <input
                         type="number"
                         value={variant.stockQty}
                         onChange={(e) => {
                           setVariants(variants.map((v, i) =>
-                            i === index ? { ...v, stockQty: parseInt(e.target.value) || 0 } : v
+                            i === index ? { ...v, stockQty: parseInt(e.target.value, 10) || 0 } : v
                           ));
                         }}
                         min="0"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="input-token w-full"
                         required
                       />
                     </div>
 
-                    <div className="col-span-2">
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={variant.active}
-                          onChange={(e) => {
-                            setVariants(variants.map((v, i) =>
-                              i === index ? { ...v, active: e.target.checked } : v
-                            ));
-                          }}
-                          className="mr-2"
-                        />
-                        <span className="text-sm">활성화</span>
+                    <div className="sm:col-span-2 flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id={`active-${index}`}
+                        checked={variant.active}
+                        onChange={(e) => {
+                          setVariants(variants.map((v, i) =>
+                            i === index ? { ...v, active: e.target.checked } : v
+                          ));
+                        }}
+                        className="rounded border-border-default text-primary-500 focus:ring-primary-500"
+                      />
+                      <label htmlFor={`active-${index}`} className="text-sm text-text-main cursor-pointer">
+                        활성화 (판매 노출)
                       </label>
                     </div>
                   </div>
-                </div>
+                </Card>
               ))}
             </div>
           )}
 
           {variants.length === 0 && (
-            <p className="text-sm text-gray-500">변형이 없으면 기본 상품만 판매됩니다.</p>
+            <p className="text-sm text-text-muted">변형이 없으면 기본 상품만 판매됩니다.</p>
           )}
-        </div>
+        </Card>
 
         {/* 이미지 관리 */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">상품 이미지</h2>
+        <Card className="p-token-6 space-y-4">
+          <h2 className="text-lg font-semibold text-text-main">상품 이미지</h2>
 
-          {/* 기존 이미지 */}
           {existingImages.length > 0 && (
-            <div className="mb-6">
-              <h3 className="text-sm font-medium mb-2 text-gray-600">
-                기존 이미지 ({existingImages.length}개)
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium text-text-sub">
+                기존 이미지 ({existingImages.length}개) — 제거할 이미지는 × 버튼으로 삭제
               </h3>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {existingImages.map((image) => (
                   <div key={image.uuid} className="relative group">
                     <img
                       src={image.url}
-                      alt="Existing"
-                      className="w-full aspect-square object-cover rounded border"
+                      alt="기존"
+                      className="w-full aspect-square object-cover rounded-token border border-border-default"
                     />
                     {image.primaryImage && (
-                      <span className="absolute top-1 left-1 bg-blue-500 text-white text-xs px-2 py-1 rounded">
+                      <span className="absolute top-1 left-1 bg-primary-500 text-bg-root text-xs px-2 py-1 rounded-token font-medium">
                         대표
                       </span>
                     )}
                     <button
                       type="button"
                       onClick={() => handleRemoveExistingImage(image.uuid)}
-                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                      className="absolute top-1 right-1 bg-accent-secondary text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-lg leading-none"
+                      aria-label="이미지 제거"
                     >
                       ×
                     </button>
@@ -483,43 +504,43 @@ const ProductEditPage = () => {
             </div>
           )}
 
-          {/* 파일 선택 */}
-          <div className="mb-4">
+          <div>
+            <label className="block text-sm font-medium text-text-main mb-1">새 이미지 추가</label>
             <input
               type="file"
               accept="image/jpeg,image/png,image/gif,image/webp"
               multiple
               onChange={handleFileSelect}
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              className="block w-full text-sm text-text-muted file:mr-4 file:py-2 file:px-4 file:rounded-token file:border-0 file:text-sm file:font-medium file:bg-primary-500/10 file:text-primary-500 hover:file:bg-primary-500/20"
             />
           </div>
 
-          {/* 선택된 파일 목록 (업로드 전) */}
           {selectedFiles.length > 0 && (
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-gray-600">
-                  선택된 파일: {selectedFiles.length}개
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-text-muted">
+                  선택된 파일: {selectedFiles.length}개 — 업로드 버튼을 눌러 서버에 저장하세요
                 </span>
-                <button
+                <Button
                   type="button"
+                  variant="primary"
+                  size="sm"
                   onClick={handleUploadFiles}
                   disabled={isUploading}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
                 >
                   {isUploading ? '업로드 중...' : '업로드'}
-                </button>
+                </Button>
               </div>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {selectedFiles.map((file, index) => (
                   <div key={index} className="relative">
                     <img
                       src={URL.createObjectURL(file)}
                       alt={file.name}
-                      className="w-full aspect-square object-cover rounded border"
+                      className="w-full aspect-square object-cover rounded-token border border-border-default"
                     />
                     {uploadProgress[index] !== undefined && (
-                      <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded">
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-token">
                         <span className="text-white text-sm">{uploadProgress[index]}%</span>
                       </div>
                     )}
@@ -529,24 +550,24 @@ const ProductEditPage = () => {
             </div>
           )}
 
-          {/* 업로드된 파일 목록 */}
           {uploadedFiles.length > 0 && (
-            <div>
-              <h3 className="text-sm font-medium mb-2 text-green-600">
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium text-primary-500">
                 새로 업로드된 이미지 ({uploadedFiles.length}개)
               </h3>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {uploadedFiles.map((file, index) => (
                   <div key={index} className="relative group">
                     <img
                       src={file.url}
-                      alt={`Uploaded ${index + 1}`}
-                      className="w-full aspect-square object-cover rounded border"
+                      alt={`업로드 ${index + 1}`}
+                      className="w-full aspect-square object-cover rounded-token border border-border-default"
                     />
                     <button
                       type="button"
                       onClick={() => handleRemoveNewFile(index)}
-                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                      className="absolute top-1 right-1 bg-accent-secondary text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-lg leading-none"
+                      aria-label="이미지 제거"
                     >
                       ×
                     </button>
@@ -556,22 +577,21 @@ const ProductEditPage = () => {
             </div>
           )}
 
-          {/* 최종 이미지 미리보기 */}
           {finalImages.length > 0 && (
-            <div className="mt-6 pt-6 border-t">
-              <h3 className="text-sm font-medium mb-2">
-                최종 이미지 ({finalImages.length}개)
+            <div className="pt-4 border-t border-border-default">
+              <h3 className="text-sm font-medium text-text-main mb-2">
+                최종 이미지 순서 ({finalImages.length}개) — 저장 시 이 순서로 반영됩니다
               </h3>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {finalImages.map((image, index) => (
                   <div key={image.uuid} className="relative">
                     <img
                       src={image.url}
-                      alt={`Final ${index + 1}`}
-                      className="w-full aspect-square object-cover rounded border"
+                      alt={`최종 ${index + 1}`}
+                      className="w-full aspect-square object-cover rounded-token border border-border-default"
                     />
                     {index === 0 && (
-                      <span className="absolute top-1 left-1 bg-blue-500 text-white text-xs px-2 py-1 rounded">
+                      <span className="absolute top-1 left-1 bg-primary-500 text-bg-root text-xs px-2 py-1 rounded-token font-medium">
                         대표
                       </span>
                     )}
@@ -580,24 +600,25 @@ const ProductEditPage = () => {
               </div>
             </div>
           )}
-        </div>
+        </Card>
 
-        {/* 버튼 */}
-        <div className="flex gap-4">
-          <button
+        <div className="flex gap-4 justify-end">
+          <Button
             type="button"
+            variant="ghost"
+            size="md"
             onClick={() => navigate(`/shop/detail/${id}`)}
-            className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
           >
             취소
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
+            size="md"
+            className="min-w-[160px]"
             disabled={isSubmitting || isUploading}
-            className="flex-1 px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
           >
             {isSubmitting ? '수정 중...' : '상품 수정'}
-          </button>
+          </Button>
         </div>
       </form>
     </div>

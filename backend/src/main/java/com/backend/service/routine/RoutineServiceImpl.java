@@ -11,6 +11,7 @@ import com.backend.dto.request.ExerciseUpdateRequest;
 import com.backend.dto.request.RoutineCreateRequest;
 import com.backend.dto.response.ExerciseResponse;
 import com.backend.dto.response.RoutineResponse;
+import com.backend.dto.response.VolumeStatsResponse;
 import com.backend.repository.exercise.ExerciseRepository;
 import com.backend.repository.exercise.ExerciseTypeRepository;
 import com.backend.repository.member.MemberRepository;
@@ -26,6 +27,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -79,6 +81,67 @@ public class RoutineServiceImpl implements RoutineService {
         }
 
         return toRoutineResponse(routine, date.equals(LocalDate.now()));
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public RoutineResponse getRoutineByDateWithFilters(Long memberId, LocalDate date, String exerciseName, Boolean completed) {
+        log.info("특정 날짜 루틴 조회 (필터링): memberId={}, date={}, exerciseName={}, completed={}", 
+            memberId, date, exerciseName, completed);
+
+        Routine routine = routineRepository.findByDateAndMemberId(date, memberId)
+            .orElse(null);
+
+        if (routine == null) {
+            log.warn("해당 날짜의 루틴을 찾을 수 없습니다: memberId={}, date={}", memberId, date);
+            return null;
+        }
+
+        // 필터링이 필요한 경우 루틴 복사 및 필터링
+        if (exerciseName != null || completed != null) {
+            Routine filteredRoutine = filterRoutine(routine, exerciseName, completed);
+            if (filteredRoutine == null || filteredRoutine.getExercises().isEmpty()) {
+                log.info("필터링 결과 운동이 없습니다: memberId={}, date={}, exerciseName={}, completed={}", 
+                    memberId, date, exerciseName, completed);
+                return null;
+            }
+            return toRoutineResponse(filteredRoutine, date.equals(LocalDate.now()));
+        }
+
+        return toRoutineResponse(routine, date.equals(LocalDate.now()));
+    }
+    
+    /**
+     * 루틴의 운동 목록을 필터링합니다.
+     */
+    private Routine filterRoutine(Routine routine, String exerciseName, Boolean completed) {
+        Routine filteredRoutine = new Routine();
+        filteredRoutine.setId(routine.getId());
+        filteredRoutine.setMember(routine.getMember());
+        filteredRoutine.setDate(routine.getDate());
+        filteredRoutine.setTitle(routine.getTitle());
+        filteredRoutine.setAiSummary(routine.getAiSummary());
+        filteredRoutine.setStatus(routine.getStatus());
+        filteredRoutine.setExercises(new ArrayList<>());
+        
+        for (Exercise exercise : routine.getExercises()) {
+            // 운동 이름 필터링
+            if (exerciseName != null) {
+                String exName = exercise.getExerciseType() != null ? exercise.getExerciseType().getName() : null;
+                if (exName == null || !exName.equals(exerciseName)) {
+                    continue;
+                }
+            }
+            
+            // 완료 상태 필터링
+            if (completed != null && exercise.isCompleted() != completed) {
+                continue;
+            }
+            
+            filteredRoutine.getExercises().add(exercise);
+        }
+        
+        return filteredRoutine;
     }
     
     @Override
@@ -479,7 +542,19 @@ public class RoutineServiceImpl implements RoutineService {
             .findFirst()
             .orElseThrow(() -> new IllegalArgumentException("운동을 찾을 수 없습니다: " + exerciseId));
         
-        exerciseRepository.delete(exercise);
+        log.info("운동 삭제 시작: routineId={}, exerciseId={}, exerciseName={}", 
+            routineId, exerciseId, exercise.getExerciseType() != null ? exercise.getExerciseType().getName() : "unknown");
+        
+        // 양방향 관계에서 제거 (orphanRemoval이 있으므로 이것만으로도 삭제 가능하지만, 명시적으로 삭제)
+        routine.getExercises().remove(exercise);
+        
+        // 명시적으로 삭제 (더 확실함)
+        exerciseRepository.deleteById(exerciseId);
+        
+        // 즉시 플러시하여 DB에 반영
+        exerciseRepository.flush();
+        
+        log.info("운동 삭제 완료: routineId={}, exerciseId={}", routineId, exerciseId);
     }
     
     private RoutineResponse toRoutineResponse(Routine routine, boolean isToday) {
@@ -527,5 +602,77 @@ public class RoutineServiceImpl implements RoutineService {
             .orderIndex(exercise.getOrderIndex())
             .completed(exercise.isCompleted())
             .build();
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public VolumeStatsResponse getVolumeStats(Long memberId, String period) {
+        log.info("총 볼륨 통계 조회: memberId={}, period={}", memberId, period);
+        
+        LocalDate today = LocalDate.now();
+        LocalDate startDate, endDate, previousStartDate, previousEndDate;
+        
+        if ("week".equals(period)) {
+            // 주별: 이번 주와 저번 주
+            int dayOfWeek = today.getDayOfWeek().getValue() - 1; // 0(월) ~ 6(일)
+            startDate = today.minusDays(dayOfWeek); // 이번 주 월요일
+            endDate = startDate.plusDays(6); // 이번 주 일요일
+            previousStartDate = startDate.minusWeeks(1); // 저번 주 월요일
+            previousEndDate = previousStartDate.plusDays(6); // 저번 주 일요일
+        } else {
+            // 월별: 이번 달과 저번 달
+            startDate = LocalDate.of(today.getYear(), today.getMonth(), 1); // 이번 달 1일
+            endDate = startDate.plusMonths(1).minusDays(1); // 이번 달 마지막 날
+            previousStartDate = startDate.minusMonths(1); // 저번 달 1일
+            previousEndDate = startDate.minusDays(1); // 저번 달 마지막 날
+        }
+        
+        // 이번 기간 루틴 조회
+        List<Routine> currentRoutines = routineRepository.findByMemberIdAndDateBetween(
+            memberId, startDate, endDate
+        );
+        
+        // 저번 기간 루틴 조회
+        List<Routine> previousRoutines = routineRepository.findByMemberIdAndDateBetween(
+            memberId, previousStartDate, previousEndDate
+        );
+        
+        // 총 볼륨 계산
+        List<VolumeStatsResponse.VolumeDataPoint> currentData = calculateVolumeDataPoints(currentRoutines);
+        List<VolumeStatsResponse.VolumeDataPoint> previousData = calculateVolumeDataPoints(previousRoutines);
+        
+        return VolumeStatsResponse.builder()
+            .current(currentData)
+            .previous(previousData)
+            .build();
+    }
+    
+    private List<VolumeStatsResponse.VolumeDataPoint> calculateVolumeDataPoints(List<Routine> routines) {
+        Map<LocalDate, Double> volumeByDate = new HashMap<>();
+        
+        for (Routine routine : routines) {
+            double totalVolume = 0.0;
+            
+            // 완료된 운동만 포함하여 총 볼륨 계산
+            for (Exercise exercise : routine.getExercises()) {
+                if (exercise.isCompleted() && exercise.getSets() != null && 
+                    exercise.getReps() != null && exercise.getWeight() != null) {
+                    totalVolume += exercise.getSets() * exercise.getReps() * exercise.getWeight();
+                }
+            }
+            
+            if (totalVolume > 0) {
+                volumeByDate.put(routine.getDate(), totalVolume);
+            }
+        }
+        
+        // 날짜순으로 정렬하여 반환
+        return volumeByDate.entrySet().stream()
+            .sorted(Map.Entry.comparingByKey())
+            .map(entry -> VolumeStatsResponse.VolumeDataPoint.builder()
+                .date(entry.getKey().toString())
+                .totalVolume(entry.getValue())
+                .build())
+            .collect(Collectors.toList());
     }
 }
