@@ -149,7 +149,7 @@ export default function ExerciseEditModal({ exercise, isOpen, onClose, onSave })
       onClick={handleBackdropClick}
     >
       <div 
-        className="bg-neutral-800 rounded-lg p-6 w-96 max-h-[90vh] relative" 
+        className="bg-bg-card rounded-token p-6 w-96 max-h-[90vh] relative border border-border-default" 
         style={{ overflow: 'visible' }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -157,20 +157,20 @@ export default function ExerciseEditModal({ exercise, isOpen, onClose, onSave })
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 text-neutral-400 hover:text-neutral-50 transition-colors z-10"
+          className="absolute top-4 right-4 text-text-muted hover:text-text-main transition-colors z-10"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
         
-        <h2 className="text-xl font-bold text-neutral-50 mb-4">
+        <h2 className="text-xl font-bold text-text-main mb-4">
           {exercise ? '운동 수정' : '운동 추가'}
         </h2>
         
         <form onSubmit={handleSubmit} className="space-y-4" style={{ overflow: 'visible' }} onClick={(e) => e.stopPropagation()}>
           <div className="relative" style={{ zIndex: 10 }}>
-            <label className="block text-sm font-medium text-neutral-300 mb-1">운동명</label>
+            <label className="block text-sm font-medium text-text-sub mb-1">운동명</label>
             <div className="relative">
               <input
                 ref={inputRef}
@@ -186,8 +186,7 @@ export default function ExerciseEditModal({ exercise, isOpen, onClose, onSave })
                 }}
                 onBlur={(e) => e.target.style.boxShadow = ''}
                 placeholder="운동명을 입력하거나 목록에서 선택하세요"
-                className="w-full bg-neutral-700 text-neutral-50 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 pr-10"
-                style={{ '--tw-ring-color': '#88ce02' }}
+                className="w-full bg-bg-surface text-text-main px-4 py-2 rounded-token border border-border-default focus:outline-none focus:ring-2 focus:ring-primary-500/50 pr-10"
                 required
               />
               <button
@@ -200,7 +199,7 @@ export default function ExerciseEditModal({ exercise, isOpen, onClose, onSave })
                   }
                   setShowDropdown(!showDropdown);
                 }}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-neutral-400 hover:text-neutral-200 transition-colors cursor-pointer"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-muted hover:text-text-main transition-colors cursor-pointer"
               >
                 <svg 
                   className={`w-5 h-5 transition-transform ${showDropdown ? 'rotate-180' : ''}`} 
@@ -216,7 +215,7 @@ export default function ExerciseEditModal({ exercise, isOpen, onClose, onSave })
               {showDropdown && filteredExercises.length > 0 && (
                 <div
                   ref={dropdownRef}
-                  className="absolute w-full mt-1 bg-neutral-700/95 backdrop-blur-sm rounded-lg shadow-lg border border-neutral-600 max-h-60 overflow-y-auto"
+                  className="absolute w-full mt-1 bg-bg-card backdrop-blur-sm rounded-token shadow-lg border border-border-default max-h-60 overflow-y-auto"
                   style={{ zIndex: 1000, top: '100%' }}
                 >
                   {filteredExercises.map((ex) => (
@@ -228,7 +227,7 @@ export default function ExerciseEditModal({ exercise, isOpen, onClose, onSave })
                         e.stopPropagation();
                         handleExerciseSelect(ex);
                       }}
-                      className="w-full text-left px-4 py-2 text-neutral-50 hover:bg-neutral-600 transition-colors first:rounded-t-lg last:rounded-b-lg"
+                      className="w-full text-left px-4 py-2 text-text-main hover:bg-bg-surface transition-colors first:rounded-t-lg last:rounded-b-lg"
                     >
                       {ex.name}
                     </button>
@@ -241,13 +240,12 @@ export default function ExerciseEditModal({ exercise, isOpen, onClose, onSave })
           <div className="overflow-visible">
             <div className="grid grid-cols-3 gap-4">
               <div className="relative">
-                <label className="block text-sm font-medium text-neutral-300 mb-1">세트</label>
+                <label className="block text-sm font-medium text-text-sub mb-1">세트</label>
                 <input
                   type="number"
                   value={formData.sets}
                   onChange={(e) => setFormData({ ...formData, sets: parseInt(e.target.value) || 0 })}
-                  className="w-full bg-neutral-700 text-neutral-50 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-800"
-                  style={{ '--tw-ring-color': '#88ce02' }}
+                  className="w-full bg-bg-surface text-text-main px-4 py-2 rounded-token border border-border-default focus:outline-none focus:ring-2 focus:ring-primary-500/50"
                   onFocus={(e) => e.target.style.boxShadow = '0 0 0 2px #88ce02'}
                   onBlur={(e) => e.target.style.boxShadow = ''}
                   min="0"
@@ -256,13 +254,12 @@ export default function ExerciseEditModal({ exercise, isOpen, onClose, onSave })
               </div>
 
               <div className="relative">
-                <label className="block text-sm font-medium text-neutral-300 mb-1">횟수</label>
+                <label className="block text-sm font-medium text-text-sub mb-1">횟수</label>
                 <input
                   type="number"
                   value={formData.reps}
                   onChange={(e) => setFormData({ ...formData, reps: parseInt(e.target.value) || 0 })}
-                  className="w-full bg-neutral-700 text-neutral-50 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-800"
-                  style={{ '--tw-ring-color': '#88ce02' }}
+                  className="w-full bg-bg-surface text-text-main px-4 py-2 rounded-token border border-border-default focus:outline-none focus:ring-2 focus:ring-primary-500/50"
                   onFocus={(e) => e.target.style.boxShadow = '0 0 0 2px #88ce02'}
                   onBlur={(e) => e.target.style.boxShadow = ''}
                   min="0"
@@ -271,8 +268,8 @@ export default function ExerciseEditModal({ exercise, isOpen, onClose, onSave })
               </div>
 
               <div className="relative">
-                <label className="block text-sm font-medium text-neutral-300 mb-1">
-                  무게(kg) {!needsWeight && <span className="text-xs text-neutral-500">(선택)</span>}
+                <label className="block text-sm font-medium text-text-sub mb-1">
+                  무게(kg) {!needsWeight && <span className="text-xs text-text-muted">(선택)</span>}
                 </label>
                 <input
                   type="number"
@@ -281,8 +278,7 @@ export default function ExerciseEditModal({ exercise, isOpen, onClose, onSave })
                     const value = e.target.value === '' ? null : parseFloat(e.target.value);
                     setFormData({ ...formData, weight: value });
                   }}
-                  className="w-full bg-neutral-700 text-neutral-50 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-800"
-                  style={{ '--tw-ring-color': '#88ce02' }}
+                  className="w-full bg-bg-surface text-text-main px-4 py-2 rounded-token border border-border-default focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
                   onFocus={(e) => e.target.style.boxShadow = '0 0 0 2px #88ce02'}
                   onBlur={(e) => e.target.style.boxShadow = ''}
                   min="0"
@@ -299,16 +295,13 @@ export default function ExerciseEditModal({ exercise, isOpen, onClose, onSave })
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-neutral-700 text-neutral-300 rounded-lg hover:bg-neutral-600 transition-colors"
+              className="px-4 py-2 bg-bg-surface text-text-sub rounded-token border border-border-default hover:bg-bg-card transition-colors"
             >
               취소
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-neutral-950 rounded-lg transition-colors font-medium"
-              style={{ backgroundColor: '#88ce02' }}
-              onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(136, 206, 2, 0.8)'}
-              onMouseLeave={(e) => e.target.style.backgroundColor = '#88ce02'}
+              className="px-4 py-2 bg-primary-500 text-text-inverse rounded-token transition-colors font-medium hover:bg-primary-400"
             >
               저장
             </button>

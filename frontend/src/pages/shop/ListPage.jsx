@@ -5,6 +5,7 @@ import { Search, RotateCcw, LayoutGrid, UtensilsCrossed, Pill, Dumbbell, Shirt, 
 import { getProductList } from '../../services/productApi';
 import ProductCard from '../../components/shop/ProductCard';
 import Button from '../../components/common/Button';
+import LoadingModal from '../../components/common/LoadingModal';
 
 /** 카테고리: 전체, 음식, 보충제, 헬스용품, 의류, 기타 (아이콘 포함) */
 const SEGMENT_CARDS = [
@@ -118,12 +119,7 @@ const ProductList = () => {
   };
 
   if (loading && products.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-token-4 bg-bg-root">
-        <div className="spinner-token" />
-        <p className="text-text-sub font-medium">로딩 중...</p>
-      </div>
-    );
+    return <LoadingModal isOpen={true} message="로딩 중..." />;
   }
 
   if (error) {

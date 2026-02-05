@@ -4,6 +4,7 @@ import { useCart } from '../../components/layout/ShopLayout';
 import { getCart } from '../../services/cartApi';
 import { createOrderFromCart, preparePayment } from '../../services/orderApi';
 import { getMyAddressList } from '../../services/memberInfoAddrApi';
+import AddressSearchModal from '../../components/common/AddressSearchModal';
 
 const TOSS_V1_URL = 'https://js.tosspayments.com/v1/payment.js';
 const TOSS_V2_URL = 'https://js.tosspayments.com/v2/payment.js';
@@ -96,6 +97,8 @@ const CheckoutPage = () => {
   const [showAddressSelect, setShowAddressSelect] = useState(false);
   /** 기본 배송지 자동 기입 한 번만 수행 */
   const defaultAppliedRef = useRef(false);
+  /** 주소 검색 모달 표시 여부 */
+  const [isAddressSearchOpen, setIsAddressSearchOpen] = useState(false);
 
   /** 토스 requestPayment method 코드 ↔ 화면 라벨 (API 개별 연동 키 + 결제창용) */
   const PAYMENT_METHODS = [
@@ -414,13 +417,23 @@ const CheckoutPage = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-text-main mb-1">우편번호</label>
-              <input
-                type="text"
-                required
-                className="input-token w-full"
-                value={form.shipTo.zipcode}
-                onChange={(e) => handleChange('shipTo', 'zipcode', e.target.value)}
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  required
+                  className="input-token flex-1"
+                  value={form.shipTo.zipcode}
+                  onChange={(e) => handleChange('shipTo', 'zipcode', e.target.value)}
+                  placeholder="우편번호"
+                />
+                <button
+                  type="button"
+                  onClick={() => setIsAddressSearchOpen(true)}
+                  className="px-4 py-2 border border-border-default rounded-token bg-bg-card text-text-main hover:border-primary-500 hover:text-primary-500 hover:bg-primary-500/10 transition-colors whitespace-nowrap"
+                >
+                  주소 검색
+                </button>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-text-main mb-1">주소</label>
@@ -430,6 +443,7 @@ const CheckoutPage = () => {
                 className="input-token w-full"
                 value={form.shipTo.address1}
                 onChange={(e) => handleChange('shipTo', 'address1', e.target.value)}
+                placeholder="주소"
               />
             </div>
             <div>
@@ -526,6 +540,24 @@ const CheckoutPage = () => {
           </button>
         </div>
       </form>
+
+      {/* 주소 검색 모달 */}
+      <AddressSearchModal
+        isOpen={isAddressSearchOpen}
+        onClose={() => setIsAddressSearchOpen(false)}
+        onSelect={(addressData) => {
+          setForm((prev) => ({
+            ...prev,
+            shipTo: {
+              ...prev.shipTo,
+              zipcode: addressData.zipcode,
+              address1: addressData.address1,
+              address2: addressData.address2 || prev.shipTo.address2
+            }
+          }));
+          setIsAddressSearchOpen(false);
+        }}
+      />
     </div>
   );
 };

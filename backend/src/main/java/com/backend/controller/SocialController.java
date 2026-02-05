@@ -134,6 +134,8 @@ public class SocialController {
         claims.put("memberId", withRoles.getId());
         claims.put("email", withRoles.getEmail());
         claims.put("name", withRoles.getName());
+        // 프론트에서 식별자로 사용할 회원 PK
+        claims.put("id", withRoles.getId());
         claims.put("roleNames", roleNames);
 
         claims.put("tokenType", TokenType.ACCESS.name());

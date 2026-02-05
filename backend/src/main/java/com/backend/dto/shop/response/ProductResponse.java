@@ -2,6 +2,7 @@ package com.backend.dto.shop.response;
 
 import com.backend.domain.shop.Product;
 import com.backend.domain.shop.ProductStatus;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -30,8 +31,10 @@ public class ProductResponse {
     private List<ProductVariantResponse> variants;
     private List<CategoryResponse> categories;
     private ReviewSummaryResponse reviewSummary;
-    /** 로그인 회원이 해당 상품을 구매했고 아직 리뷰를 쓰지 않았을 때만 true (미로그인/비구매/이미 작성 시 false 또는 null) */
-    private Boolean canReview;
+
+    // 로그인 회원 기준 리뷰 상태
+    @JsonProperty("review_status")
+    private ReviewStatus reviewStatus;
     
     /**
      * Product 엔티티로부터 ProductResponse를 생성하는 정적 팩토리 메서드

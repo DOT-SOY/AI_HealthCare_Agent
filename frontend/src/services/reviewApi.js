@@ -17,16 +17,27 @@ export const getProductReviews = async (productId, params = {}) => {
 /**
  * 리뷰 작성
  */
-export const createReview = async (productId, { rating, content }) => {
-  const res = await jwtAxios.post(`/products/${productId}/reviews`, { rating, content });
+export const createReview = async (productId, { rating, content, imageFilePaths }) => {
+  const payload = { rating, content };
+  if (imageFilePaths && imageFilePaths.length > 0) {
+    payload.imageFilePaths = imageFilePaths;
+  }
+  const res = await jwtAxios.post(`/products/${productId}/reviews`, payload);
   return res.data;
 };
 
 /**
  * 리뷰 수정
  */
-export const updateReview = async (reviewId, { rating, content }) => {
-  const res = await jwtAxios.patch(`/reviews/${reviewId}`, { rating, content });
+export const updateReview = async (reviewId, { rating, content, imageFilePaths }) => {
+  const payload = { rating, content };
+  if (imageFilePaths && imageFilePaths.length > 0) {
+    payload.imageFilePaths = imageFilePaths;
+  } else if (imageFilePaths) {
+    // 빈 배열도 명시적으로 전달해 모든 이미지 제거
+    payload.imageFilePaths = [];
+  }
+  const res = await jwtAxios.patch(`/reviews/${reviewId}`, payload);
   return res.data;
 };
 

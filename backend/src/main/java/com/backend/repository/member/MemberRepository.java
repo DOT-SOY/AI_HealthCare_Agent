@@ -35,9 +35,9 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
      */
     @Query("""
            SELECT DISTINCT m
-           FROM Member m, MemberInfoBody b
-           WHERE m.id = b.memberId
-             AND m.isDeleted = false
+           FROM Member m
+           INNER JOIN MemberInfoBody b ON m.id = b.memberId
+           WHERE m.isDeleted = false
              AND b.deletedAt IS NULL
              AND b.exercisePurpose = :purpose
              AND m.gender = :gender

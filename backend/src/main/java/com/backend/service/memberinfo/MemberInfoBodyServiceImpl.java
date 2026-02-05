@@ -99,9 +99,9 @@ public class MemberInfoBodyServiceImpl implements MemberInfoBodyService {
     public MemberInfoBodyResponseDTO getLatest(Long memberId) {
         log.info("최신 신체 정보 조회 요청: memberId={}", memberId);
 
-        MemberInfoBody entity = memberInfoBodyRepository
-                .findTopByMemberIdAndNotDeletedOrderByMeasuredTimeDesc(memberId)
-                .orElse(null);
+        List<MemberInfoBody> bodyList = memberInfoBodyRepository
+                .findByMemberIdAndNotDeletedOrderByMeasuredTimeDesc(memberId);
+        MemberInfoBody entity = bodyList.isEmpty() ? null : bodyList.get(0);
 
         // Member 정보 조회
         Member member = memberRepository.findById(memberId).orElse(null);
