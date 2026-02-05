@@ -111,8 +111,6 @@ class DummyDataInsertTest {
                     .name(names[i])
                     .gender(genders[i])
                     .birthDate(birthDates[i])
-                    .height(heights[i])
-                    .weight(weights[i])
                     .build();
             list.add(m);
         }
@@ -167,8 +165,10 @@ class DummyDataInsertTest {
             Long memberId = m.getId();
             if (memberId == null) continue;
 
-            double baseH = m.getHeight() != null ? m.getHeight().doubleValue() : 170.0;
-            double baseW = m.getWeight() != null ? m.getWeight() : 65.0;
+            // Member 엔티티에서 키/몸무게가 제거되어(MemberInfoBody로 이동),
+            // 더미 생성 시에는 기본값을 사용합니다.
+            double baseH = 170.0;
+            double baseW = 65.0;
 
             for (int k = 0; k < 3; k++) {
                 Instant measuredTime = base.plusSeconds(86400L * (mi * 30 + k * 14)); // 약 2주 간격

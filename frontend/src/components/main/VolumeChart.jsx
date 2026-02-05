@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { routineApi } from '../../api/routineApi';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export default function VolumeChart() {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const [period, setPeriod] = useState('month'); // 'month' or 'week'
   const [data, setData] = useState({ current: [], previous: [] });
   const [loading, setLoading] = useState(true);
@@ -136,7 +139,7 @@ export default function VolumeChart() {
           className={`px-4 py-2 rounded-token text-sm font-medium transition-colors ${
             period === 'month'
               ? 'bg-primary-500 text-bg-root'
-              : 'bg-gray-100 text-text-main hover:bg-gray-200'
+              : 'bg-bg-surface text-text-main hover:bg-bg-card border border-border-default'
           }`}
         >
           월별
@@ -146,7 +149,7 @@ export default function VolumeChart() {
           className={`px-4 py-2 rounded-token text-sm font-medium transition-colors ${
             period === 'week'
               ? 'bg-primary-500 text-bg-root'
-              : 'bg-gray-100 text-text-main hover:bg-gray-200'
+              : 'bg-bg-surface text-text-main hover:bg-bg-card border border-border-default'
           }`}
         >
           주별
@@ -164,10 +167,13 @@ export default function VolumeChart() {
             data={chartData}
             margin={{ top: 5, right: 20, left: 10, bottom: -20 }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="#404040" />
+            <CartesianGrid 
+              strokeDasharray="3 3" 
+              stroke={isDark ? '#404040' : '#d4d4d4'} 
+            />
             <XAxis 
               dataKey="name" 
-              stroke="#a3a3a3"
+              stroke={isDark ? '#a3a3a3' : '#525252'}
               style={{ fontSize: '11px' }}
               angle={period === 'month' ? -45 : 0}
               textAnchor={period === 'month' ? 'end' : 'middle'}
@@ -175,38 +181,45 @@ export default function VolumeChart() {
               interval={period === 'month' ? 0 : 0} // 모든 레이블 표시
             />
             <YAxis 
-              stroke="#a3a3a3"
+              stroke={isDark ? '#a3a3a3' : '#525252'}
               style={{ fontSize: '12px' }}
             />
             <Tooltip 
               contentStyle={{ 
-                backgroundColor: '#1a1a1a', 
-                border: '1px solid #404040',
+                backgroundColor: isDark ? '#1a1a1a' : '#ffffff', 
+                border: isDark ? '1px solid #404040' : '1px solid #e5e5e5',
                 borderRadius: '8px',
-                color: '#e5e5e5'
+                color: isDark ? '#e5e5e5' : '#171717'
               }}
             />
             <Legend 
-              wrapperStyle={{ color: '#e5e5e5', paddingTop: '0px', marginTop: '-15px', display: 'flex', gap: '20px', justifyContent: 'center' }}
+              wrapperStyle={{ 
+                color: isDark ? '#e5e5e5' : '#171717', 
+                paddingTop: '0px', 
+                marginTop: '-15px', 
+                display: 'flex', 
+                gap: '20px', 
+                justifyContent: 'center' 
+              }}
               verticalAlign="bottom"
               iconSize={12}
             />
             <Line 
               type="monotone" 
               dataKey="current" 
-              stroke="#B6FF00" 
+              stroke={isDark ? '#B6FF00' : '#8FCC00'} 
               strokeWidth={2}
               name={period === 'month' ? '이번 달' : '이번 주'}
-              dot={{ fill: '#B6FF00', r: 4 }}
+              dot={{ fill: isDark ? '#B6FF00' : '#8FCC00', r: 4 }}
               connectNulls={false}
             />
             <Line 
               type="monotone" 
               dataKey="previous" 
-              stroke="#e5e5e5" 
+              stroke={isDark ? '#a3a3a3' : '#525252'} 
               strokeWidth={2}
               name={period === 'month' ? '저번 달' : '저번 주'}
-              dot={{ fill: '#e5e5e5', r: 4 }}
+              dot={{ fill: isDark ? '#a3a3a3' : '#525252', r: 4 }}
               connectNulls={false}
             />
           </LineChart>

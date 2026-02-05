@@ -17,7 +17,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -45,21 +44,25 @@ public class MemberInfoBodyServiceImpl implements MemberInfoBodyService {
     public MemberInfoBodyResponseDTO update(Long id, MemberInfoBodyDTO dto) {
         log.info("신체 정보 수정 요청: id={}", id);
 
-        MemberInfoBody entity = memberInfoBodyRepository.findByIdAndNotDeleted(id)
+        MemberInfoBody existingEntity = memberInfoBodyRepository.findByIdAndNotDeleted(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, id));
+        
+        Long memberId = existingEntity.getMemberId();
 
-        entity.update(
-                dto.getHeight(), dto.getWeight(),
-                dto.getSkeletalMuscleMass(), dto.getBodyFatPercent(),
-                dto.getBodyWater(), dto.getProtein(), dto.getMinerals(), dto.getBodyFatMass(),
-                dto.getTargetWeight(), dto.getWeightControl(), dto.getFatControl(), dto.getMuscleControl(),
-                dto.getExercisePurpose()
-        );
+        // 기존 레코드는 그대로 두고, 새로운 레코드 생성 (히스토리 보존)
+        // DTO의 id를 null로 설정하여 새 레코드로 생성되도록 함
+        dto.setId(null);
+        // 새 레코드 생성 시 measuredTime을 현재 시간으로 명시적으로 설정 (최신 정보 보장)
+        dto.setMeasuredTime(Instant.now());
+        MemberInfoBody newEntity = dto.toEntity(memberId);
+        
+        MemberInfoBody saved = memberInfoBodyRepository.save(newEntity);
+        log.info("신체 정보 새 레코드 생성 완료: id={}, memberId={}", saved.getId(), memberId);
 
-        MemberInfoBody saved = memberInfoBodyRepository.save(entity);
-        log.info("신체 정보 수정 완료: id={}", id);
-
-        return MemberInfoBodyResponseDTO.fromEntity(saved);
+        // Member 정보 조회
+        Member member = memberRepository.findById(memberId).orElse(null);
+        
+        return MemberInfoBodyResponseDTO.fromEntityWithMember(saved, member);
     }
 
     @Override
@@ -96,9 +99,9 @@ public class MemberInfoBodyServiceImpl implements MemberInfoBodyService {
     public MemberInfoBodyResponseDTO getLatest(Long memberId) {
         log.info("최신 신체 정보 조회 요청: memberId={}", memberId);
 
-        MemberInfoBody entity = memberInfoBodyRepository
-                .findFirstByMemberIdAndDeletedAtIsNullOrderByMeasuredTimeDescCreatedAtDesc(memberId)
-                .orElse(null);
+        List<MemberInfoBody> bodyList = memberInfoBodyRepository
+                .findByMemberIdAndNotDeletedOrderByMeasuredTimeDesc(memberId);
+        MemberInfoBody entity = bodyList.isEmpty() ? null : bodyList.get(0);
 
         // Member 정보 조회
         Member member = memberRepository.findById(memberId).orElse(null);

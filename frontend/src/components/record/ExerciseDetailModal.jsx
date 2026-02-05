@@ -13,6 +13,7 @@ export default function ExerciseDetailModal({ exerciseName, isOpen, onClose }) {
   const containerRef = useRef(null);
   const observerRef = useRef(null);
   const scrollYRef = useRef(0);
+  const pageRef = useRef(0); // 최신 페이지 값을 추적
 
   // 초기 5개 로드
   useEffect(() => {
@@ -23,6 +24,7 @@ export default function ExerciseDetailModal({ exerciseName, isOpen, onClose }) {
       setRoutines([]);
       setCurrentIndex(0);
       setPage(0);
+      pageRef.current = 0;
       setHasMore(true);
     };
   }, [isOpen, exerciseName]);
@@ -30,12 +32,12 @@ export default function ExerciseDetailModal({ exerciseName, isOpen, onClose }) {
   const loadInitialRoutines = async () => {
     try {
       setLoading(true);
-      // 첫 5개 로드
       const data = await routineApi.getRoutinesByExercise(exerciseName, 0, 5);
       const routinesList = data.content || [];
       setRoutines(routinesList);
       setHasMore(!data.last);
       setPage(1);
+      pageRef.current = 1;
     } catch (err) {
       console.error('루틴 로드 실패:', err);
       setRoutines([]);
@@ -49,14 +51,26 @@ export default function ExerciseDetailModal({ exerciseName, isOpen, onClose }) {
   const loadMore = useCallback(async () => {
     if (loading || !hasMore || !exerciseName) return;
     
+    const currentPage = pageRef.current;
+    
     try {
       setLoading(true);
-      const data = await routineApi.getRoutinesByExercise(exerciseName, page, 1);
+      const data = await routineApi.getRoutinesByExercise(exerciseName, currentPage, 1);
       
       if (data.content && data.content.length > 0) {
-        setRoutines(prev => [...prev, ...data.content]);
-        setPage(prev => prev + 1);
-        setHasMore(!data.last);
+        setRoutines(prev => {
+          const existingIds = new Set(prev.map(r => r.id));
+          const newItems = data.content.filter(item => !existingIds.has(item.id));
+          return newItems.length > 0 ? [...prev, ...newItems] : prev;
+        });
+        
+        const nextPage = currentPage + 1;
+        setPage(nextPage);
+        pageRef.current = nextPage;
+        
+        if (data.last) {
+          setHasMore(false);
+        }
       } else {
         setHasMore(false);
       }
@@ -66,7 +80,7 @@ export default function ExerciseDetailModal({ exerciseName, isOpen, onClose }) {
     } finally {
       setLoading(false);
     }
-  }, [exerciseName, page, hasMore, loading]);
+  }, [exerciseName, hasMore, loading]);
 
   // Intersection Observer로 마지막 카드 감지
   useEffect(() => {

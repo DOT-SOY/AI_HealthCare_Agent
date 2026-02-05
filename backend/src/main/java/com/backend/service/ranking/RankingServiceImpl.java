@@ -49,9 +49,9 @@ public class RankingServiceImpl implements RankingService {
         String ageGroupCodeForCurrent = resolveAgeGroup(currentMember);
 
         // 0-1. 기준 회원의 운동 목적 (최신 인바디 기준) 조회
-        MemberInfoBody latestCurrentBody = memberInfoBodyRepository
-                .findFirstByMemberIdAndDeletedAtIsNullOrderByMeasuredTimeDescCreatedAtDesc(currentMember.getId())
-                .orElse(null);
+        List<MemberInfoBody> bodyList = memberInfoBodyRepository
+                .findByMemberIdAndNotDeletedOrderByMeasuredTimeDesc(currentMember.getId());
+        MemberInfoBody latestCurrentBody = bodyList.isEmpty() ? null : bodyList.get(0);
 
         if (latestCurrentBody == null || latestCurrentBody.getExercisePurpose() == null) {
             // 운동 목적 정보가 없다면, 비교 그룹을 만들 수 없으므로 빈 결과 반환

@@ -12,3 +12,4 @@ transformers==4.40.0
 torch>=2.0.0
 pillow==10.4.0
 sentence-transformers==2.7.0
+google-genai==1.61.0

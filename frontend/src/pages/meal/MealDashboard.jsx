@@ -1,10 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { mealApi } from '../../api/mealApi';
+import { useWebSocket } from '../../hooks/useWebSocket';
+import ConfirmModal from '../../components/common/ConfirmModal';
 
 const MealDashboard = () => {
     const [searchParams] = useSearchParams();
     const [data, setData] = useState(null);
+    const [busy, setBusy] = useState(false);
+    const replanFallbackTimerRef = useRef(null);
+    const { connectWebSocket, subscribeToMealReplan, subscribeToMealChanged, disconnect } = useWebSocket();
+
+    // 끼니 생략 Confirm(기본 confirm 대신 토큰 스타일 모달)
+    const [skipConfirmOpen, setSkipConfirmOpen] = useState(false);
+    const [replanConfirmOpen, setReplanConfirmOpen] = useState(false);
+    const [pendingSkipMealTime, setPendingSkipMealTime] = useState(null);
+    const [pendingSkipHasOtherPlanned, setPendingSkipHasOtherPlanned] = useState(false);
 
     const createDateFromString = (dateStr) => {
         const [y, m, d] = dateStr.split('-').map(Number);
@@ -69,18 +80,51 @@ const MealDashboard = () => {
         setShowDayDropdown(false);
     };
 
+    const reload = async () => {
+        try {
+            const dateStr = formatDateForApi(selectedDate);
+            const response = await mealApi.getDashboard(dateStr);
+            if (response) setData(response);
+        } catch (err) {
+            console.error("대시보드 데이터 로딩 실패:", err);
+        }
+    };
+
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const dateStr = formatDateForApi(selectedDate);
-                const response = await mealApi.getDashboard(dateStr);
-                if (response) setData(response);
-            } catch (err) { 
-                console.error("대시보드 데이터 로딩 실패:", err);
-            }
-        };
-        fetchData();
+        reload();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedDate]);
+
+    // 비동기 AI 생성/재정비가 끝났을 때 새로고침 없이 자동 반영
+    useEffect(() => {
+        connectWebSocket();
+
+        const subReplan = subscribeToMealReplan(() => {
+            // Replan 완료 시 대시보드 재조회
+            if (replanFallbackTimerRef.current) {
+                clearTimeout(replanFallbackTimerRef.current);
+                replanFallbackTimerRef.current = null;
+            }
+            reload();
+        });
+
+        const subChanged = subscribeToMealChanged(() => {
+            // 식단 변경(생성/토글/비전 등) 감지 시 대시보드 재조회
+            reload();
+        });
+
+        return () => {
+            try { subReplan?.unsubscribe?.(); } catch (_) {}
+            try { subChanged?.unsubscribe?.(); } catch (_) {}
+
+            if (replanFallbackTimerRef.current) {
+                clearTimeout(replanFallbackTimerRef.current);
+                replanFallbackTimerRef.current = null;
+            }
+            disconnect();
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const d = data || {
         calories: { current: 0, goal: 0, percent: 0, status: "-" },
@@ -91,6 +135,139 @@ const MealDashboard = () => {
         lunch: { totalCalories: 0, meals: [], percentCarbs: 0, percentProtein: 0, percentFat: 0 },
         dinner: { totalCalories: 0, meals: [], percentCarbs: 0, percentProtein: 0, percentFat: 0 },
         analysisComments: []
+    };
+
+    const allMeals = [
+        ...(d.breakfast?.meals || []),
+        ...(d.lunch?.meals || []),
+        ...(d.dinner?.meals || []),
+        ...(d.snack?.meals || []),
+    ];
+
+    const _mealsByTime = (mealTime) => {
+        if (mealTime === 'BREAKFAST') return d.breakfast?.meals || [];
+        if (mealTime === 'LUNCH') return d.lunch?.meals || [];
+        if (mealTime === 'DINNER') return d.dinner?.meals || [];
+        return [];
+    };
+
+    const handleMealBoxComplete = async (mealTime) => {
+        if (busy) return;
+        const mealsAll = _mealsByTime(mealTime) || [];
+        const planned = mealsAll.filter((m) => m?.status === 'PLANNED');
+        const eatenPlanned = mealsAll.filter((m) => m?.status === 'EATEN' && !m?.isAdditional);
+
+        // 토글: PLANNED가 있으면 완료 처리, 아니면(이미 완료 상태) 취소(PLANNED 복구)
+        const toUpdate = planned.length > 0 ? planned : eatenPlanned;
+        if (toUpdate.length === 0) return;
+
+        setBusy(true);
+        try {
+            const next = planned.length > 0 ? 'EATEN' : 'PLANNED';
+            await Promise.all(toUpdate.map((m) => mealApi.toggleStatus(m.scheduleId, next)));
+            await reload();
+        } catch (e) {
+            console.error('끼니 완료 처리 실패:', e);
+            window.alert('처리 중 오류가 발생했습니다.');
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleMealBoxSkip = async (mealTime) => {
+        if (busy) return;
+        const mealsAll = _mealsByTime(mealTime) || [];
+        const planned = mealsAll.filter((m) => m?.status === 'PLANNED');
+
+        const section =
+            mealTime === 'BREAKFAST' ? d.breakfast :
+            mealTime === 'LUNCH' ? d.lunch :
+            mealTime === 'DINNER' ? d.dinner :
+            null;
+        const isMealTimeSkipped = !!section?.skipped;
+
+        // 토글: PLANNED가 있으면 생략 처리(+재정비 질문), 아니면 취소(PLANNED 복구)
+        if (planned.length === 0 && !isMealTimeSkipped) return;
+        const isCancelling = planned.length === 0 && isMealTimeSkipped;
+        if (isCancelling) {
+            setBusy(true);
+            try {
+                const dateStr = formatDateForApi(selectedDate);
+                await mealApi.toggleMealTimeSkip(dateStr, mealTime, false);
+                await reload();
+            } catch (e) {
+                console.error('끼니 생략 취소 실패:', e);
+                window.alert('처리 중 오류가 발생했습니다.');
+            } finally {
+                setBusy(false);
+            }
+            return;
+        }
+
+        // UX: 끼니 전체 생략 시, "아직 안 먹은 끼니"에 재구성(재정비)할지 물어봄
+        const otherPlanned = allMeals.filter((m) => m?.status === 'PLANNED' && m?.mealTime !== mealTime);
+        setPendingSkipMealTime(mealTime);
+        setPendingSkipHasOtherPlanned(otherPlanned.length > 0);
+        setSkipConfirmOpen(true);
+    };
+
+    const performMealTimeSkip = async (mealTime, shouldReplan) => {
+        if (!mealTime) return;
+        if (busy) return;
+        setBusy(true);
+        try {
+            const dateStr = formatDateForApi(selectedDate);
+            await mealApi.toggleMealTimeSkip(dateStr, mealTime, shouldReplan);
+            if (shouldReplan) {
+                // 서버가 비동기로 처리/WS가 없는 경우도 있어 fallback reload
+                if (replanFallbackTimerRef.current) {
+                    clearTimeout(replanFallbackTimerRef.current);
+                }
+                replanFallbackTimerRef.current = setTimeout(() => {
+                    reload();
+                    replanFallbackTimerRef.current = null;
+                }, 2500);
+            } else {
+                await reload();
+            }
+        } catch (e) {
+            console.error('끼니 생략 처리 실패:', e);
+            window.alert('처리 중 오류가 발생했습니다.');
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleItemComplete = async (meal) => {
+        if (!meal?.scheduleId) return;
+        if (busy) return;
+        setBusy(true);
+        try {
+            const next = meal.status === 'EATEN' ? 'PLANNED' : 'EATEN';
+            await mealApi.toggleStatus(meal.scheduleId, next);
+            await reload();
+        } catch (e) {
+            console.error('항목 완료 처리 실패:', e);
+            window.alert('처리 중 오류가 발생했습니다.');
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleItemSkip = async (meal) => {
+        if (!meal?.scheduleId) return;
+        if (busy) return;
+        setBusy(true);
+        try {
+            const next = meal.status === 'SKIPPED' ? 'PLANNED' : 'SKIPPED';
+            await mealApi.toggleStatus(meal.scheduleId, next);
+            await reload();
+        } catch (e) {
+            console.error('항목 생략 처리 실패:', e);
+            window.alert('처리 중 오류가 발생했습니다.');
+        } finally {
+            setBusy(false);
+        }
     };
 
   return (
@@ -162,9 +339,9 @@ const MealDashboard = () => {
 
             {/* 2. 중단: 식단 카드 섹션 */}
             <section className="flex gap-4 mb-6 overflow-x-auto pb-4">
-                <MealCard title="아침" data={d.breakfast} />
-                <MealCard title="점심" data={d.lunch} />
-                <MealCard title="저녁" data={d.dinner} />
+                <MealCard title="아침" data={d.breakfast} mealTime="BREAKFAST" busy={busy} onMealComplete={handleMealBoxComplete} onMealSkip={handleMealBoxSkip} onItemComplete={handleItemComplete} onItemSkip={handleItemSkip} />
+                <MealCard title="점심" data={d.lunch} mealTime="LUNCH" busy={busy} onMealComplete={handleMealBoxComplete} onMealSkip={handleMealBoxSkip} onItemComplete={handleItemComplete} onItemSkip={handleItemSkip} />
+                <MealCard title="저녁" data={d.dinner} mealTime="DINNER" busy={busy} onMealComplete={handleMealBoxComplete} onMealSkip={handleMealBoxSkip} onItemComplete={handleItemComplete} onItemSkip={handleItemSkip} />
             </section>
 
             {/* 3. 하단: 분석 섹션 */}
@@ -214,6 +391,55 @@ const MealDashboard = () => {
                     )}
                 </div>
             </section>
+
+            {/* 끼니 생략 Confirm 모달 */}
+            <ConfirmModal
+                isOpen={skipConfirmOpen}
+                title="끼니 생략"
+                message="이 끼니를 생략할까요?"
+                confirmText="생략"
+                cancelText="취소"
+                closeOnBackdrop={false}
+                showCloseButton={false}
+                onCancel={() => {
+                    setSkipConfirmOpen(false);
+                    setPendingSkipMealTime(null);
+                    setPendingSkipHasOtherPlanned(false);
+                }}
+                onConfirm={() => {
+                    setSkipConfirmOpen(false);
+                    if (pendingSkipHasOtherPlanned) {
+                        setReplanConfirmOpen(true);
+                        return;
+                    }
+                    performMealTimeSkip(pendingSkipMealTime, false);
+                    setPendingSkipMealTime(null);
+                    setPendingSkipHasOtherPlanned(false);
+                }}
+            />
+
+            {/* 재정비 Confirm 모달 (생략 후 추가 배분 여부) */}
+            <ConfirmModal
+                isOpen={replanConfirmOpen}
+                title="재정비"
+                message="아직 안 먹은 끼니에 재구성(재정비)해드릴까요?"
+                confirmText="재정비"
+                cancelText="생략만"
+                closeOnBackdrop={false}
+                showCloseButton={false}
+                onCancel={() => {
+                    setReplanConfirmOpen(false);
+                    performMealTimeSkip(pendingSkipMealTime, false);
+                    setPendingSkipMealTime(null);
+                    setPendingSkipHasOtherPlanned(false);
+                }}
+                onConfirm={() => {
+                    setReplanConfirmOpen(false);
+                    performMealTimeSkip(pendingSkipMealTime, true);
+                    setPendingSkipMealTime(null);
+                    setPendingSkipHasOtherPlanned(false);
+                }}
+            />
         </div>
     );
 };
@@ -242,21 +468,85 @@ const StatusCircle = ({ label, unit, data, type }) => {
     );
 };
 
-const MealCard = ({ title, data }) => {
+const MealCard = ({ title, data, mealTime, busy, onMealComplete, onMealSkip, onItemComplete, onItemSkip }) => {
     if (!data) return null;
     const badgeClass = (title === '아침' || title === '저녁') ? "bg-primary-500 text-bg-root" : "bg-gray-100 text-text-main";
     const warningClass = title === '점심' && data.totalCalories > 1000 ? "border-2 border-accent-secondary" : "border border-border-default";
+    const mealTimeSkipped = !!data.skipped;
+    const hasPlanned = (data.meals || []).some((m) => m?.status === 'PLANNED');
+    const hasSkipped = (data.meals || []).some((m) => m?.status === 'SKIPPED' && !m?.isAdditional);
+    const completeLabel = hasPlanned ? '완료' : '완료취소';
+    const skipLabel = hasPlanned ? '생략' : (hasSkipped ? '생략취소' : '생략');
+    const completeDisabled = !!busy || hasSkipped;
+    const skipDisabled = !!busy || (!hasPlanned && !hasSkipped);
 
     return (
         <div className={`card-token rounded-token min-w-[280px] h-[400px] flex flex-col px-3 py-4 relative ${warningClass}`}>
             <div className="flex justify-between items-center mb-3 border-b border-border-default pb-2 px-1">
-                <span className={`text-xs font-bold px-2 py-1 rounded-token-sm ${badgeClass}`}>{title}</span>
+                <div className="flex items-center gap-2">
+                    <span className={`text-xs font-bold px-2 py-1 rounded-token-sm ${badgeClass}`}>{title}</span>
+                    <button
+                        type="button"
+                        className={`px-2 py-1 rounded-token-sm text-xs font-bold bg-primary-500 text-bg-root ${completeDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        disabled={completeDisabled}
+                        onClick={() => onMealComplete && onMealComplete(mealTime)}
+                    >
+                        {completeLabel}
+                    </button>
+                    <button
+                        type="button"
+                        className={`px-2 py-1 rounded-token-sm text-xs font-bold bg-accent-secondary text-white ${skipDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        disabled={skipDisabled}
+                        onClick={() => onMealSkip && onMealSkip(mealTime)}
+                    >
+                        {skipLabel}
+                    </button>
+                </div>
                 <span className="text-lg font-bold text-text-main">{data.totalCalories || 0}<span className="text-xs font-normal text-text-muted"> kcal</span></span>
             </div>
             <div className="flex-grow overflow-y-auto space-y-2 mb-3 px-1">
-                {data.meals && data.meals.map((m, i) => (
-                    <p key={i} className="text-sm text-text-main">• {m.foodName}</p>
-                ))}
+                {data.meals && data.meals.map((m, i) => {
+                    const isEaten = m?.status === 'EATEN';
+                    const isSkipped = m?.status === 'SKIPPED';
+                    const itemCompleteLabel = isEaten ? '완료취소' : '완료';
+                    const itemSkipLabel = isSkipped ? '생략취소' : '생략';
+                    const itemCompleteDisabled = !!busy || isSkipped || mealTimeSkipped;
+                    const itemSkipDisabled = !!busy || isEaten || mealTimeSkipped;
+                    return (
+                        <div key={m.scheduleId || i} className="flex items-center justify-between gap-2">
+                            <div className={`text-sm flex-1 ${mealTimeSkipped || isSkipped ? 'text-text-muted opacity-70' : 'text-text-main'}`}>
+                                <div className="flex items-center gap-2">
+                                    <span>• {m.foodName}</span>
+                                    {m?.isAdditional && !mealTimeSkipped && (
+                                        <span className="text-[10px] font-bold text-primary-500 bg-primary-500/10 px-1.5 py-0.5 rounded-token-sm">
+                                            추가
+                                        </span>
+                                    )}
+                                    {isEaten && <span className="text-xs text-primary-500">(완료)</span>}
+                                    {isSkipped && <span className="text-xs text-text-muted">(생략)</span>}
+                                </div>
+                            </div>
+                            <div className="flex gap-1">
+                                <button
+                                    type="button"
+                                    className={`px-2 py-1 rounded-token-sm text-xs font-bold bg-primary-500 text-bg-root ${itemCompleteDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    disabled={itemCompleteDisabled}
+                                    onClick={() => onItemComplete && onItemComplete(m)}
+                                >
+                                    {itemCompleteLabel}
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`px-2 py-1 rounded-token-sm text-xs font-bold bg-accent-secondary text-white ${itemSkipDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    disabled={itemSkipDisabled}
+                                    onClick={() => onItemSkip && onItemSkip(m)}
+                                >
+                                    {itemSkipLabel}
+                                </button>
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
             <div className="absolute bottom-4 left-2 right-2 h-8 rounded-token overflow-hidden flex text-[10px] text-center font-bold leading-8">
                 <div className="bg-amber-700/90 w-1/3 text-white border-r border-black/10">탄 {data.percentCarbs || 0}%</div>

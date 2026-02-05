@@ -1,9 +1,11 @@
 package com.backend.controller.meal;
 
 import com.backend.dto.meal.MealDto;
+import com.backend.dto.meal.AiMealVisionFollowupDto;
 import com.backend.domain.member.Member;
 import com.backend.repository.member.MemberRepository;
 import com.backend.service.meal.MealService;
+import com.backend.service.meal.MealAiContextService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * [식단 관리 도메인 엔터프라이즈 컨트롤러]
@@ -27,6 +30,7 @@ public class MealController {
 
     private final MealService mealService;
     private final MemberRepository memberRepository;
+    private final MealAiContextService mealAiContextService;
 
     /**
      * [조회] 대시보드 통합 데이터 (식사 탭 & 캘린더 모달 공용)
@@ -117,6 +121,28 @@ public class MealController {
     }
 
     /**
+     * [Vision Followup] 이미지 분석 결과를 사용자가 자연어로 후속 지시할 때,
+     * LLM이 ADD/REPLACE/CANCEL/ASK 를 판단해 반환합니다.
+     */
+    @PostMapping("/vision/followup")
+    public CompletableFuture<AiMealVisionFollowupDto.Response> visionFollowup(
+            @AuthenticationPrincipal String email,
+            @RequestBody AiMealVisionFollowupDto.Request request) {
+        Long userId = resolveUserId(email);
+        return mealService.visionFollowup(userId, request);
+    }
+
+    /**
+     * [AI Context Reset] 전역 채팅 초기화 시, 식단 도메인 컨텍스트(히스토리+pending)를 초기화합니다.
+     */
+    @PostMapping("/ai/context/reset")
+    public ResponseEntity<Void> resetMealAiContext(@AuthenticationPrincipal String email) {
+        Long userId = resolveUserId(email);
+        mealAiContextService.reset(userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
      * [Advice] 심층 영양 상담 요청 (탭 2)
      */
     @PostMapping("/ai/advice")
@@ -153,6 +179,29 @@ public class MealController {
     }
 
     /**
+     * [끼니 전체 생략 토글] (대시보드/프론트 전용)
+     * - 끼니 단위로 PLANNED → SKIPPED / SKIPPED → PLANNED 를 토글합니다.
+     * - 필요 시(alsoReplan=true) 남은 끼니에 영양을 재분배하도록 replan을 트리거합니다.
+     */
+    @PostMapping("/intake/meal-time/skip-toggle")
+    public ResponseEntity<Map<String, Object>> toggleMealTimeSkip(
+            @AuthenticationPrincipal String email,
+            @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam("mealTime") String mealTime,
+            @RequestParam(value = "alsoReplan", required = false) Boolean alsoReplan
+    ) {
+        Long userId = resolveUserId(email);
+        String message = mealService.toggleMealTimeSkip(userId, date, mealTime);
+        if (Boolean.TRUE.equals(alsoReplan)) {
+            mealService.asyncRedistributeAfterMealTimeSkip(userId, date, mealTime);
+        }
+        return ResponseEntity.ok(Map.of(
+                "status", "OK",
+                "message", message
+        ));
+    }
+
+    /**
      * [인증 헬퍼] 이메일 기반 회원 번호 식별
      */
     private Long resolveUserId(String email) {
@@ -165,4 +214,5 @@ public class MealController {
                 .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
     }
 }
+
 
