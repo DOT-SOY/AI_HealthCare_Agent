@@ -24,4 +24,7 @@ public class OcrResponseDTO {
 
     /** 인식 신뢰도 0~1 (선택) */
     private Double confidence;
+
+    /** 인바디 체성분 파싱 결과 (백엔드 JSON 추출 시) */
+    private OcrParsedBodyDTO parsed;
 }

@@ -41,9 +41,9 @@ public class MemberServiceImpl implements MemberService {
         // 3. DB 저장
         memberRepository.save(member);
 
-        // 4. 회원가입 시점의 기본 신체 정보 저장 (member_info_body)
+        // 4. 회원가입 시점의 신체 정보 한 건 생성 (키/몸무게 입력 시 member_info_body에 저장)
         MemberInfoBodyDTO bodyDto = MemberInfoBodyDTO.builder()
-                .height(memberDTO.getHeight() != null ? memberDTO.getHeight().doubleValue() : null)
+                .height(memberDTO.getHeight())
                 .weight(memberDTO.getWeight())
                 .build();
         memberInfoBodyService.create(member.getId(), bodyDto);
@@ -91,8 +91,7 @@ public class MemberServiceImpl implements MemberService {
         member.setName(memberModifyDTO.getName());
         member.setGender(Member.Gender.valueOf(memberModifyDTO.getGender()));
         member.setBirthDate(LocalDate.parse(memberModifyDTO.getBirthDate()));
-        member.setHeight(memberModifyDTO.getHeight());
-        member.setWeight(memberModifyDTO.getWeight());
+        // 키/몸무게는 신체정보(MemberInfoBody)에서만 수정
         member.changePw(passwordEncoder.encode(memberModifyDTO.getPw()));
 
         // 영속 상태라 save 호출 없이도 반영되지만, 명시적으로 남김

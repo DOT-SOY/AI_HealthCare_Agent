@@ -97,12 +97,7 @@ export default function AIChatOverlay() {
 
     const text = inputText.trim();
     setInputText('');
-    const response = await sendAIMessage(text);
-    // OPEN_OCR: 채팅에서 "OCR 자동분석해줘" 등 요청 시 프로필 OCR UI로 이동
-    if (response?.intent === 'OPEN_OCR') {
-      dispatch(toggleChat());
-      navigate('/profile', { state: { openOcr: true } });
-    }
+    await sendAIMessage(text);
   };
 
   const handleKeyPress = (e) => {

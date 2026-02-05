@@ -18,9 +18,6 @@ SYSTEM_PROMPT = """사용자 질문을 intent(대분류)와 action(소분류)으
 5. DELIVERY_QUERY (배송)
    - QUERY: "배송"/"주문"/"상품"/"배송 현황"/"이번에 산거"/"최근에 산거"/"주문한거"/"구매한거"/"산거"/"뭐 샀"/"뭐 주문" + 날짜/상품명 → DELIVERY_QUERY (QUERY)
 6. GENERAL_CHAT (일반)
-7. OPEN_OCR (인바디 OCR)
-   - OPEN: "OCR 자동분석해줘"/"자동분석해줘"/"인바디 자동분석"/"인바디 OCR"/"체성분 분석해줘" 등 → OPEN_OCR (OPEN)
-
 
 [엔티티]
 - date: "오늘"→{current_date}, "어제"→전날 날짜 계산, "그저께"→2일 전 계산, 없으면 "today" (형식: YYYY-MM-DD)
@@ -36,7 +33,7 @@ SYSTEM_PROMPT = """사용자 질문을 intent(대분류)와 action(소분류)으
 [응답]
 JSON만 반환:
 {{
-  "intent": "WORKOUT|PAIN_REPORT|MEAL_QUERY|BODY_QUERY|DELIVERY_QUERY|OPEN_OCR|GENERAL_CHAT",
+  "intent": "WORKOUT|PAIN_REPORT|MEAL_QUERY|BODY_QUERY|DELIVERY_QUERY|GENERAL_CHAT",
 #   "action": "QUERY|RECOMMEND|MODIFY|REPORT|CHAT",
   "entities": {{"date": "...", "exercise_name": "...", "body_part": "...", "intensity": "...", "exercise_completed": "...", "meal_time": "...", "body_metric": "...", "product_name": "...", "delivery_status": "..."}},
 #   "intent": "WORKOUT|PAIN_REPORT|OPEN_OCR|GENERAL_CHAT",

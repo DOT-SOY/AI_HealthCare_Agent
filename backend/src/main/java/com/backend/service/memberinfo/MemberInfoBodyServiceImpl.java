@@ -4,6 +4,7 @@ import com.backend.common.exception.BusinessException;
 import com.backend.common.exception.ErrorCode;
 import com.backend.domain.member.Member;
 import com.backend.domain.memberinfo.MemberInfoBody;
+import com.backend.domain.memberinfo.MemberInfoBody.DataSource;
 import com.backend.dto.memberinfo.BodyCompareFeedbackDTO;
 import com.backend.dto.memberinfo.MemberInfoBodyDTO;
 import com.backend.dto.memberinfo.MemberInfoBodyResponseDTO;
@@ -36,6 +37,8 @@ public class MemberInfoBodyServiceImpl implements MemberInfoBodyService {
     public Long create(Long memberId, MemberInfoBodyDTO dto) {
         log.info("신체 정보 생성 요청: memberId={}", memberId);
 
+        fillHeightFromLatestIfNull(memberId, dto);
+        dto.setDataSource(DataSource.MANUAL);
         MemberInfoBody entity = dto.toEntity(memberId);
         MemberInfoBody saved = memberInfoBodyRepository.save(entity);
 
@@ -50,18 +53,22 @@ public class MemberInfoBodyServiceImpl implements MemberInfoBodyService {
         MemberInfoBody entity = memberInfoBodyRepository.findByIdAndNotDeleted(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, id));
 
+        Double heightToUse = dto.getHeight() != null ? dto.getHeight() : entity.getHeight();
         entity.update(
-                dto.getHeight(), dto.getWeight(),
+                heightToUse, dto.getWeight(),
                 dto.getSkeletalMuscleMass(), dto.getBodyFatPercent(),
                 dto.getBodyWater(), dto.getProtein(), dto.getMinerals(), dto.getBodyFatMass(),
                 dto.getTargetWeight(), dto.getWeightControl(), dto.getFatControl(), dto.getMuscleControl(),
-                dto.getExercisePurpose()
+                dto.getExercisePurpose(),
+                DataSource.MANUAL
         );
 
         MemberInfoBody saved = memberInfoBodyRepository.save(entity);
         log.info("신체 정보 수정 완료: id={}", id);
 
-        return MemberInfoBodyResponseDTO.fromEntity(saved);
+        MemberInfoBodyResponseDTO responseDto = MemberInfoBodyResponseDTO.fromEntity(saved);
+        fillComputedControlValues(responseDto);
+        return responseDto;
     }
 
     @Override
@@ -89,7 +96,11 @@ public class MemberInfoBodyServiceImpl implements MemberInfoBodyService {
         Member member = memberRepository.findById(memberId).orElse(null);
 
         return entities.stream()
-                .map(entity -> MemberInfoBodyResponseDTO.fromEntityWithMember(entity, member))
+                .map(entity -> {
+                    MemberInfoBodyResponseDTO dto = MemberInfoBodyResponseDTO.fromEntityWithMember(entity, member);
+                    fillComputedControlValues(dto);
+                    return dto;
+                })
                 .collect(Collectors.toList());
     }
 
@@ -105,13 +116,17 @@ public class MemberInfoBodyServiceImpl implements MemberInfoBodyService {
         // Member 정보 조회
         Member member = memberRepository.findById(memberId).orElse(null);
 
-        return MemberInfoBodyResponseDTO.fromEntityWithMember(entity, member);
+        MemberInfoBodyResponseDTO dto = MemberInfoBodyResponseDTO.fromEntityWithMember(entity, member);
+        fillComputedControlValues(dto);
+        return dto;
     }
 
     @Override
     public BodyCompareFeedbackDTO saveAndCompare(Long memberId, MemberInfoBodyDTO dto) {
         log.info("신체 정보 저장 후 직전 데이터와 비교: memberId={}", memberId);
 
+        fillHeightFromLatestIfNull(memberId, dto);
+        dto.setDataSource(DataSource.OCR);
         // 1. 저장
         MemberInfoBody entity = dto.toEntity(memberId);
         MemberInfoBody saved = memberInfoBodyRepository.save(entity);
@@ -217,6 +232,63 @@ public class MemberInfoBodyServiceImpl implements MemberInfoBodyService {
         return v == null ? 0.0 : v;
     }
 
+    /**
+     * DTO의 키가 null일 때 해당 회원 최신 신체정보의 키로 채움 (OCR 등에서 키 미입력 시)
+     */
+    private void fillHeightFromLatestIfNull(Long memberId, MemberInfoBodyDTO dto) {
+        if (dto == null || dto.getHeight() != null) return;
+        memberInfoBodyRepository
+                .findFirstByMemberIdAndDeletedAtIsNullOrderByMeasuredTimeDescCreatedAtDesc(memberId)
+                .filter(latest -> latest.getHeight() != null)
+                .ifPresent(latest -> dto.setHeight(latest.getHeight()));
+    }
+
+    /**
+     * 키·몸무게·체지방률·골격근량으로 적정체중 및 조절량 계산 후 DTO에 반영.
+     * - 적정체중: BMI 22 기준 (키만 사용) → 22 * (height/100)²
+     * - 체중조절: 적정체중 - 현재체중
+     * - 지방조절: 목표 체지방량(적정체중*18%) - 현재 체지방량
+     * - 근육조절: 목표 골격근량(적정 제지방량*45%) - 현재 골격근량
+     */
+    private static void fillComputedControlValues(MemberInfoBodyResponseDTO dto) {
+        if (dto == null) return;
+        Double height = dto.getHeight();
+        Double weight = dto.getWeight();
+
+        // 적정체중: 키만 있으면 BMI 22 기준으로 계산
+        double idealWeight = 0.0;
+        if (height != null) {
+            double heightM = height / 100.0;
+            idealWeight = 22.0 * heightM * heightM;
+            dto.setTargetWeight(round1(idealWeight));
+        }
+
+        // 체중·지방·근육 조절량: 키와 몸무게가 모두 있을 때만 계산
+        if (height == null || weight == null) {
+            dto.setWeightControl(0.0);
+            dto.setFatControl(0.0);
+            dto.setMuscleControl(0.0);
+            return;
+        }
+
+        double weightControl = idealWeight - weight;
+        dto.setWeightControl(round1(weightControl));
+
+        double targetFatRatio = 0.18;
+        double targetFatMass = idealWeight * targetFatRatio;
+        double currentFatMass = weight * (dto.getBodyFatPercent() != null ? dto.getBodyFatPercent() / 100.0 : 0.0);
+        dto.setFatControl(round1(targetFatMass - currentFatMass));
+
+        double targetLeanMass = idealWeight * (1 - targetFatRatio);
+        double targetSkeletalMuscle = targetLeanMass * 0.45;
+        double currentMuscle = dto.getSkeletalMuscleMass() != null ? dto.getSkeletalMuscleMass() : 0.0;
+        dto.setMuscleControl(round1(targetSkeletalMuscle - currentMuscle));
+    }
+
+    private static double round1(double v) {
+        return Math.round(v * 10.0) / 10.0;
+    }
+
     @Override
     @Transactional(readOnly = true)
     public MemberInfoBodyResponseDTO getBodyInfoByDateAndMetric(Long memberId, LocalDate date, String metric) {
@@ -240,6 +312,7 @@ public class MemberInfoBodyServiceImpl implements MemberInfoBodyService {
         MemberInfoBody entity = entityOpt.get();
         Member member = memberRepository.findById(memberId).orElse(null);
         MemberInfoBodyResponseDTO dto = MemberInfoBodyResponseDTO.fromEntityWithMember(entity, member);
+        fillComputedControlValues(dto);
 
         // 특정 항목만 조회하는 경우 필터링
         if (metric != null && !metric.trim().isEmpty()) {

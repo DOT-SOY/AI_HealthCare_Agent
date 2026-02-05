@@ -1,6 +1,7 @@
 package com.backend.dto.memberinfo;
 
 import com.backend.domain.memberinfo.MemberInfoBody;
+import com.backend.domain.memberinfo.MemberInfoBody.DataSource;
 import com.backend.domain.memberinfo.MemberInfoBody.ExercisePurpose;
 import lombok.*;
 
@@ -40,6 +41,9 @@ public class MemberInfoBodyDTO {
     // 측정 시간
     private Instant measuredTime;
 
+    /** 저장 경로: OCR / MANUAL (표시 시 OCR일 때만 체중조절 수치 표시) */
+    private DataSource dataSource;
+
     // BaseEntity 필드
     private Instant createdAt;
     private Instant updatedAt;
@@ -64,6 +68,7 @@ public class MemberInfoBodyDTO {
                 .muscleControl(entity.getMuscleControl())
                 .exercisePurpose(entity.getExercisePurpose())
                 .measuredTime(entity.getMeasuredTime())
+                .dataSource(entity.getDataSource())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();
@@ -87,6 +92,7 @@ public class MemberInfoBodyDTO {
                 .muscleControl(this.muscleControl)
                 .exercisePurpose(this.exercisePurpose)
                 .measuredTime(this.measuredTime != null ? this.measuredTime : Instant.now())
+                .dataSource(this.dataSource != null ? this.dataSource : DataSource.MANUAL)
                 .build();
     }
 }

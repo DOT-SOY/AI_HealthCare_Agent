@@ -15,7 +15,6 @@ import {
   setDefaultMemberInfoAddr
 } from "../../services/memberInfoAddrApi";
 import { extractOcrText } from "../../services/ocrApi";
-import { parseInbodyOcrText } from "../../utils/inbodyOcrParser";
 
 const ProfileIndex = () => {
   const location = useLocation();
@@ -52,19 +51,21 @@ const ProfileIndex = () => {
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrError, setOcrError] = useState(null);
   const [comparisonFeedback, setComparisonFeedback] = useState(null);
+  // OCR 확인 단계: 편집 가능한 폼 값 & 측정일 (저장 시 이 값 사용)
+  const [ocrConfirmForm, setOcrConfirmForm] = useState({});
+  const [ocrMeasuredDate, setOcrMeasuredDate] = useState("");
   const ocrFileInputRef = useRef(null);
   const ocrSlotToFillRef = useRef(0);
-  const lastOcrLocationKeyRef = useRef(null);
 
   const fetchData = async () => {
     try {
       const data = await getMyBodyInfoHistory();
       if (data && data.length > 0) {
         setHistoryData(data);
-        setLatestInfo(data[data.length - 1]);
-        // 배송지 목록도 함께 조회
-        if (data[data.length - 1]?.memberId) {
-          fetchAddressList(data[data.length - 1].memberId);
+        setLatestInfo(data[0]);
+        // 배송지 목록도 함께 조회 (최신 신체정보 기준)
+        if (data[0]?.memberId) {
+          fetchAddressList(data[0].memberId);
         }
       }
     } catch (error) {
@@ -90,19 +91,6 @@ const ProfileIndex = () => {
   useEffect(() => {
     fetchData();
   }, []);
-
-  // 채팅에서 "OCR 자동분석해줘" 등으로 진입 시 인바디 업로드 모달만 오픈
-  useEffect(() => {
-    if (!location.state?.openOcr) return;
-    if (location.key === lastOcrLocationKeyRef.current) return;
-    lastOcrLocationKeyRef.current = location.key;
-    setOcrStep("upload");
-    setOcrImages([]);
-    setComparisonFeedback(null);
-    setOcrError(null);
-    setIsOcrModalOpen(true);
-    navigate(location.pathname, { replace: true, state: {} });
-  }, [location.state, location.key]);
 
   const handleEditClick = () => {
     if (!latestInfo) {
@@ -173,10 +161,27 @@ const ProfileIndex = () => {
 
     try {
       const res = await extractOcrText(list[0].file);
-      const text = res?.text ?? "";
-      const parsedData = parseInbodyOcrText(text);
-      setOcrImages((prev) => [{ ...prev[0], text, parsedData }]);
+      const parsedData = res?.parsed ?? {};
+      setOcrImages((prev) => [{ ...prev[0], parsedData }]);
       setComparisonFeedback(null);
+      // 확인 단계 진입 시 편집 폼·측정일 초기화 (OCR 추출값 + 기존 최신 정보 보조)
+      const num = (v) => (v != null && v !== "" ? Number(v) : null);
+      const field = (key) => num(parsedData?.[key]) ?? (latestInfo != null ? latestInfo[key] : null);
+      setOcrConfirmForm({
+        height: field("height") ?? "",
+        weight: field("weight") ?? "",
+        skeletalMuscleMass: field("skeletalMuscleMass") ?? "",
+        bodyFatPercent: field("bodyFatPercent") ?? "",
+        bodyWater: field("bodyWater") ?? "",
+        protein: field("protein") ?? "",
+        minerals: field("minerals") ?? "",
+        bodyFatMass: field("bodyFatMass") ?? ""
+      });
+      const rawDate = parsedData?.measurementDate;
+      const dateStr = rawDate
+        ? (typeof rawDate === "string" ? rawDate.slice(0, 10) : "")
+        : new Date().toISOString().slice(0, 10);
+      setOcrMeasuredDate(dateStr || new Date().toISOString().slice(0, 10));
       setOcrStep("confirm");
     } catch (err) {
       setOcrError(err.message || "OCR 처리 중 오류가 발생했습니다.");
@@ -186,14 +191,12 @@ const ProfileIndex = () => {
     }
   };
 
-  // OCR: "저장할까요?" → [저장] 클릭 시 DB 저장 후 비교 결과 표시
+  // OCR: "저장할까요?" → [저장] 클릭 시 편집 폼 + 측정일 기준으로 DB 저장 후 비교 결과 표시
   const handleOcrConfirmSave = async () => {
-    const list = ocrImages.filter((item) => item?.parsedData);
-    if (list.length === 0) return;
     setOcrLoading(true);
     setOcrError(null);
     try {
-      const payload = buildBodyInfoPayload(list[0].parsedData);
+      const payload = buildBodyInfoPayloadFromForm(ocrConfirmForm, ocrMeasuredDate, latestInfo);
       const feedback = await saveAndCompare(payload);
       setComparisonFeedback(feedback);
       setOcrStep("feedback");
@@ -205,24 +208,28 @@ const ProfileIndex = () => {
     }
   };
 
-  // OCR 파싱 결과 → MemberInfoBodyDTO 형태로 변환 (백엔드 save-and-compare 요청용)
-  const buildBodyInfoPayload = (parsed) => {
+  // OCR 확인 폼 + 측정일 → MemberInfoBodyDTO 형태로 변환 (빈 값은 최신 신체정보로 채움)
+  const buildBodyInfoPayloadFromForm = (form, measuredDateStr, fallback = null) => {
     const num = (v) => (v != null && v !== "" ? Number(v) : null);
+    const field = (key) => num(form?.[key]) ?? (fallback != null ? fallback[key] : null);
+    const measuredTime = measuredDateStr
+      ? new Date(measuredDateStr + "T12:00:00.000Z").toISOString()
+      : new Date().toISOString();
     return {
-      height: num(parsed?.height) ?? null,
-      weight: num(parsed?.weight) ?? null,
-      skeletalMuscleMass: num(parsed?.skeletalMuscleMass) ?? null,
-      bodyFatPercent: num(parsed?.bodyFatPercent) ?? null,
-      bodyWater: num(parsed?.bodyWater) ?? null,
-      protein: num(parsed?.protein) ?? null,
-      minerals: num(parsed?.minerals) ?? null,
-      bodyFatMass: num(parsed?.bodyFatMass) ?? null,
+      height: field("height"),
+      weight: field("weight"),
+      skeletalMuscleMass: field("skeletalMuscleMass"),
+      bodyFatPercent: field("bodyFatPercent"),
+      bodyWater: field("bodyWater"),
+      protein: field("protein"),
+      minerals: field("minerals"),
+      bodyFatMass: field("bodyFatMass"),
       targetWeight: null,
       weightControl: null,
       fatControl: null,
       muscleControl: null,
       exercisePurpose: null,
-      measuredTime: new Date().toISOString(),
+      measuredTime,
     };
   };
 
@@ -232,6 +239,8 @@ const ProfileIndex = () => {
       if (item?.preview) URL.revokeObjectURL(item.preview);
     });
     setOcrImages([]);
+    setOcrConfirmForm({});
+    setOcrMeasuredDate("");
     setOcrStep("upload");
     setComparisonFeedback(null);
     setOcrError(null);
@@ -250,6 +259,11 @@ const ProfileIndex = () => {
         ...latestInfo,
         ...updatedData
       };
+
+      // 운동 목적이 폼에서 선택된 값으로 랭킹 '내 그룹'에 반영되도록 확실히 설정
+      if (updatedData.exercisePurpose !== undefined && updatedData.exercisePurpose !== '') {
+        payload.exercisePurpose = updatedData.exercisePurpose;
+      }
 
       // 불필요한 BaseEntity 필드 제거
       delete payload.regDate;
@@ -289,13 +303,17 @@ const ProfileIndex = () => {
     return aTime - bTime; // 오래된 날짜 -> 최신 날짜 순
   });
 
-  const chartData = sortedHistory.map((item) => {
+  // ✅ 가장 최근 3개의 측정값만 사용
+  const recentHistory = sortedHistory.slice(-3);
+
+  const chartData = recentHistory.map((item) => {
+    // measuredTime을 보기 좋은 날짜 라벨로 변환 (예: 03-15)
     let name = "";
     if (item.measuredTime) {
       const date = new Date(item.measuredTime);
-      const month = date.getMonth() + 1;
-      const day = date.getDate();
-      name = `${month}/${day}`;
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      name = `${month}-${day}`;
     }
     return {
       name,
@@ -306,6 +324,19 @@ const ProfileIndex = () => {
   });
 
   const val = (v, unit = "") => (v !== null && v !== undefined ? `${v} ${unit}` : "-");
+
+  // 체중조절용: 수치가 항상 있으므로 null/undefined면 0으로 표시
+  const valNum = (v, unit = "") => `${v != null && v !== "" ? Number(v) : 0} ${unit}`;
+  // 조절 항목: 감소 시 -, 증가 시 +, 0이면 유지 (0 kg)
+  const formatControl = (v, unit = "kg") => {
+    const n = v != null && v !== "" ? Number(v) : 0;
+    if (n === 0) return `유지 (0 ${unit})`;
+    if (n > 0) return `+${n} ${unit}`;
+    return `${n} ${unit}`;
+  };
+
+  // OCR로 저장된 기록일 때만 체중조절 수치·차트 표시 (프로필 수정/회원가입 직후는 "-")
+  const showOcrControlValues = latestInfo?.dataSource === "OCR";
 
   const calculateAge = (birthDateString) => {
     if (!birthDateString) return "-";
@@ -440,10 +471,10 @@ const ProfileIndex = () => {
             <div className="info-card">
               <h3 className="section-title text-text-main">체중조절</h3>
               <div className="data-list">
-                <DataRow label="적정체중" value={val(latestInfo?.targetWeight, "kg")} />
-                <DataRow label="체중조절" value={val(latestInfo?.weightControl, "kg")} />
-                <DataRow label="지방조절" value={val(latestInfo?.fatControl, "kg")} />
-                <DataRow label="근육조절" value={val(latestInfo?.muscleControl, "kg")} />
+                <DataRow label="적정체중" value={showOcrControlValues ? valNum(latestInfo.targetWeight, "kg") : "-"} />
+                <DataRow label="체중조절" value={showOcrControlValues ? formatControl(latestInfo.weightControl) : "-"} />
+                <DataRow label="지방조절" value={showOcrControlValues ? formatControl(latestInfo.fatControl) : "-"} />
+                <DataRow label="근육조절" value={showOcrControlValues ? formatControl(latestInfo.muscleControl) : "-"} />
               </div>
             </div>
           </aside>
@@ -470,12 +501,12 @@ const ProfileIndex = () => {
               style={{ display: 'none' }}
             />
             <div className="charts-container">
-              <ChartRow title="체지방률" value={val(latestInfo?.bodyFatPercent, "%")}
-                        chartTitle="체지방률 변화" data={chartData} dataKey="fatRate" strokeColor="#4A90E2" isDark={isDark} />
-              <ChartRow title="골격근량" value={val(latestInfo?.skeletalMuscleMass, "kg")}
-                        chartTitle="골격근량 변화" data={chartData} dataKey="muscle" strokeColor="#D0021B" isDark={isDark} />
-              <ChartRow title="체중" value={val(latestInfo?.weight, "kg")}
-                        chartTitle="체중 변화" data={chartData} dataKey="weight" strokeColor="#7ED321" isDark={isDark} />
+              <ChartRow title="체지방률" value={showOcrControlValues ? val(latestInfo?.bodyFatPercent, "%") : "-"}
+                        chartTitle="체지방률 변화" data={showOcrControlValues ? chartData : []} dataKey="fatRate" strokeColor="#4A90E2" isDark={isDark} />
+              <ChartRow title="골격근량" value={showOcrControlValues ? val(latestInfo?.skeletalMuscleMass, "kg") : "-"}
+                        chartTitle="골격근량 변화" data={showOcrControlValues ? chartData : []} dataKey="muscle" strokeColor="#D0021B" isDark={isDark} />
+              <ChartRow title="체중" value={showOcrControlValues ? val(latestInfo?.weight, "kg") : "-"}
+                        chartTitle="체중 변화" data={showOcrControlValues ? chartData : []} dataKey="weight" strokeColor="#7ED321" isDark={isDark} />
             </div>
           </main>
         </div>
@@ -603,23 +634,46 @@ const ProfileIndex = () => {
                 <p style={{ color: "#666", margin: "20px 0" }}>이미지에서 텍스트를 추출하고 분석 중입니다...</p>
               )}
 
-              {ocrStep === "confirm" && ocrImages[0]?.parsedData && (
+              {ocrStep === "confirm" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                  <p style={{ margin: 0, fontSize: "14px", color: "#333" }}>추출된 체성분 수치입니다. 저장할까요?</p>
+                  <p style={{ margin: 0, fontSize: "14px", color: "#333" }}>추출된 체성분 수치입니다. 필요하면 수정한 뒤 저장하세요.</p>
+                  <div style={{ marginBottom: "8px" }}>
+                    <label style={{ display: "block", fontSize: "12px", color: "#666", marginBottom: "4px" }}>측정일</label>
+                    <input
+                      type="date"
+                      value={ocrMeasuredDate}
+                      onChange={(e) => setOcrMeasuredDate(e.target.value)}
+                      style={{
+                        width: "100%", padding: "8px 10px", borderRadius: "6px", border: "1px solid #ccc",
+                        fontSize: "14px", boxSizing: "border-box"
+                      }}
+                    />
+                  </div>
                   <div style={{ background: "#f5f5f5", borderRadius: "8px", padding: "12px", fontSize: "13px", color: "#333" }}>
                     {[
-                      { key: "체중", val: ocrImages[0].parsedData.weight, unit: "kg" },
-                      { key: "키", val: ocrImages[0].parsedData.height, unit: "cm" },
-                      { key: "골격근량", val: ocrImages[0].parsedData.skeletalMuscleMass, unit: "kg" },
-                      { key: "체지방률", val: ocrImages[0].parsedData.bodyFatPercent, unit: "%" },
-                      { key: "체수분", val: ocrImages[0].parsedData.bodyWater, unit: "L" },
-                      { key: "단백질", val: ocrImages[0].parsedData.protein, unit: "kg" },
-                      { key: "무기질", val: ocrImages[0].parsedData.minerals, unit: "kg" },
-                      { key: "체지방량", val: ocrImages[0].parsedData.bodyFatMass, unit: "kg" }
-                    ].filter(({ val }) => val != null && val !== "").map(({ key, val, unit }) => (
-                      <div key={key} style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-                        <span>{key}</span>
-                        <span><strong>{val}</strong> {unit}</span>
+                      { key: "체중", field: "weight", unit: "kg" },
+                      { key: "키", field: "height", unit: "cm" },
+                      { key: "골격근량", field: "skeletalMuscleMass", unit: "kg" },
+                      { key: "체지방률", field: "bodyFatPercent", unit: "%" },
+                      { key: "체수분", field: "bodyWater", unit: "L" },
+                      { key: "단백질", field: "protein", unit: "kg" },
+                      { key: "무기질", field: "minerals", unit: "kg" },
+                      { key: "체지방량", field: "bodyFatMass", unit: "kg" }
+                    ].map(({ key, field, unit }) => (
+                      <div key={field} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", gap: "8px" }}>
+                        <span style={{ minWidth: "80px" }}>{key}</span>
+                        <input
+                          type="number"
+                          step={field === "bodyFatPercent" ? "0.1" : "0.01"}
+                          placeholder="—"
+                          value={ocrConfirmForm[field] ?? ""}
+                          onChange={(e) => setOcrConfirmForm((prev) => ({ ...prev, [field]: e.target.value }))}
+                          style={{
+                            flex: 1, maxWidth: "120px", padding: "6px 8px", borderRadius: "4px", border: "1px solid #ccc",
+                            fontSize: "13px", textAlign: "right"
+                          }}
+                        />
+                        <span style={{ width: "24px", textAlign: "left" }}>{unit}</span>
                       </div>
                     ))}
                   </div>
@@ -751,9 +805,28 @@ function SimpleLineChart({ data, dataKey, stroke, isDark }) {
         <YAxis hide={false} tick={{ fontSize: 12, fill: axisColor }} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={40} />
         <Tooltip
           contentStyle={{ backgroundColor: isDark ? "#333" : "#fff", borderColor: isDark ? "#555" : "#ccc", color: isDark ? "#fff" : "#000" }}
-          formatter={(value) => [value, dataKey === "fatRate" ? "%" : "kg"]}
+          formatter={(value, key) => {
+            const num = Number(value);
+            if (Number.isNaN(num)) {
+              return ["-", key === "fatRate" ? "%" : "kg"];
+            }
+            if (key === "fatRate") {
+              // 체지방률: 소수 2자리 + %
+              return [`${num.toFixed(2)}`, "%"];
+            }
+            // 골격근량/체중 등: kg 단위, 소수 1자리
+            return [`${num.toFixed(1)}`, "kg"];
+          }}
         />
-        <Line type="monotone" dataKey={dataKey} stroke={stroke} strokeWidth={3} dot={{ r: 4, fill: stroke, strokeWidth: 0 }} activeDot={{ r: 6 }} isAnimationActive={true} />
+        <Line
+          type="linear"
+          dataKey={dataKey}
+          stroke={stroke}
+          strokeWidth={3}
+          dot={{ r: 4, fill: stroke, strokeWidth: 0 }}
+          activeDot={{ r: 6 }}
+          isAnimationActive={true}
+        />
       </LineChart>
     </ResponsiveContainer>
   );

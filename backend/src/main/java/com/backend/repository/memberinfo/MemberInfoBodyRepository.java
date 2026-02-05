@@ -34,6 +34,26 @@ public interface MemberInfoBodyRepository extends JpaRepository<MemberInfoBody, 
         @Param("dateStart") Instant dateStart,
         @Param("dateEnd") Instant dateEnd
     );
+
+    /**
+     * 운동 목적이 설정된 회원 ID 목록 (랭킹 대상)
+     */
+    @Query("SELECT DISTINCT m.memberId FROM MemberInfoBody m WHERE m.deletedAt IS NULL AND m.exercisePurpose IS NOT NULL")
+    List<Long> findDistinctMemberIdsWithPurpose();
+
+    /**
+     * 회원별 최신 (memberId, exercisePurpose) 한 번에 조회 (N+1 방지)
+     */
+    @Query(value = """
+        SELECT m.member_id, m.goal_type FROM member_info_body m
+        INNER JOIN (
+            SELECT member_id, MAX(measured_time) AS max_time FROM member_info_body
+            WHERE deleted_at IS NULL AND goal_type IS NOT NULL
+            GROUP BY member_id
+        ) t ON m.member_id = t.member_id AND m.measured_time = t.max_time
+        WHERE m.deleted_at IS NULL AND m.goal_type IS NOT NULL
+        """, nativeQuery = true)
+    List<Object[]> findLatestMemberIdAndPurpose();
 }
 
 

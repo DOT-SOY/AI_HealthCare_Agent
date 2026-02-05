@@ -7,7 +7,7 @@ const API_BASE_URL = import.meta.env.VITE_API_SERVER_HOST
 /**
  * 이미지 파일에서 텍스트 추출 (OCR)
  * @param {File} file - 이미지 파일 (JPEG, PNG 등)
- * @returns {Promise<{ text: string, language?: string, confidence?: number }>}
+ * @returns {Promise<{ parsed?: { weight, height, skeletalMuscleMass, bodyFatPercent, bodyWater, protein, minerals, bodyFatMass }, language?: string }>}
  */
 export const extractOcrText = async (file) => {
   const url = `${API_BASE_URL}/ocr/extract`;

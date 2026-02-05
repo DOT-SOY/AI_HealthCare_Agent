@@ -30,6 +30,14 @@ public class MemberInfoBody extends BaseEntity {
         private final String description;
     }
 
+    /** 저장 경로: OCR(인바디 자동분석) / MANUAL(프로필 수동 수정) */
+    @Getter
+    @AllArgsConstructor
+    public enum DataSource {
+        OCR,
+        MANUAL
+    }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "body_info_id")
@@ -86,13 +94,19 @@ public class MemberInfoBody extends BaseEntity {
     @Column(name = "measured_time")
     private java.time.Instant measuredTime;
 
+    /** 저장 경로: OCR(인바디 자동분석) / MANUAL(프로필 수동 수정). null이면 기존 데이터(표시 시 "-"로 간주) */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "data_source", length = 20)
+    private DataSource dataSource;
+
     // 업데이트 메서드
     public void update(
             Double height, Double weight,
             Double skeletalMuscleMass, Double bodyFatPercent,
             Double bodyWater, Double protein, Double minerals, Double bodyFatMass,
             Double targetWeight, Double weightControl, Double fatControl, Double muscleControl,
-            ExercisePurpose exercisePurpose) {
+            ExercisePurpose exercisePurpose,
+            DataSource dataSource) {
         this.height = height;
         this.weight = weight;
         this.skeletalMuscleMass = skeletalMuscleMass;
@@ -107,6 +121,7 @@ public class MemberInfoBody extends BaseEntity {
         this.muscleControl = muscleControl;
         this.exercisePurpose = exercisePurpose;
         this.measuredTime = java.time.Instant.now();
+        this.dataSource = dataSource;
     }
 }
 

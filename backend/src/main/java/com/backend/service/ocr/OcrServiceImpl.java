@@ -53,6 +53,9 @@ public class OcrServiceImpl implements OcrService {
     }
 
     private static OcrResponseDTO normalizeResponse(OcrResponseDTO response) {
+        if (response.getParsed() != null) {
+            return response;
+        }
         if (response.getText() == null) {
             return OcrResponseDTO.builder()
                     .text("")

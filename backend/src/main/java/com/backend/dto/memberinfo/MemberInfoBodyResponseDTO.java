@@ -40,6 +40,9 @@ public class MemberInfoBodyResponseDTO {
     // 측정 시간
     private Instant measuredTime;
 
+    /** 저장 경로: OCR / MANUAL (프론트에서 OCR일 때만 체중조절 수치 표시) */
+    private MemberInfoBody.DataSource dataSource;
+
     // BaseEntity 필드
     private Instant createdAt;
     private Instant updatedAt;
@@ -69,6 +72,7 @@ public class MemberInfoBodyResponseDTO {
                 .muscleControl(entity.getMuscleControl())
                 .exercisePurpose(entity.getExercisePurpose())
                 .measuredTime(entity.getMeasuredTime())
+                .dataSource(entity.getDataSource())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();

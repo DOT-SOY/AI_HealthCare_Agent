@@ -100,8 +100,6 @@ class DummyDataInsertTest {
                 LocalDate.of(1987, 2, 18), LocalDate.of(1989, 4, 30), LocalDate.of(1994, 6, 8),
                 LocalDate.of(1996, 8, 22)
         };
-        int[] heights = {175, 162, 178, 172, 165, 160, 180, 170, 168, 163};
-        double[] weights = {72.5, 55.0, 78.0, 68.0, 52.0, 50.0, 82.0, 70.0, 58.0, 54.0};
 
         String encodedPw = passwordEncoder.encode("1111");
         for (int i = 0; i < 10; i++) {
@@ -111,8 +109,6 @@ class DummyDataInsertTest {
                     .name(names[i])
                     .gender(genders[i])
                     .birthDate(birthDates[i])
-                    .height(heights[i])
-                    .weight(weights[i])
                     .build();
             list.add(m);
         }
@@ -161,14 +157,16 @@ class DummyDataInsertTest {
         List<MemberInfoBody> list = new ArrayList<>();
         ExercisePurpose[] purposes = ExercisePurpose.values();
         Instant base = LocalDateTime.of(2024, 6, 1, 10, 0).atZone(ZoneId.systemDefault()).toInstant();
+        double[] baseHeights = {175, 162, 178, 172, 165, 160, 180, 170, 168, 163, 174, 167, 182, 158, 176};
+        double[] baseWeights = {72.5, 55.0, 78.0, 68.0, 52.0, 50.0, 82.0, 70.0, 58.0, 54.0, 71.0, 63.0, 80.0, 48.0, 75.0};
 
         for (int mi = 0; mi < members.size(); mi++) {
             Member m = members.get(mi);
             Long memberId = m.getId();
             if (memberId == null) continue;
 
-            double baseH = m.getHeight() != null ? m.getHeight().doubleValue() : 170.0;
-            double baseW = m.getWeight() != null ? m.getWeight() : 65.0;
+            double baseH = baseHeights[mi % baseHeights.length];
+            double baseW = baseWeights[mi % baseWeights.length];
 
             for (int k = 0; k < 3; k++) {
                 Instant measuredTime = base.plusSeconds(86400L * (mi * 30 + k * 14)); // 약 2주 간격
