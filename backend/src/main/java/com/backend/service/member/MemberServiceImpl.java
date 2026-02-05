@@ -21,6 +21,7 @@ import java.time.LocalDate;
 @RequiredArgsConstructor
 @Transactional // 트랜잭션 처리 (오류 발생 시 롤백)
 @Log4j2        // 로그 기록용
+@SuppressWarnings("null")
 public class MemberServiceImpl implements MemberService {
 
     private final MemberRepository memberRepository;
@@ -39,16 +40,16 @@ public class MemberServiceImpl implements MemberService {
         Member member = dtoToEntity(memberDTO, passwordEncoder);
 
         // 3. DB 저장
-        memberRepository.save(member);
+        Member savedMember = memberRepository.save(member);
 
         // 4. 회원가입 시점의 기본 신체 정보 저장 (member_info_body)
         MemberInfoBodyDTO bodyDto = MemberInfoBodyDTO.builder()
                 .height(memberDTO.getHeight() != null ? memberDTO.getHeight().doubleValue() : null)
                 .weight(memberDTO.getWeight())
                 .build();
-        memberInfoBodyService.create(member.getId(), bodyDto);
+        memberInfoBodyService.create(savedMember.getId(), bodyDto);
 
-        return member.getId();
+        return savedMember.getId();
     }
 
     // 중복 검사 로직 (탈퇴 회원 제외, existsById 패턴처럼 존재 여부만 확인)
@@ -91,8 +92,6 @@ public class MemberServiceImpl implements MemberService {
         member.setName(memberModifyDTO.getName());
         member.setGender(Member.Gender.valueOf(memberModifyDTO.getGender()));
         member.setBirthDate(LocalDate.parse(memberModifyDTO.getBirthDate()));
-        member.setHeight(memberModifyDTO.getHeight());
-        member.setWeight(memberModifyDTO.getWeight());
         member.changePw(passwordEncoder.encode(memberModifyDTO.getPw()));
 
         // 영속 상태라 save 호출 없이도 반영되지만, 명시적으로 남김

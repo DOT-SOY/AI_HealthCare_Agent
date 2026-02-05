@@ -54,6 +54,7 @@ public class APILoginSuccessHandler implements AuthenticationSuccessHandler {
 
         // JWT claims 구성
         Map<String, Object> claims = new HashMap<>();
+        claims.put("memberId", member.getId());
         claims.put("email", member.getEmail());
         claims.put("name", member.getName());
         

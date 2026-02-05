@@ -28,8 +28,6 @@ public interface MemberService {
                 .name(dto.getName())
                 .gender(Member.Gender.valueOf(dto.getGender()))
                 .birthDate(LocalDate.parse(dto.getBirthDate())) // String -> LocalDate 변환
-                .height(dto.getHeight())
-                .weight(dto.getWeight())
                 .build();
 
         // 기본 권한 부여: 모든 신규 회원에게 USER 역할 추가

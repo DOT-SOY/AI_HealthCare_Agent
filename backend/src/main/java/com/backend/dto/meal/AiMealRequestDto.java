@@ -43,6 +43,14 @@ public class AiMealRequestDto {
         private Double height;
         private Double weight;
         private String activityLevel;
+        // InBody (선택)
+        private Double skeletalMuscleMass;
+        private Double bodyFatPercent;
+        private Double bodyFatMass;
+        private Double targetWeight;
+        private Double weightControl;
+        private Double fatControl;
+        private Double muscleControl;
         private List<String> allergies;
         private List<String> likedFoods;
         private List<String> dislikedFoods;
@@ -55,7 +63,19 @@ public class AiMealRequestDto {
         private Integer targetCarbs;
         private Integer targetProtein;
         private Integer targetFat;
+        // --- Food-pick / redistribution 옵션 (선택) ---
+        private List<String> excludeKeywords;   // 예: ["밥","국","찌개"]
+        private List<String> excludeFoodNames; // 생략된 끼니 메뉴 등 제외할 음식명 목록
+        private Integer minItems;              // 1~3
+        private Integer maxItems;              // 1~3
         private Integer mealCount; // 하루 3끼? 4끼?
+        private Integer periodDays; // 자연어 기간(일수)
+        /**
+         * 식단 생성 시작일 (YYYY-MM-DD)
+         * - ai-server는 startDate를 기준으로 mealDate를 생성합니다.
+         */
+        private String startDate;
     }
 }
+
 
