@@ -303,16 +303,16 @@ export default function ExerciseRecognitionModal({
       onClick={onClose}
     >
       <div 
-        className="bg-neutral-900 rounded-lg p-6 w-full max-w-4xl max-h-[90vh] flex flex-col"
+        className="bg-bg-card rounded-token p-6 w-full max-w-4xl max-h-[90vh] flex flex-col border border-border-default"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold text-neutral-50">
+          <h2 className="text-2xl font-bold text-text-main">
             {exerciseName ? exerciseName : '운동명이 지정되지 않았습니다.'}
           </h2>
           <button
             onClick={onClose}
-            className="text-neutral-400 hover:text-neutral-50"
+            className="text-text-muted hover:text-text-main transition-colors"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -348,39 +348,38 @@ export default function ExerciseRecognitionModal({
               {/* 정보 영역 (오른쪽) */}
               <div className="flex-1 space-y-4 min-w-0">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-neutral-800 rounded-lg p-4">
-                    <p className="text-neutral-400 text-sm mb-1">총 횟수</p>
-                    <p className="text-3xl font-bold" style={{ color: '#88ce02' }}>{totalReps}</p>
+                  <div className="bg-bg-surface rounded-token p-4 border border-border-default">
+                    <p className="text-text-sub text-sm mb-1">총 횟수</p>
+                    <p className="text-3xl font-bold text-primary-500">{totalReps}</p>
                   </div>
-                  <div className="bg-neutral-800 rounded-lg p-4">
-                    <p className="text-neutral-400 text-sm mb-1">현재 세트</p>
-                    <p className="text-3xl font-bold" style={{ color: '#88ce02' }}>{currentSet}</p>
+                  <div className="bg-bg-surface rounded-token p-4 border border-border-default">
+                    <p className="text-text-sub text-sm mb-1">현재 세트</p>
+                    <p className="text-3xl font-bold text-primary-500">{currentSet}</p>
                   </div>
                 </div>
 
-                <div className="bg-neutral-800 rounded-lg p-4">
-                  <p className="text-neutral-400 text-sm mb-2">세트별 횟수</p>
+                <div className="bg-bg-surface rounded-token p-4 border border-border-default">
+                  <p className="text-text-sub text-sm mb-2">세트별 횟수</p>
                   <div className="flex flex-wrap gap-2">
                     {setReps.map((reps, index) => (
-                      <div key={index} className="bg-neutral-700 rounded px-3 py-1">
-                        <span className="text-neutral-300 text-sm">세트 {index + 1}: </span>
-                        <span className="font-bold" style={{ color: '#88ce02' }}>{reps}회</span>
+                      <div key={index} className="bg-bg-card rounded-token px-3 py-1 border border-border-default">
+                        <span className="text-text-sub text-sm">세트 {index + 1}: </span>
+                        <span className="font-bold text-primary-500">{reps}회</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
                 {currentFeedback && (
-                  <div className="bg-yellow-500/20 border border-yellow-500 rounded-lg p-3">
-                    <p className="text-yellow-300 break-words">{currentFeedback}</p>
+                  <div className="bg-yellow-500/20 dark:bg-yellow-500/20 border border-yellow-500 rounded-token p-3">
+                    <p className="text-yellow-600 dark:text-yellow-300 break-words">{currentFeedback}</p>
                   </div>
                 )}
 
                 <div>
                   <button
                     onClick={handleComplete}
-                    className="w-full py-3 rounded-lg font-medium text-neutral-950 transition-colors hover:opacity-90"
-                    style={{ backgroundColor: '#88ce02' }}
+                    className="w-full py-3 rounded-token font-medium bg-primary-500 text-text-inverse transition-colors hover:bg-primary-400"
                   >
                     운동 완료
                   </button>
@@ -396,10 +395,10 @@ export default function ExerciseRecognitionModal({
               <div className="flex justify-center mb-4">
                 <div className="spinner-token" />
               </div>
-              <h3 className="text-lg font-semibold text-neutral-50 mb-2">
+              <h3 className="text-lg font-semibold text-text-main mb-2">
                 운동에 대한 총평을 생성 중입니다...
               </h3>
-              <p className="text-neutral-400 text-sm">
+              <p className="text-text-sub text-sm">
                 잠시만 기다려주세요
               </p>
             </div>
@@ -408,25 +407,24 @@ export default function ExerciseRecognitionModal({
 
         {isCompleted && finalFeedback && (
           <div className="flex-1 overflow-y-auto space-y-4">
-            <div className="bg-neutral-800 rounded-lg p-4">
-              <h3 className="text-lg font-semibold text-neutral-50 mb-2">운동 피드백</h3>
-              <p className="text-neutral-300 whitespace-pre-wrap break-words">{finalFeedback}</p>
+            <div className="bg-bg-surface rounded-token p-4 border border-border-default">
+              <h3 className="text-lg font-semibold text-text-main mb-2">운동 피드백</h3>
+              <p className="text-text-sub whitespace-pre-wrap break-words">{finalFeedback}</p>
             </div>
 
             {isWaitingCompletion && (
               <div className="space-y-2 pb-4">
-                <p className="text-neutral-300">이 운동을 완료 처리하시겠습니까?</p>
+                <p className="text-text-main">이 운동을 완료 처리하시겠습니까?</p>
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleCompletionResponse(true)}
-                    className="flex-1 py-2 rounded-lg font-medium text-neutral-950 transition-colors hover:opacity-90"
-                    style={{ backgroundColor: '#88ce02' }}
+                    className="flex-1 py-2 rounded-token font-medium bg-primary-500 text-text-inverse transition-colors hover:bg-primary-400"
                   >
                     네
                   </button>
                   <button
                     onClick={() => handleCompletionResponse(false)}
-                    className="flex-1 py-2 rounded-lg font-medium bg-neutral-700 text-neutral-300 transition-colors hover:bg-neutral-600"
+                    className="flex-1 py-2 rounded-token font-medium bg-bg-surface text-text-sub border border-border-default transition-colors hover:bg-bg-card"
                   >
                     아니오
                   </button>
