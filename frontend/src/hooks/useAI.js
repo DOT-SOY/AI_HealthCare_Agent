@@ -57,7 +57,12 @@ export function useAI() {
         intent: response.intent || null
       }));
       dispatch(setLastResponse(response));
-      
+
+      // 요일 맞바꾸기 등 루틴 변경 시 화면 자동 새로고침 (WebSocket 미수신 시 대비)
+      if (response.data?.routineUpdated === true) {
+        window.dispatchEvent(new CustomEvent('routine-updated'));
+      }
+
       return response;
     } catch (error) {
       console.error('AI 메시지 전송 실패:', error);

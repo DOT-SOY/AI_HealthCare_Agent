@@ -126,18 +126,31 @@ def main():
                     print(f"항목 {idx + 1} 임베딩 생성 실패, 건너뜀")
                     continue
                 
-                # PointStruct 생성
+                # payload 기본 필드 + 스키마 확장 (risk_factors, injury_risks, alternatives, split_*)
+                payload = {
+                    "category": item.get("category", ""),
+                    "title": item.get("title", ""),
+                    "content": item.get("content", ""),
+                    "body_part": item.get("body_part", ""),
+                    "exercise_name": item.get("exercise_name", ""),
+                    "tags": item.get("tags", [])
+                }
+                if "risk_factors" in item:
+                    payload["risk_factors"] = item["risk_factors"]
+                if "injury_risks" in item:
+                    payload["injury_risks"] = item["injury_risks"]
+                if "alternatives" in item:
+                    payload["alternatives"] = item["alternatives"]
+                if "split_2" in item:
+                    payload["split_2"] = item["split_2"]
+                if "split_4" in item:
+                    payload["split_4"] = item["split_4"]
+                if "split_5" in item:
+                    payload["split_5"] = item["split_5"]
                 point = PointStruct(
                     id=item.get("id", idx + 1),
                     vector=embedding,
-                    payload={
-                        "category": item.get("category", ""),
-                        "title": item.get("title", ""),
-                        "content": item.get("content", ""),
-                        "body_part": item.get("body_part", ""),
-                        "exercise_name": item.get("exercise_name", ""),
-                        "tags": item.get("tags", [])
-                    }
+                    payload=payload
                 )
                 points.append(point)
                 

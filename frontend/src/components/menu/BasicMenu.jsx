@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
-import { logout } from "../../slices/loginSlice";
+import { useSelector } from "react-redux";
 import { useTheme } from "../../contexts/ThemeContext";
 
 // 간단한 SVG 아이콘 컴포넌트들
@@ -70,17 +69,6 @@ const LockClosedIcon = ({ className }) => (
   </svg>
 );
 
-const LockOpenIcon = ({ className }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M15 7a3 3 0 00-6 0v1M7 11h10a1 1 0 011 1v7a1 1 0 01-1 1H7a1 1 0 01-1-1v-7a1 1 0 011-1zM15 7a3 3 0 015 3v1"
-    />
-  </svg>
-);
-
 const AdminIcon = ({ className }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path
@@ -109,11 +97,6 @@ const BasicMenu = () => {
   const closeMobileMenu = () => {
     setIsMobileMenuOpen(false);
     setShopMobileOpen(false);
-  };
-  const handleClickLogout = async () => {
-    if (!window.confirm("로그아웃 하시겠습니까?")) return;
-    await dispatch(logout());
-    closeMobileMenu();
   };
 
   const menuItems = [
@@ -222,8 +205,8 @@ const BasicMenu = () => {
             );
           })}
 
-          {/* 프로필 아래에 로그인/로그아웃 (잠금 아이콘) */}
-          {!isLogin ? (
+          {/* 프로필 아래 로그인 (비로그인 시만) */}
+          {!isLogin && (
             <Link
               to="/member/login"
               className={getMenuClass("/member/login")}
@@ -232,15 +215,6 @@ const BasicMenu = () => {
               <LockClosedIcon className="w-6 h-6 shrink-0" />
               <span className="text-xs whitespace-nowrap">로그인</span>
             </Link>
-          ) : (
-            <button
-              type="button"
-              onClick={handleClickLogout}
-              className={`${getMenuClass("/member/logout")} border-none bg-transparent cursor-pointer`}
-            >
-              <LockOpenIcon className="w-6 h-6 shrink-0" />
-              <span className="text-xs whitespace-nowrap">로그아웃</span>
-            </button>
           )}
 
           {isLogin && isAdmin && (

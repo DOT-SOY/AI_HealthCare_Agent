@@ -12,9 +12,21 @@ export function useWebSocket() {
   const clientRef = useRef(null);
   const subscriptionRef = useRef(null);
   const callbackRef = useRef(null);
-  const routineGenerateCallbackRef = useRef(null);
-  const routineGenerateSubscriptionRef = useRef(null);
+  const subscriptionRoutineRef = useRef(null);
+  const routineUpdateCallbackRef = useRef(null);
   const isConnectingRef = useRef(false);
+
+  // 루틴 생성/수정 알림 처리
+  const handleRoutineMessage = useCallback((message) => {
+    try {
+      const data = JSON.parse(message.body);
+      if (routineUpdateCallbackRef.current) {
+        routineUpdateCallbackRef.current(data);
+      }
+    } catch (error) {
+      console.error('루틴 WebSocket 메시지 파싱 오류:', error);
+    }
+  }, []);
 
   // 공통 메시지 처리 함수
   const handleMessage = useCallback((message) => {
@@ -56,23 +68,9 @@ export function useWebSocket() {
     }
   }, []);
 
-  const handleRoutineGenerateMessage = useCallback((message) => {
-    try {
-      const data = JSON.parse(message.body);
-      if (routineGenerateCallbackRef.current) {
-        routineGenerateCallbackRef.current(data);
-      }
-    } catch (error) {
-      console.error('WebSocket 루틴 생성 메시지 파싱 오류:', error);
-    }
-  }, []);
-
-  // 실제 구독을 수행하는 함수
+  // 실제 구독을 수행하는 함수 (리뷰 알림)
   const doSubscribe = useCallback(() => {
     if (!clientRef.current || !clientRef.current.connected) {
-      if (import.meta.env.DEV) {
-        console.log('WebSocket 구독 실패: 연결되지 않음');
-      }
       return;
     }
 
@@ -86,34 +84,28 @@ export function useWebSocket() {
       subscriptionRef.current = null;
     }
 
-    try {
-      subscriptionRef.current = clientRef.current.subscribe(
-        '/topic/workout/review',
-        handleMessage
-      );
-      if (import.meta.env.DEV) {
-        console.log('WebSocket 구독 성공: /topic/workout/review');
-      }
-    } catch (error) {
-      console.error('WebSocket 구독 오류:', error);
-    }
+    subscriptionRef.current = clientRef.current.subscribe(
+      '/topic/workout/review',
+      handleMessage
+    );
   }, [handleMessage]);
 
-  const doSubscribeRoutineGenerate = useCallback(() => {
-    if (!clientRef.current?.connected) return;
-    if (routineGenerateSubscriptionRef.current) {
+  // 루틴 생성/수정 알림 구독 (요일 맞바꾸기 등 후 자동 새로고침용)
+  const doSubscribeRoutine = useCallback(() => {
+    if (!clientRef.current || !clientRef.current.connected || !routineUpdateCallbackRef.current) {
+      return;
+    }
+    if (subscriptionRoutineRef.current) {
       try {
-        routineGenerateSubscriptionRef.current.unsubscribe();
+        subscriptionRoutineRef.current.unsubscribe();
       } catch (e) {}
-      routineGenerateSubscriptionRef.current = null;
+      subscriptionRoutineRef.current = null;
     }
-    if (routineGenerateCallbackRef.current) {
-      routineGenerateSubscriptionRef.current = clientRef.current.subscribe(
-        '/topic/routine/generate',
-        handleRoutineGenerateMessage
-      );
-    }
-  }, [handleRoutineGenerateMessage]);
+    subscriptionRoutineRef.current = clientRef.current.subscribe(
+      '/topic/routine/generate',
+      handleRoutineMessage
+    );
+  }, [handleRoutineMessage]);
 
   // WebSocket 연결 함수 (필요할 때만 호출)
   const connectWebSocket = useCallback(() => {
@@ -171,20 +163,13 @@ export function useWebSocket() {
           setConnected(true);
           isConnectingRef.current = false;
 
-          if (import.meta.env.DEV) {
-            console.log('WebSocket 연결 완료');
+          // 콜백이 이미 설정되어 있다면, 연결 완료 시점에 구독
+          if (callbackRef.current) {
+            doSubscribe();
           }
-
-          // 콜백이 이미 설정되어 있다면, 연결 완료 시점에 구독 수행
-          // 약간의 지연을 두어 연결이 완전히 안정화된 후 구독
-          setTimeout(() => {
-            if (callbackRef.current && clientRef.current?.connected) {
-              doSubscribe();
-              if (import.meta.env.DEV) {
-                console.log('WebSocket 구독 완료: /topic/workout/review');
-              }
-            }
-          }, 200);
+          if (routineUpdateCallbackRef.current) {
+            doSubscribeRoutine();
+          }
         },
         onDisconnect: () => {
           setConnected(false);
@@ -226,45 +211,24 @@ export function useWebSocket() {
         console.error('WebSocket 클라이언트 초기화 실패:', error);
       }
     }
-  }, [doSubscribe]);
+  }, [doSubscribe, doSubscribeRoutine]);
 
   const subscribeToReview = useCallback(
     (callback) => {
       // 콜백 저장
       callbackRef.current = callback;
 
-      // WebSocket이 연결되어 있으면 즉시 구독 수행
-      if (clientRef.current?.connected) {
-        doSubscribe();
-        return subscriptionRef.current;
-      }
-
-      // 연결 중이면 연결 완료 후 구독될 것임 (onConnect에서 처리)
-      if (isConnectingRef.current) {
-        if (import.meta.env.DEV) {
-          console.log('WebSocket 연결 중... 연결 완료 후 구독됩니다.');
-        }
-        return null;
-      }
-
-      // 연결되어 있지 않으면 연결 시도
-      connectWebSocket();
-      return null;
-    },
-    [connectWebSocket, doSubscribe]
-  );
-
-  const subscribeToRoutineGenerate = useCallback(
-    (callback) => {
-      routineGenerateCallbackRef.current = callback;
+      // WebSocket이 연결되어 있지 않으면 연결 시도만 하고 반환
       if (!clientRef.current?.connected && !isConnectingRef.current) {
         connectWebSocket();
         return null;
       }
-      doSubscribeRoutineGenerate();
-      return routineGenerateSubscriptionRef.current;
+
+      // 이미 연결되어 있으면 즉시 구독 수행
+      doSubscribe();
+      return subscriptionRef.current;
     },
-    [connectWebSocket, doSubscribeRoutineGenerate]
+    [connectWebSocket, doSubscribe]
   );
 
   const sendMessage = useCallback((destination, body) => {
@@ -276,16 +240,31 @@ export function useWebSocket() {
     }
   }, []);
 
+  const subscribeToRoutineUpdate = useCallback(
+    (callback) => {
+      routineUpdateCallbackRef.current = callback;
+      if (clientRef.current?.connected) {
+        doSubscribeRoutine();
+      } else if (!isConnectingRef.current) {
+        connectWebSocket();
+      }
+    },
+    [connectWebSocket, doSubscribeRoutine]
+  );
+
   // 정리 함수
   const disconnect = useCallback(() => {
     if (subscriptionRef.current) {
       subscriptionRef.current.unsubscribe();
       subscriptionRef.current = null;
     }
-    if (routineGenerateSubscriptionRef.current) {
-      routineGenerateSubscriptionRef.current.unsubscribe();
-      routineGenerateSubscriptionRef.current = null;
+    if (subscriptionRoutineRef.current) {
+      try {
+        subscriptionRoutineRef.current.unsubscribe();
+      } catch (e) {}
+      subscriptionRoutineRef.current = null;
     }
+    routineUpdateCallbackRef.current = null;
     if (clientRef.current) {
       try {
         clientRef.current.deactivate();
@@ -302,7 +281,7 @@ export function useWebSocket() {
     connected,
     connectWebSocket,
     subscribeToReview,
-    subscribeToRoutineGenerate,
+    subscribeToRoutineUpdate,
     sendMessage,
     disconnect,
   };

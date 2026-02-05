@@ -15,6 +15,6 @@ import java.util.List;
 @Builder
 public class RoutinePresetDayDto {
     private String title;
-    private String summary; // AI 코칭 요약 (루틴 저장 시 summary 필드에 사용)
+    private String summary;
     private List<String> exerciseNames;
 }

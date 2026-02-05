@@ -1,8 +1,10 @@
 package com.backend.service.ai.chat;
 
+import com.backend.client.RoutineRecommendClient;
 import com.backend.dto.response.AIChatResponse;
 import com.backend.dto.response.ExerciseResponse;
 import com.backend.dto.response.IntentClassificationResult;
+import com.backend.dto.response.RoutineRecommendResponse;
 import com.backend.dto.response.RoutineResponse;
 import com.backend.service.member.CurrentMemberService;
 import com.backend.service.routine.RoutineService;
@@ -11,14 +13,16 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import com.backend.config.ExerciseAlternativesConfig;
-
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * WORKOUT 의도 처리 서비스 구현
@@ -31,6 +35,7 @@ public class WorkoutChatServiceImpl implements WorkoutChatService {
     private final RoutineService routineService;
     private final CurrentMemberService currentMemberService;
     private final GeneralChatService generalChatService;
+    private final RoutineRecommendClient routineRecommendClient;
 
     @Override
     public AIChatResponse handleWorkout(IntentClassificationResult classification) {
@@ -127,86 +132,377 @@ public class WorkoutChatServiceImpl implements WorkoutChatService {
 
     /**
      * WORKOUT의 RECOMMEND 액션 처리 (소분류: action)
-     * 
-     * - 사용자의 상태, 목표, 과거 루틴 등을 분석하여 운동 추천
-     * - 추후 구현 예정
+     *
+     * - 대체 운동 요청(replace_exercise_name)이면: 해당 운동 대체만 반환
+     * - 그 외: 2/4/5분할에 맞춰 전체 일차(2일/4일/5일) 추천을 모아 모달용 데이터 반환
      */
     private AIChatResponse handleWorkoutRecommend(IntentClassificationResult classification) {
-        // TODO: 추후 구현
-        // - 사용자의 과거 루틴 분석
-        // - 통증 이력 확인
-        // - 목표 및 선호도 고려
-        // - AI 기반 운동 추천 생성
-        
-        log.info("WORKOUT RECOMMEND 요청: 프리셋 모달 표시");
-        
-        return AIChatResponse.builder()
-            .message("어떤 루틴으로 할까요? 아래에서 선택해 주세요.")
-            .intent("WORKOUT")
-            .showPresetModal(true)
-            .build();
-    }
+        List<String> excludeBodyParts = resolveExcludeBodyParts(classification.getEntities());
+        Integer splitType = resolveSplitType(classification.getEntities(), classification.getUserInput());
+        List<String> targetBodyParts = resolveTargetBodyParts(classification.getEntities());
+        String replaceExerciseName = resolveReplaceExerciseName(classification.getEntities());
 
-    /**
-     * WORKOUT의 MODIFY 액션 처리 (통증 부위별 대체 운동)
-     * - entities.body_part(허리, 어깨 등)로 오늘 루틴 중 해당 부위 부상 위험 운동 필터
-     * - 대체 운동 목록을 data.replaceableExercises로 반환, showReplaceModal=true
-     */
-    private AIChatResponse handleWorkoutModify(IntentClassificationResult classification) {
-        var entities = classification.getEntities();
-        Object bodyPartObj = entities != null ? entities.get("body_part") : null;
-        String bodyPart = bodyPartObj != null ? bodyPartObj.toString().trim() : null;
-
-        if (bodyPart == null || bodyPart.isEmpty()) {
-            log.info("WORKOUT MODIFY: body_part 없음, 일반 안내 반환");
+        if (replaceExerciseName != null && !replaceExerciseName.isBlank()) {
+            RoutineRecommendResponse recommendResponse = routineRecommendClient.recommend(
+                excludeBodyParts, null, null, targetBodyParts, replaceExerciseName, null, null);
+            String message = buildRecommendMessage(recommendResponse);
+            Map<String, Object> data = new HashMap<>();
+            data.put("exercises", recommendResponse.getExercises());
+            if (recommendResponse.getAlternatives() != null) {
+                data.put("alternatives", recommendResponse.getAlternatives());
+            }
             return AIChatResponse.builder()
-                .message("어느 부위가 불편하신가요? (예: 허리, 어깨, 무릎) 말씀해 주시면 그 부위에 부담이 적은 대체 운동을 추천해 드릴게요.")
+                .message(message)
                 .intent("WORKOUT")
+                .data(data)
                 .build();
         }
 
-        Long memberId = currentMemberService.getCurrentMemberOrThrow().getId();
-        RoutineResponse todayRoutine = routineService.getTodayRoutine(memberId);
+        // 전체 분할 루틴: 2/4/5일차 각각 추천 후 모달용 데이터 구성 (일차당 4개, 일차 간 중복 제거)
+        int daysCount = splitType != null && splitType >= 2 && splitType <= 5 ? splitType : 2;
+        List<Map<String, Object>> daysPayload = new ArrayList<>();
+        Map<String, Object> splitDefinitions = null;
+        List<String> usedExerciseNames = new ArrayList<>();
 
-        if (todayRoutine == null || todayRoutine.getExercises() == null || todayRoutine.getExercises().isEmpty()) {
-            return AIChatResponse.builder()
-                .message("오늘 루틴이 없어요. 먼저 루틴을 만들거나 '루틴 짜달라'고 요청해 주세요.")
-                .intent("WORKOUT")
-                .build();
-        }
-
-        List<Map<String, Object>> replaceableExercises = new ArrayList<>();
-        for (ExerciseResponse ex : todayRoutine.getExercises()) {
-            String name = ex.getName();
-            if (name == null) continue;
-            if (!ExerciseAlternativesConfig.hasInjuryRisk(name, bodyPart)) continue;
-            List<String> alternatives = ExerciseAlternativesConfig.getAlternatives(name);
-            if (alternatives == null || alternatives.isEmpty()) continue;
-            Map<String, Object> item = new HashMap<>();
-            item.put("routineId", todayRoutine.getId());
-            item.put("exerciseId", ex.getId());
-            item.put("exerciseName", name);
-            item.put("alternatives", alternatives);
-            replaceableExercises.add(item);
-        }
-
-        if (replaceableExercises.isEmpty()) {
-            return AIChatResponse.builder()
-                .message(bodyPart + "에 부담이 되는 운동이 오늘 루틴에는 없어요. 그대로 진행하셔도 좋아요.")
-                .intent("WORKOUT")
-                .build();
+        for (int dayIdx = 0; dayIdx < daysCount; dayIdx++) {
+            RoutineRecommendResponse dayResponse = routineRecommendClient.recommend(
+                excludeBodyParts, splitType, dayIdx, null, null, usedExerciseNames, 4);
+            if (splitDefinitions == null && dayResponse.getSplitDefinitions() != null) {
+                splitDefinitions = dayResponse.getSplitDefinitions();
+            }
+            List<Map<String, Object>> dayExercises = dayResponse.getExercises() != null ? dayResponse.getExercises() : List.of();
+            for (Map<String, Object> ex : dayExercises) {
+                Object nameObj = ex.get("name");
+                if (nameObj != null && !String.valueOf(nameObj).isBlank()) {
+                    usedExerciseNames.add(String.valueOf(nameObj).trim());
+                }
+            }
+            String label = getDayLabel(splitDefinitions, splitType, dayIdx);
+            Map<String, Object> dayPayload = new HashMap<>();
+            dayPayload.put("dayIndex", dayIdx + 1);
+            dayPayload.put("label", label);
+            dayPayload.put("exercises", dayExercises);
+            daysPayload.add(dayPayload);
         }
 
         Map<String, Object> data = new HashMap<>();
-        data.put("replaceableExercises", replaceableExercises);
-        data.put("bodyPart", bodyPart);
+        data.put("openRoutineRecommendModal", true);
+        data.put("splitType", splitType != null ? splitType : 2);
+        data.put("days", daysPayload);
+        if (splitDefinitions != null) {
+            data.put("splitDefinitions", splitDefinitions);
+        }
 
-        log.info("WORKOUT MODIFY: body_part={}, replaceableCount={}", bodyPart, replaceableExercises.size());
+        String message = splitType != null && splitType > 2
+            ? splitType + "분할 루틴을 추천했어요. 확인해주세요."
+            : "2분할 루틴을 추천했어요. 확인해주세요.";
+
         return AIChatResponse.builder()
-            .message(bodyPart + "에 부담이 되는 운동을 대체 운동으로 바꿀 수 있어요. 아래에서 선택해 주세요.")
+            .message(message)
             .intent("WORKOUT")
             .data(data)
-            .showReplaceModal(true)
+            .build();
+    }
+
+    /** 2/4/5 분할 영어 라벨 폴백 (AI 응답에 split_definitions 없을 때) */
+    private static final Map<Integer, List<String>> SPLIT_LABELS_FALLBACK = Map.of(
+        2, List.of("Upper day", "Leg day"),
+        4, List.of("Chest & Triceps day", "Back & Biceps day", "Shoulder day", "Leg day"),
+        5, List.of("Chest day", "Back day", "Shoulder day", "Arm day", "Leg day")
+    );
+
+    private String getDayLabel(Map<String, Object> splitDefinitions, Integer splitType, int dayIndex) {
+        if (splitType != null && SPLIT_LABELS_FALLBACK.containsKey(splitType)) {
+            List<String> fallback = SPLIT_LABELS_FALLBACK.get(splitType);
+            if (dayIndex >= 0 && dayIndex < fallback.size()) {
+                String fromFallback = fallback.get(dayIndex);
+                if (splitDefinitions == null) {
+                    return fromFallback;
+                }
+                String key = "split_" + splitType;
+                Object listObj = splitDefinitions.get(key);
+                if (!(listObj instanceof List)) {
+                    return fromFallback;
+                }
+                List<?> list = (List<?>) listObj;
+                if (dayIndex >= list.size()) {
+                    return fromFallback;
+                }
+                Object item = list.get(dayIndex);
+                if (item instanceof Map) {
+                    Object name = ((Map<?, ?>) item).get("name");
+                    if (name != null && !name.toString().isBlank()) {
+                        String nameStr = name.toString().trim();
+                        return nameStr.contains(" day") ? nameStr : nameStr + " day";
+                    }
+                }
+                return fromFallback;
+            }
+        }
+        if (splitDefinitions == null || splitType == null) {
+            return dayIndex == 0 ? "Upper day" : (dayIndex == 1 ? "Leg day" : (dayIndex + 1) + "일차");
+        }
+        String key = "split_" + splitType;
+        Object listObj = splitDefinitions.get(key);
+        if (!(listObj instanceof List)) {
+            return (dayIndex + 1) + "일차";
+        }
+        List<?> list = (List<?>) listObj;
+        if (dayIndex >= list.size()) {
+            return (dayIndex + 1) + "일차";
+        }
+        Object item = list.get(dayIndex);
+        if (item instanceof Map) {
+            Object name = ((Map<?, ?>) item).get("name");
+            if (name != null && !name.toString().isBlank()) {
+                String nameStr = name.toString().trim();
+                return nameStr.contains(" day") ? nameStr : nameStr + " day";
+            }
+        }
+        return (dayIndex + 1) + "일차";
+    }
+
+    private List<String> resolveExcludeBodyParts(Map<String, Object> entities) {
+        if (entities == null) return Collections.emptyList();
+        Object exclude = entities.get("exclude_body_parts");
+        if (exclude instanceof List) {
+            return ((List<?>) exclude).stream()
+                .filter(e -> e != null)
+                .map(String::valueOf)
+                .collect(Collectors.toList());
+        }
+        Object painAreas = entities.get("pain_areas");
+        if (painAreas instanceof List) {
+            return ((List<?>) painAreas).stream()
+                .filter(e -> e != null)
+                .map(String::valueOf)
+                .collect(Collectors.toList());
+        }
+        Object bodyPart = entities.get("body_part");
+        if (bodyPart != null && !String.valueOf(bodyPart).isBlank()) {
+            return List.of(String.valueOf(bodyPart).trim());
+        }
+        return Collections.emptyList();
+    }
+
+    private Integer resolveSplitType(Map<String, Object> entities, String userInput) {
+        if (entities != null) {
+            Object v = entities.get("split_type");
+            if (v instanceof Number) return ((Number) v).intValue();
+            if (v != null) {
+                try { return Integer.parseInt(String.valueOf(v)); } catch (NumberFormatException ignored) { }
+            }
+        }
+        if (userInput != null && !userInput.isBlank()) {
+            String s = userInput.trim();
+            if (s.contains("5분할") || s.contains("오분할") || s.contains("등가슴어깨팔하체")) return 5;
+            if (s.contains("4분할") || s.contains("사분할") || s.contains("등가슴어깨하체")) return 4;
+            if (s.contains("2분할") || s.contains("투분할") || s.contains("상체하체")) return 2;
+        }
+        return 2;
+    }
+
+    private Integer resolveDayIndex(Map<String, Object> entities) {
+        if (entities == null) return 0;
+        Object v = entities.get("day_index");
+        if (v instanceof Number) return ((Number) v).intValue();
+        if (v != null) {
+            try { return Integer.parseInt(String.valueOf(v)); } catch (NumberFormatException ignored) { }
+        }
+        return 0;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<String> resolveTargetBodyParts(Map<String, Object> entities) {
+        if (entities == null) return null;
+        Object v = entities.get("target_body_parts");
+        if (v instanceof List) {
+            return ((List<?>) v).stream()
+                .filter(e -> e != null)
+                .map(String::valueOf)
+                .collect(Collectors.toList());
+        }
+        return null;
+    }
+
+    private String resolveReplaceExerciseName(Map<String, Object> entities) {
+        if (entities == null) return null;
+        Object v = entities.get("replace_exercise_name");
+        if (v != null && !String.valueOf(v).isBlank()) return String.valueOf(v).trim();
+        return null;
+    }
+
+    private String buildRecommendMessage(RoutineRecommendResponse res) {
+        if (res == null || res.getMessage() == null) return "추천 결과를 불러오지 못했습니다.";
+        StringBuilder sb = new StringBuilder();
+        sb.append(res.getMessage());
+        if (res.getExercises() != null && !res.getExercises().isEmpty()) {
+            sb.append("\n\n추천 운동:\n");
+            for (int i = 0; i < res.getExercises().size(); i++) {
+                Map<String, Object> ex = res.getExercises().get(i);
+                Object name = ex.get("exercise_name");
+                Object bodyPart = ex.get("body_part");
+                sb.append(i + 1).append(". ").append(name != null ? name : "운동");
+                if (bodyPart != null) sb.append(" (").append(bodyPart).append(")");
+                sb.append("\n");
+            }
+        }
+        if (res.getAlternatives() != null && res.getAlternatives().get("alternatives") instanceof List) {
+            @SuppressWarnings("unchecked")
+            List<String> alts = (List<String>) res.getAlternatives().get("alternatives");
+            if (alts != null && !alts.isEmpty()) {
+                sb.append("\n대체 운동: ").append(String.join(", ", alts));
+            }
+        }
+        return sb.toString();
+    }
+
+    /**
+     * WORKOUT의 MODIFY 액션 처리
+     * - swap_days: 두 날짜 루틴 맞바꾸기
+     * - pain_modify: 통증 부위 배제한 대체 운동으로 해당 날 루틴 수정
+     */
+    private AIChatResponse handleWorkoutModify(IntentClassificationResult classification) {
+        var entities = classification.getEntities();
+        if (entities == null) {
+            return fallbackModifyMessage();
+        }
+        String modifyType = entities.get("modify_type") != null ? String.valueOf(entities.get("modify_type")).trim() : null;
+        if ("swap_days".equalsIgnoreCase(modifyType)) {
+            return handleSwapDays(entities);
+        }
+        if ("pain_modify".equalsIgnoreCase(modifyType)) {
+            return handlePainModify(entities);
+        }
+        return fallbackModifyMessage();
+    }
+
+    private AIChatResponse handleSwapDays(Map<String, Object> entities) {
+        LocalDate date1 = AIChatUtils.resolveDateForSwap(entities.get("date1"));
+        LocalDate date2 = AIChatUtils.resolveDateForSwap(entities.get("date2"));
+        if (date1.equals(date2)) {
+            return AIChatResponse.builder()
+                .message("같은 날짜는 바꿀 수 없어요. 다른 두 날짜를 말씀해주세요.")
+                .intent("WORKOUT")
+                .build();
+        }
+        Long memberId = currentMemberService.getCurrentMemberOrThrow().getId();
+        RoutineResponse r1 = routineService.getRoutineByDate(memberId, date1);
+        RoutineResponse r2 = routineService.getRoutineByDate(memberId, date2);
+        if (r1 == null || r2 == null) {
+            return AIChatResponse.builder()
+                .message("두 날짜 모두 루틴이 있어야 바꿀 수 있어요. " + AIChatUtils.formatDateForMessage(date1) + "·" + AIChatUtils.formatDateForMessage(date2) + " 중 루틴이 없는 날이 있어요.")
+                .intent("WORKOUT")
+                .build();
+        }
+        routineService.swapRoutineDays(memberId, date1, date2);
+        String msg = String.format("%s와 %s 루틴을 바꿔두었어요.", AIChatUtils.formatDateForMessage(date1), AIChatUtils.formatDateForMessage(date2));
+        return AIChatResponse.builder()
+            .message(msg)
+            .intent("WORKOUT")
+            .data(java.util.Map.of("routineUpdated", true))
+            .build();
+    }
+
+    /** 통증 부위를 RAG 부상위험부위와 매칭하기 위해 확장 (예: "다리" → 허벅지, 종아리, 무릎 등) */
+    private static List<String> expandPainAreaForExclude(String painArea) {
+        Set<String> set = new LinkedHashSet<>();
+        set.add(painArea);
+        switch (painArea) {
+            case "다리":
+                set.addAll(List.of("허벅지", "종아리", "무릎", "둔근", "햄스트링", "슬개건", "아킬레스건", "발목"));
+                break;
+            case "팔":
+                set.addAll(List.of("손목", "팔꿈치", "어깨"));
+                break;
+            default:
+                break;
+        }
+        return new ArrayList<>(set);
+    }
+
+    private AIChatResponse handlePainModify(Map<String, Object> entities) {
+        String painArea = entities.get("pain_area") != null ? String.valueOf(entities.get("pain_area")).trim() : null;
+        if (painArea == null || painArea.isEmpty()) {
+            return AIChatResponse.builder()
+                .message("어느 부위가 불편하신가요? (예: 허리, 어깨)")
+                .intent("WORKOUT")
+                .build();
+        }
+        LocalDate targetDate = AIChatUtils.resolveDate(entities.get("date"));
+        Long memberId = currentMemberService.getCurrentMemberOrThrow().getId();
+        RoutineResponse routine = routineService.getRoutineByDate(memberId, targetDate);
+        if (routine == null || routine.getExercises() == null || routine.getExercises().isEmpty()) {
+            return AIChatResponse.builder()
+                .message(AIChatUtils.formatDateForMessage(targetDate) + " 루틴이 없거나 운동이 없어요. 먼저 루틴을 추가해주세요.")
+                .intent("WORKOUT")
+                .build();
+        }
+        List<String> excludeBodyParts = expandPainAreaForExclude(painArea);
+        List<Map<String, Object>> replacements = new ArrayList<>();
+        for (ExerciseResponse ex : routine.getExercises()) {
+            String name = ex.getName();
+            if (name == null || name.isBlank()) continue;
+            RoutineRecommendResponse altResponse = routineRecommendClient.recommend(
+                excludeBodyParts, null, null, null, name, null, 10);
+            Map<String, Object> altMap = altResponse.getAlternatives();
+            if (altMap != null) {
+                Object hasRiskObj = altMap.get("has_risk_for_excluded_area");
+                if (Boolean.FALSE.equals(hasRiskObj)) {
+                    continue;
+                }
+            }
+            List<String> alternatives = new ArrayList<>();
+            if (altMap != null) {
+                Object altsObj = altMap.get("alternatives");
+                if (altsObj instanceof List) {
+                    for (Object o : (List<?>) altsObj) {
+                        if (o != null && !String.valueOf(o).isBlank()) {
+                            alternatives.add(String.valueOf(o).trim());
+                        }
+                    }
+                }
+            }
+            Map<String, Object> item = new HashMap<>();
+            item.put("exerciseId", ex.getId());
+            item.put("exerciseName", name);
+            item.put("mainTarget", ex.getMainTarget());
+            item.put("sets", ex.getSets());
+            item.put("reps", ex.getReps());
+            item.put("weight", ex.getWeight());
+            item.put("alternatives", alternatives);
+            replacements.add(item);
+        }
+        if (replacements.isEmpty()) {
+            return AIChatResponse.builder()
+                .message(String.format("%s 루틴을 확인했는데, %s에 부담을 주는 운동은 없었어요. 그대로 두시면 돼요.", AIChatUtils.formatDateForMessage(targetDate), painArea))
+                .intent("WORKOUT")
+                .build();
+        }
+        if (replacements.stream().allMatch(r -> ((List<?>) r.get("alternatives")).isEmpty())) {
+            return AIChatResponse.builder()
+                .message(String.format("%s 루틴을 확인했는데, %s에 부담을 주는 운동은 없었어요. 그대로 두시면 돼요.", AIChatUtils.formatDateForMessage(targetDate), painArea))
+                .intent("WORKOUT")
+                .build();
+        }
+        Map<String, Object> data = new HashMap<>();
+        data.put("openPainModifyModal", true);
+        data.put("date", targetDate.toString());
+        data.put("painArea", painArea);
+        data.put("routineTitle", routine.getTitle());
+        data.put("replacements", replacements);
+        String message = String.format("%s에 부담이 적은 대체 운동을 골라주세요. 아래는 %s 부담이 적은 운동들이에요. 바꿀 것만 선택하면 돼요.", painArea, painArea);
+        return AIChatResponse.builder()
+            .message(message)
+            .intent("WORKOUT")
+            .data(data)
+            .build();
+    }
+
+    private AIChatResponse fallbackModifyMessage() {
+        return AIChatResponse.builder()
+            .message("요일 맞바꾸기는 \"5일이랑 6일 바꿔줘\"처럼, 통증 수정은 \"허리 아파서 루틴 수정해줘\"처럼 말씀해주세요.")
+            .intent("WORKOUT")
             .build();
     }
 

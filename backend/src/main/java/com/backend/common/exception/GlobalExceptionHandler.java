@@ -150,28 +150,6 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 상태 전이 등 비즈니스 규칙 위반 (예: 배송 상태 변경 시 허용 전이 아님)
-     */
-    @ExceptionHandler(IllegalStateException.class)
-    public ResponseEntity<ErrorResponse> handleIllegalStateException(
-            IllegalStateException e, HttpServletRequest request) {
-        log.warn("IllegalStateException: {}", e.getMessage());
-
-        String code = ErrorCode.INVALID_INPUT_VALUE.getCode();
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .code(code)
-                .error(code)
-                .message(e.getMessage())
-                .timestamp(Instant.now().toString())
-                .path(request.getRequestURI())
-                .build();
-
-        return ResponseEntity
-                .status(HttpStatus.UNPROCESSABLE_ENTITY)
-                .body(errorResponse);
-    }
-
-    /**
      * 요청 본문(JSON) 파싱 실패 시 400 응답 (amount 타입 오류 등)
      */
     @ExceptionHandler(HttpMessageNotReadableException.class)

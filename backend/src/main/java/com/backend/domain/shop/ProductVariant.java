@@ -8,7 +8,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.util.UUID;
 
 @Entity
 @Getter
@@ -31,13 +30,10 @@ public class ProductVariant extends BaseEntity {
     @Column(name = "option_text", nullable = false)
     private String optionText;
 
-    /** DB 컬럼 option_json (NOT NULL). 구조화된 옵션 저장용, 없으면 "{}" */
-    @Column(name = "option_json", nullable = false)
-    private String optionJson = "{}";
-
-    /** 재고 관리 단위 코드. DB NOT NULL, 미입력 시 UUID로 자동 생성 */
-    @Column(name = "sku", nullable = false, unique = true, length = 100)
-    private String sku;
+    // 옵션 정보 (JSON, 예: {"색상":"빨강","사이즈":"L"})
+    @Lob
+    @Column(name = "option_json")
+    private String optionJson;
 
     // 가격 (null이면 product.basePrice 사용)
     @Column(precision = 18, scale = 2)
@@ -55,27 +51,15 @@ public class ProductVariant extends BaseEntity {
     public ProductVariant(Product product,
                          String optionText,
                          String optionJson,
-                         String sku,
                          BigDecimal price,
                          Integer stockQty,
                          Boolean active) {
         this.product = product;
         this.optionText = optionText;
         this.optionJson = (optionJson != null && !optionJson.isBlank()) ? optionJson : "{}";
-        this.sku = (sku != null && !sku.isBlank()) ? sku : UUID.randomUUID().toString();
         this.price = price;
         this.stockQty = (stockQty != null) ? stockQty : 0;
         this.active = (active != null) ? active : true;
-    }
-
-    /** 옵션 정보/가격/재고/활성 여부 일괄 수정 (주문·장바구니 참조된 옵션 수정용) */
-    public void updateDetails(String optionText, BigDecimal price, Integer stockQty, Boolean active) {
-        if (optionText != null && !optionText.trim().isEmpty()) {
-            this.optionText = optionText.trim();
-        }
-        this.price = price;
-        this.stockQty = (stockQty != null && stockQty >= 0) ? stockQty : this.stockQty;
-        this.active = (active != null) ? active : this.active;
     }
 
     // 재고 수량 변경

@@ -5,32 +5,6 @@ import { getOrRunRefresh } from "../services/api.js";
 const API_SERVER_HOST =
   import.meta.env.VITE_API_SERVER_HOST || "http://localhost:8080";
 
-// 자동 리프레시: 10분마다 access token 갱신 (만료 전 미리 갱신)
-const REFRESH_INTERVAL_MS = 10 * 60 * 1000; // 10분
-let autoRefreshTimerId = null;
-
-const runAutoRefresh = async () => {
-  if (!getCookie("member")) return;
-  try {
-    await getOrRunRefresh();
-  } catch (_) {
-    stopAutoRefresh();
-  }
-};
-
-export const startAutoRefresh = () => {
-  stopAutoRefresh();
-  if (!getCookie("member")) return;
-  autoRefreshTimerId = setInterval(runAutoRefresh, REFRESH_INTERVAL_MS);
-};
-
-export const stopAutoRefresh = () => {
-  if (autoRefreshTimerId) {
-    clearInterval(autoRefreshTimerId);
-    autoRefreshTimerId = null;
-  }
-};
-
 const jwtAxios = axios.create({
   baseURL: `${API_SERVER_HOST}/api`,
   withCredentials: true,

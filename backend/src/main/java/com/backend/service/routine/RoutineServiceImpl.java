@@ -6,8 +6,10 @@ import com.backend.domain.exercise.ExerciseType;
 import com.backend.domain.member.Member;
 import com.backend.domain.routine.Routine;
 import com.backend.domain.routine.RoutineStatus;
+import com.backend.dto.request.CreateRoutinesFromRecommendationRequest;
 import com.backend.dto.request.ExerciseAddRequest;
 import com.backend.dto.request.ExerciseUpdateRequest;
+import com.backend.dto.request.PainModifyApplyRequest;
 import com.backend.dto.request.RoutineCreateRequest;
 import com.backend.dto.response.ExerciseResponse;
 import com.backend.dto.response.RoutineResponse;
@@ -19,6 +21,7 @@ import com.backend.repository.exercise.ExerciseTypeRepository;
 import com.backend.repository.member.MemberRepository;
 import com.backend.repository.routine.RoutineRepository;
 import com.backend.service.pain.WorkoutReviewService;
+import com.backend.util.BodyPartMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import lombok.extern.slf4j.Slf4j;
@@ -34,9 +37,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -387,11 +392,15 @@ public class RoutineServiceImpl implements RoutineService {
                 throw new IllegalArgumentException("해당 날짜에 이미 루틴이 존재합니다.");
             });
         
+        String title = request.getTitle() != null ? request.getTitle() : "새로운 루틴";
+        String summary = request.getSummary() != null && !request.getSummary().isBlank()
+            ? request.getSummary()
+            : buildCoachingSummary(title, List.of());
         Routine routine = Routine.builder()
             .member(member)
             .date(request.getDate())
-            .title(request.getTitle() != null ? request.getTitle() : "새로운 루틴")
-            .aiSummary(request.getSummary() != null ? request.getSummary() : "")
+            .title(title)
+            .aiSummary(summary)
             .status(RoutineStatus.EXPECTED)  // 기본 상태는 EXPECTED (예정)
             .build();
         
@@ -477,14 +486,24 @@ public class RoutineServiceImpl implements RoutineService {
     public ExerciseResponse addExercise(Long routineId, ExerciseAddRequest request) {
         Routine routine = routineRepository.findByIdWithExercises(routineId)
             .orElseThrow(() -> new IllegalArgumentException("루틴을 찾을 수 없습니다: " + routineId));
-        
+
+        String name = request.getName();
+        if (name != null && !name.isBlank()) {
+            boolean alreadyExists = routine.getExercises().stream()
+                .anyMatch(e -> e.getExerciseType() != null && name.equals(e.getExerciseType().getName()));
+            if (alreadyExists) {
+                log.debug("같은 날 루틴에 이미 존재하는 운동은 추가하지 않음: routineId={}, name={}", routineId, name);
+                throw new IllegalArgumentException("이 루틴에 이미 같은 운동이 있습니다: " + name);
+            }
+        }
+
         // JOIN FETCH로 이미 로드되었으므로 추가 쿼리 없음
         // 다음 orderIndex 계산
         int nextOrderIndex = routine.getExercises().stream()
             .mapToInt(Exercise::getOrderIndex)
             .max()
             .orElse(-1) + 1;
-        
+
         // ExerciseType 조회 또는 생성
         ExerciseType exerciseType = exerciseTypeRepository.findByName(request.getName())
             .orElseGet(() -> {
@@ -566,17 +585,15 @@ public class RoutineServiceImpl implements RoutineService {
     
     @Override
     @Transactional
-    public void deleteExercise(Long routineId, Long exerciseId) {
-        Routine routine = routineRepository.findByIdWithExercises(routineId)
+    public void deleteExercise(Long memberId, Long routineId, Long exerciseId) {
+        Routine routine = routineRepository.findByIdAndMemberIdWithExercises(routineId, memberId)
             .orElseThrow(() -> new IllegalArgumentException("루틴을 찾을 수 없습니다: " + routineId));
-        
-        // JOIN FETCH로 이미 로드되었으므로 추가 쿼리 없음
+
         Exercise exercise = routine.getExercises().stream()
             .filter(e -> e.getId().equals(exerciseId))
             .findFirst()
             .orElseThrow(() -> new IllegalArgumentException("운동을 찾을 수 없습니다: " + exerciseId));
-        
-        // 컬렉션에서 제거 → Routine.orphanRemoval=true 로 DB에서도 삭제됨
+
         routine.getExercises().remove(exercise);
     }
 
@@ -604,10 +621,19 @@ public class RoutineServiceImpl implements RoutineService {
             RoutineResponse created = createRoutine(memberId, routineCreate);
             routineId = created.getId();
         }
-        for (ExerciseAddRequest ex : exercises) {
-            addExercise(routineId, ex);
+        List<ExerciseAddRequest> deduped = dedupeExercisesByName(exercises);
+        for (ExerciseAddRequest ex : deduped) {
+            try {
+                addExercise(routineId, ex);
+            } catch (IllegalArgumentException e) {
+                if (e.getMessage() != null && e.getMessage().contains("이미 같은 운동")) {
+                    log.debug("중복 운동 스킵: {}", ex.getName());
+                } else {
+                    throw e;
+                }
+            }
         }
-        log.info("[Async] AI 루틴 생성/수정 완료: routineId={}, exercises={}", routineId, exercises.size());
+        log.info("[Async] AI 루틴 생성/수정 완료: routineId={}, exercises={}", routineId, deduped.size());
         messagingTemplate.convertAndSend("/topic/routine/generate", java.util.Map.of("completed", true, "memberId", memberId));
     }
 
@@ -618,6 +644,64 @@ public class RoutineServiceImpl implements RoutineService {
             RoutinePresetGroupDto.builder().groupName("분할 루틴").days(PRESET_GROUP_0).build(),
             RoutinePresetGroupDto.builder().groupName("상하체 루틴").days(PRESET_GROUP_1).build()
         );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public VolumeStatsResponse getVolumeStats(Long memberId, String period) {
+        LocalDate today = LocalDate.now();
+        boolean isWeek = "week".equalsIgnoreCase(period);
+
+        LocalDate currentStart;
+        LocalDate currentEnd;
+        LocalDate previousStart;
+        LocalDate previousEnd;
+
+        if (isWeek) {
+            // 이번 주: 월요일 ~ 일요일
+            int dayOfWeek = today.getDayOfWeek().getValue(); // 1=Mon .. 7=Sun
+            currentStart = today.minusDays(dayOfWeek - 1);
+            currentEnd = currentStart.plusDays(7);
+            previousStart = currentStart.minusDays(7);
+            previousEnd = currentStart;
+        } else {
+            // 월별: 이번 달 / 저번 달
+            currentStart = today.withDayOfMonth(1);
+            currentEnd = currentStart.plusMonths(1);
+            previousStart = currentStart.minusMonths(1);
+            previousEnd = currentStart;
+        }
+
+        List<Routine> currentRoutines = routineRepository.findByMemberIdAndDateBetween(memberId, currentStart, currentEnd.minusDays(1));
+        List<Routine> previousRoutines = routineRepository.findByMemberIdAndDateBetween(memberId, previousStart, previousEnd.minusDays(1));
+
+        List<VolumeStatsResponse.VolumeDataPoint> currentPoints = toVolumeDataPoints(currentRoutines);
+        List<VolumeStatsResponse.VolumeDataPoint> previousPoints = toVolumeDataPoints(previousRoutines);
+
+        return VolumeStatsResponse.builder()
+                .current(currentPoints)
+                .previous(previousPoints)
+                .build();
+    }
+
+    private List<VolumeStatsResponse.VolumeDataPoint> toVolumeDataPoints(List<Routine> routines) {
+        return routines.stream()
+                .map(r -> {
+                    double total = r.getExercises().stream()
+                            .filter(Exercise::isCompleted)
+                            .mapToDouble(ex -> {
+                                int sets = ex.getSets() != null ? ex.getSets() : 0;
+                                int reps = ex.getReps() != null ? ex.getReps() : 0;
+                                double w = ex.getWeight() != null ? ex.getWeight() : 0.0;
+                                return sets * reps * w;
+                            })
+                            .sum();
+                    return VolumeStatsResponse.VolumeDataPoint.builder()
+                            .date(r.getDate().toString())
+                            .totalVolume(total)
+                            .build();
+                })
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -641,7 +725,195 @@ public class RoutineServiceImpl implements RoutineService {
         log.info("프리셋 적용 완료: memberId={}, presetIndex={}, startDate={}, days={}", memberId, presetIndex, startDate, days.size());
         messagingTemplate.convertAndSend("/topic/routine/generate", java.util.Map.of("completed", true, "memberId", memberId));
     }
-    
+
+    @Override
+    @Transactional
+    public void createRoutinesFromRecommendation(Long memberId, CreateRoutinesFromRecommendationRequest request) {
+        LocalDate startDate = request.getStartDate() != null ? request.getStartDate() : LocalDate.now();
+        List<CreateRoutinesFromRecommendationRequest.DayRecommendation> days = request.getDays();
+        if (days == null || days.isEmpty()) {
+            return;
+        }
+        for (CreateRoutinesFromRecommendationRequest.DayRecommendation day : days) {
+            int dayIndex = day.getDayIndex() != null ? day.getDayIndex() : 0;
+            LocalDate date = startDate.plusDays(dayIndex - 1);
+            String title = (day.getLabel() != null && !day.getLabel().isBlank())
+                ? day.getLabel().trim()
+                : (dayIndex + "일차");
+            List<ExerciseAddRequest> exercises = new ArrayList<>();
+            if (day.getExercises() != null) {
+                for (Map<String, Object> ex : day.getExercises()) {
+                    Object nameObj = ex.get("exercise_name") != null ? ex.get("exercise_name") : ex.get("name");
+                    Object bodyPartObj = ex.get("body_part");
+                    String name = nameObj != null ? String.valueOf(nameObj).trim() : null;
+                    if (name == null || name.isEmpty()) continue;
+                    String bodyPartStr = bodyPartObj != null ? String.valueOf(bodyPartObj).trim() : null;
+                    ExerciseCategory category = bodyPartStr != null ? BodyPartMapper.mapBodyPartToCategory(bodyPartStr) : null;
+                    String categoryStr = category != null ? category.name() : "CHEST";
+                    exercises.add(new ExerciseAddRequest(name, categoryStr, 3, 10, null));
+                }
+            }
+            RoutineCreateRequest routineCreate = new RoutineCreateRequest();
+            routineCreate.setDate(date);
+            routineCreate.setTitle(title);
+            routineCreate.setSummary(buildCoachingSummary(title, exercises));
+            saveRoutineWithExercisesFromAi(memberId, date, routineCreate, exercises);
+        }
+        log.info("추천 루틴 생성 완료: memberId={}, startDate={}, daysCount={}", memberId, startDate, days.size());
+        messagingTemplate.convertAndSend("/topic/routine/generate", java.util.Map.of("completed", true, "memberId", memberId));
+    }
+
+    @Override
+    @Transactional
+    public void swapRoutineDays(Long memberId, LocalDate date1, LocalDate date2) {
+        if (date1.equals(date2)) {
+            return;
+        }
+        Optional<Routine> opt1 = routineRepository.findByDateAndMemberId(date1, memberId);
+        Optional<Routine> opt2 = routineRepository.findByDateAndMemberId(date2, memberId);
+        if (opt1.isEmpty() || opt2.isEmpty()) {
+            return;
+        }
+        Routine routine1 = opt1.get();
+        Routine routine2 = opt2.get();
+        // 제목·요약 스왑
+        String title1 = routine1.getTitle();
+        String summary1 = routine1.getAiSummary();
+        routine1.setTitle(routine2.getTitle());
+        routine1.setAiSummary(routine2.getAiSummary());
+        routine2.setTitle(title1);
+        routine2.setAiSummary(summary1);
+        // 운동 목록 복사본으로 스왑 (엔티티 직접 스왑)
+        List<Exercise> list1 = new ArrayList<>(routine1.getExercises());
+        List<Exercise> list2 = new ArrayList<>(routine2.getExercises());
+        routine1.getExercises().clear();
+        routine2.getExercises().clear();
+        for (Exercise ex : list2) {
+            Exercise copy = Exercise.builder()
+                .exerciseType(ex.getExerciseType())
+                .sets(ex.getSets())
+                .reps(ex.getReps())
+                .weight(ex.getWeight())
+                .orderIndex(ex.getOrderIndex())
+                .completed(ex.isCompleted())
+                .routine(routine1)
+                .build();
+            routine1.getExercises().add(copy);
+        }
+        for (Exercise ex : list1) {
+            Exercise copy = Exercise.builder()
+                .exerciseType(ex.getExerciseType())
+                .sets(ex.getSets())
+                .reps(ex.getReps())
+                .weight(ex.getWeight())
+                .orderIndex(ex.getOrderIndex())
+                .completed(ex.isCompleted())
+                .routine(routine2)
+                .build();
+            routine2.getExercises().add(copy);
+        }
+        routineRepository.save(routine1);
+        routineRepository.save(routine2);
+        messagingTemplate.convertAndSend("/topic/routine/generate", java.util.Map.of("completed", true, "memberId", memberId));
+        log.info("루틴 요일 맞바꿈 완료: memberId={}, date1={}, date2={}", memberId, date1, date2);
+    }
+
+    @Override
+    @Transactional
+    public void applyPainModify(Long memberId, PainModifyApplyRequest request) {
+        if (request.getDate() == null || request.getReplacements() == null) {
+            return;
+        }
+        RoutineResponse routine = getRoutineByDate(memberId, request.getDate());
+        if (routine == null || routine.getExercises() == null) {
+            return;
+        }
+        Map<Long, String> replacementMap = request.getReplacements().stream()
+            .filter(r -> r.getSelectedName() != null && !r.getSelectedName().isBlank())
+            .collect(Collectors.toMap(PainModifyApplyRequest.ReplacementItem::getExerciseId, PainModifyApplyRequest.ReplacementItem::getSelectedName));
+        Set<String> seenNames = new LinkedHashSet<>();
+        List<ExerciseAddRequest> newExercises = new ArrayList<>();
+        for (ExerciseResponse ex : routine.getExercises()) {
+            String name = replacementMap.getOrDefault(ex.getId(), ex.getName());
+            if (name == null || name.isBlank()) {
+                name = ex.getName();
+            }
+            if (seenNames.contains(name)) {
+                name = ex.getName() != null ? ex.getName() : name;
+            }
+            seenNames.add(name);
+            newExercises.add(new ExerciseAddRequest(
+                name,
+                ex.getMainTarget() != null ? ex.getMainTarget() : "CHEST",
+                ex.getSets() != null ? ex.getSets() : 3,
+                ex.getReps() != null ? ex.getReps() : 10,
+                ex.getWeight()));
+        }
+        newExercises = dedupeExercisesByName(newExercises);
+        RoutineCreateRequest create = new RoutineCreateRequest();
+        create.setDate(request.getDate());
+        create.setTitle(routine.getTitle());
+        create.setSummary(routine.getSummary() != null ? routine.getSummary() : routine.getTitle());
+        saveRoutineWithExercisesFromAi(memberId, request.getDate(), create, newExercises);
+        log.info("통증 수정 적용 완료: memberId={}, date={}, replacements={}", memberId, request.getDate(), replacementMap.size());
+    }
+
+    /**
+     * 루틴 제목(날 유형)에 맞는 AI 코칭 요약 생성.
+     * 그날 무엇을 조심해야 하고, 어떤 식으로 해야 하는 날인지 팁을 포함.
+     */
+    private String buildCoachingSummary(String title, List<ExerciseAddRequest> exercises) {
+        if (title == null || title.isBlank()) {
+            title = "운동";
+        }
+        String lower = title.toLowerCase();
+        StringBuilder sb = new StringBuilder();
+
+        if (lower.contains("chest") || lower.contains("가슴") || lower.contains("triceps") || lower.contains("삼두")) {
+            sb.append("어깨·손목 부담이 큰 동작이 있으니 워밍업을 충분히 하세요.\n");
+            sb.append("가슴 수축에 집중하고, 무리한 중량보다 동작 품질을 우선하세요.\n");
+        } else if (lower.contains("back") || lower.contains("등") || lower.contains("biceps") || lower.contains("이두")) {
+            sb.append("등·허리 사용이 많으니 코어를 조이며 자세를 유지하세요.\n");
+            sb.append("당기는 동작 시 견갑골을 모으는 느낌으로 하면 효과가 좋아요.\n");
+        } else if (lower.contains("shoulder") || lower.contains("어깨")) {
+            sb.append("어깨는 부상 위험이 있으니 무게보다 정확한 동작을 우선하세요.\n");
+            sb.append("오버헤드 동작 전 어깨·목 스트레칭을 꼭 하세요.\n");
+        } else if (lower.contains("leg") || lower.contains("하체") || lower.contains("lower")) {
+            sb.append("무릎·허리 과부하를 막으려 워밍업과 동작 범위를 신경 쓰세요.\n");
+            sb.append("하체는 부담이 크니 세트 간 휴식과 호흡을 충분히 하세요.\n");
+        } else if (lower.contains("arm") || lower.contains("팔")) {
+            sb.append("손목·팔꿈치에 무리가 가지 않도록 그립과 각도를 맞추세요.\n");
+            sb.append("이두·삼두 수축 구간을 의식하면 자극이 잘 들어가요.\n");
+        } else if (lower.contains("upper") || lower.contains("상체")) {
+            sb.append("상체 종합이므로 순서대로, 큰 근육(가슴·등)부터 진행하세요.\n");
+            sb.append("어깨·손목 워밍업 후 시작하면 부상 위험이 줄어듭니다.\n");
+        } else if (lower.contains("core") || lower.contains("복근") || lower.contains("코어")) {
+            sb.append("허리 과신전을 피하고, 복부에 힘을 주는 느낌으로 하세요.\n");
+            sb.append("호흡을 멈추지 말고, 내쉬는 구간에서 힘을 주세요.\n");
+        } else {
+            sb.append("워밍업 후 시작하고, 동작이 흐트러지면 무게를 조금 줄여보세요.\n");
+        }
+        return sb.toString().trim();
+    }
+
+    /** 같은 날 루틴에 같은 운동명이 한 번만 들어가도록, 이름 기준 첫 번째만 유지 */
+    private List<ExerciseAddRequest> dedupeExercisesByName(List<ExerciseAddRequest> exercises) {
+        if (exercises == null || exercises.isEmpty()) {
+            return exercises;
+        }
+        Set<String> seen = new LinkedHashSet<>();
+        List<ExerciseAddRequest> result = new ArrayList<>();
+        for (ExerciseAddRequest ex : exercises) {
+            String name = ex.getName() != null ? ex.getName().trim() : "";
+            if (name.isEmpty() || seen.contains(name)) {
+                continue;
+            }
+            seen.add(name);
+            result.add(ex);
+        }
+        return result;
+    }
+
     private RoutineResponse toRoutineResponse(Routine routine, boolean isToday) {
         List<ExerciseResponse> exerciseResponses = routine.getExercises().stream()
             .sorted(Comparator.comparing(Exercise::getOrderIndex))
@@ -687,77 +959,5 @@ public class RoutineServiceImpl implements RoutineService {
             .orderIndex(exercise.getOrderIndex())
             .completed(exercise.isCompleted())
             .build();
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public VolumeStatsResponse getVolumeStats(Long memberId, String period) {
-        log.info("총 볼륨 통계 조회: memberId={}, period={}", memberId, period);
-
-        LocalDate today = LocalDate.now();
-        LocalDate startDate, endDate, previousStartDate, previousEndDate;
-
-        if ("week".equals(period)) {
-            // 주별: 이번 주와 저번 주
-            int dayOfWeek = today.getDayOfWeek().getValue() - 1; // 0(월) ~ 6(일)
-            startDate = today.minusDays(dayOfWeek); // 이번 주 월요일
-            endDate = startDate.plusDays(6); // 이번 주 일요일
-            previousStartDate = startDate.minusWeeks(1); // 저번 주 월요일
-            previousEndDate = previousStartDate.plusDays(6); // 저번 주 일요일
-        } else {
-            // 월별: 이번 달과 저번 달
-            startDate = LocalDate.of(today.getYear(), today.getMonth(), 1); // 이번 달 1일
-            endDate = startDate.plusMonths(1).minusDays(1); // 이번 달 마지막 날
-            previousStartDate = startDate.minusMonths(1); // 저번 달 1일
-            previousEndDate = startDate.minusDays(1); // 저번 달 마지막 날
-        }
-
-        // 이번 기간 루틴 조회
-        List<Routine> currentRoutines = routineRepository.findByMemberIdAndDateBetween(
-            memberId, startDate, endDate
-        );
-
-        // 저번 기간 루틴 조회
-        List<Routine> previousRoutines = routineRepository.findByMemberIdAndDateBetween(
-            memberId, previousStartDate, previousEndDate
-        );
-
-        // 총 볼륨 계산
-        List<VolumeStatsResponse.VolumeDataPoint> currentData = calculateVolumeDataPoints(currentRoutines);
-        List<VolumeStatsResponse.VolumeDataPoint> previousData = calculateVolumeDataPoints(previousRoutines);
-
-        return VolumeStatsResponse.builder()
-            .current(currentData)
-            .previous(previousData)
-            .build();
-    }
-
-    private List<VolumeStatsResponse.VolumeDataPoint> calculateVolumeDataPoints(List<Routine> routines) {
-        Map<LocalDate, Double> volumeByDate = new HashMap<>();
-
-        for (Routine routine : routines) {
-            double totalVolume = 0.0;
-
-            // 완료된 운동만 포함하여 총 볼륨 계산
-            for (Exercise exercise : routine.getExercises()) {
-                if (exercise.isCompleted() && exercise.getSets() != null &&
-                    exercise.getReps() != null && exercise.getWeight() != null) {
-                    totalVolume += exercise.getSets() * exercise.getReps() * exercise.getWeight();
-                }
-            }
-
-            if (totalVolume > 0) {
-                volumeByDate.put(routine.getDate(), totalVolume);
-            }
-        }
-
-        // 날짜순으로 정렬하여 반환
-        return volumeByDate.entrySet().stream()
-            .sorted(Map.Entry.comparingByKey())
-            .map(entry -> VolumeStatsResponse.VolumeDataPoint.builder()
-                .date(entry.getKey().toString())
-                .totalVolume(entry.getValue())
-                .build())
-            .collect(Collectors.toList());
     }
 }

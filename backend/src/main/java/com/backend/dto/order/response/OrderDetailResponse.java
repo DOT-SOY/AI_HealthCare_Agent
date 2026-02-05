@@ -7,7 +7,9 @@ import lombok.Getter;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 @Getter
 @Builder
@@ -25,29 +27,18 @@ public class OrderDetailResponse {
     private List<OrderItemDetailResponse> items;
 
     public static OrderDetailResponse from(Order order) {
-        BigDecimal totalPayable = order.getTotalPayableAmount();
-        BigDecimal shippingFee = order.getShippingFee();
-        BigDecimal totalItemAmount = (totalPayable != null && shippingFee != null)
-                ? totalPayable.subtract(shippingFee)
-                : null;
         return OrderDetailResponse.builder()
                 .orderNo(order.getOrderNo())
                 .status(order.getStatus())
-                .totalItemAmount(totalItemAmount)
-                .shippingFee(shippingFee)
-                .totalPayableAmount(totalPayable)
+                .totalItemAmount(order.getTotalItemAmount())
+                .shippingFee(order.getShippingFee())
+                .totalPayableAmount(order.getTotalPayableAmount())
                 .createdAt(order.getCreatedAt())
-                .buyer(order.getBuyerSnapshot() != null
-                        ? OrderBuyerSnapshotResponse.from(order.getBuyerSnapshot())
-                        : null)
-                .shipTo(order.getShipToSnapshot() != null
-                        ? OrderShipToSnapshotResponse.from(order.getShipToSnapshot())
-                        : null)
-                .items(order.getItems() != null
-                        ? order.getItems().stream()
-                                .map(OrderItemDetailResponse::from)
-                                .toList()
-                        : List.of())
+                .buyer(OrderBuyerSnapshotResponse.from(order.getBuyerSnapshot()))
+                .shipTo(OrderShipToSnapshotResponse.from(order.getShipToSnapshot()))
+                .items(Optional.ofNullable(order.getItems()).orElse(Collections.emptyList()).stream()
+                        .map(OrderItemDetailResponse::from)
+                        .toList())
                 .build();
     }
 }

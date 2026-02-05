@@ -36,15 +36,11 @@ export const routineApi = {
   },
   
   getByDate: async (date) => {
-    // 날짜 문자열로 변환 (YYYY-MM-DD)
-    const dateStr = typeof date === 'string' ? date : new Date(date).toISOString().split('T')[0];
-    try {
-      const response = await jwtAxios.get('/routines/by-date', { params: { date: dateStr } });
-      return response.data;
-    } catch (error) {
-      console.error('날짜별 루틴 조회 실패:', error);
-      return null;
-    }
+    // 주간 루틴에서 해당 날짜 찾기
+    const response = await jwtAxios.get(`/routines/weekly`);
+    const routines = response.data;
+    const targetDate = new Date(date).toISOString().split('T')[0];
+    return routines.find(r => r.date === targetDate) || null;
   },
   
   create: async (date, title, summary) => {
@@ -61,30 +57,15 @@ export const routineApi = {
     return response.data;
   },
 
-  /** 프리셋 루틴 그룹 목록 (카드 1: 분할 4일, 카드 2: 상하체 2일) */
-  getPresets: async () => {
-    const response = await jwtAxios.get('/routines/presets');
+  /** AI 루틴 추천 모달에서 "루틴 생성하기" 시 오늘부터 N일치 루틴 저장 */
+  createFromRecommendation: async (payload) => {
+    const response = await jwtAxios.post('/routines/from-recommendation', payload);
     return response.data;
   },
 
-  /** 선택한 프리셋 적용. startDate부터 연속 일수만큼 루틴 저장. presetIndex 0=4일, 1=2일 */
-  applyPreset: async (startDate, presetIndex) => {
-    const dateStr = typeof startDate === 'string' ? startDate : startDate.toISOString().split('T')[0];
-    const response = await jwtAxios.post('/routines/apply-preset', {
-      startDate: dateStr,
-      presetIndex,
-    });
-    return response.data;
-  },
-
-  /** 루틴 내 운동 수정 (이름/세트/횟수 등). 대체 운동 선택 시 사용 */
-  updateExercise: async (routineId, exerciseId, body) => {
-    const response = await jwtAxios.put(`/routines/${routineId}/exercises/${exerciseId}`, body);
-    return response.data;
-  },
-
-  getVolumeStats: async (period = 'month') => {
-    const response = await jwtAxios.get('/routines/volume-stats', { params: { period } });
+  /** 통증 수정 모달에서 선택한 대체 운동 적용 */
+  applyPainModify: async (payload) => {
+    const response = await jwtAxios.post('/routines/pain-modify-apply', payload);
     return response.data;
   },
 };

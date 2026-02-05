@@ -40,22 +40,12 @@ public interface OrderService {
     void updateShipToForMember(String orderNo, Long memberId, OrderCreateFromCartRequest.ShipToDto shipToDto);
 
     /**
-     * 날짜, 상품명, 배송 상태로 주문 조회
-     * @param memberId 회원 ID
-     * @param date 날짜 (null이면 최신)
-     * @param productName 상품명 (null이면 필터링 안 함)
-     * @param status 배송 상태 (null이면 필터링 안 함)
-     * @return 주문 목록 (날짜/상품명/상태가 모두 null이면 최신 1개)
-     */
-    List<OrderSummaryResponse> getOrdersByFilters(Long memberId, LocalDate date, String productName, OrderStatus status);
-
-    /**
      * 관리자용 전체 주문 목록 조회 (페이지네이션, 기간·상태 필터)
      */
     PageResponse<OrderSummaryResponse> getAdminOrders(OrderListRequest request);
 
     /**
-     * 관리자용 주문 상세 조회 (orderNo만으로 조회)
+     * 관리자용 주문 상세 조회 (전체 유저 주문 접근 가능)
      */
     OrderDetailResponse getOrderDetailForAdmin(String orderNo);
 
@@ -63,5 +53,10 @@ public interface OrderService {
      * 관리자용 주문 배송 상태 변경 (SHIPPED, DELIVERED, CANCELED)
      */
     void updateOrderStatusForAdmin(String orderNo, com.backend.domain.order.OrderStatus status);
+
+    /**
+     * 회원 주문 목록 필터 조회 (날짜·상품명·배송상태). AI 배송 조회용.
+     */
+    List<OrderSummaryResponse> getOrdersByFilters(Long memberId, LocalDate targetDate, String productName, OrderStatus status);
 }
 

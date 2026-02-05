@@ -3,7 +3,7 @@ import { Navigate } from "react-router-dom";
 
 const Loading = <div>Loading...</div>;
 const OrderListPage = lazy(() => import("../pages/admin/OrderListPage"));
-const AdminOrderDetailPage = lazy(() => import("../pages/admin/AdminOrderDetailPage"));
+const OrderDetailPage = lazy(() => import("../pages/admin/OrderDetailPage"));
 
 const adminRouter = () => {
   return [
@@ -23,7 +23,7 @@ const adminRouter = () => {
       path: "orders/:orderNo",
       element: (
         <Suspense fallback={Loading}>
-          <AdminOrderDetailPage />
+          <OrderDetailPage />
         </Suspense>
       ),
     },

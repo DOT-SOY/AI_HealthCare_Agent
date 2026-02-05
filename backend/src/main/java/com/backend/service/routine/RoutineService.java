@@ -1,5 +1,6 @@
 package com.backend.service.routine;
 
+import com.backend.dto.request.CreateRoutinesFromRecommendationRequest;
 import com.backend.dto.request.ExerciseAddRequest;
 import com.backend.dto.request.ExerciseUpdateRequest;
 import com.backend.dto.request.RoutineCreateRequest;
@@ -56,7 +57,7 @@ public interface RoutineService {
     
     ExerciseResponse updateExercise(Long routineId, Long exerciseId, ExerciseUpdateRequest request);
     
-    void deleteExercise(Long routineId, Long exerciseId);
+    void deleteExercise(Long memberId, Long routineId, Long exerciseId);
 
     /**
      * 루틴 + 운동 목록을 한 트랜잭션에서 저장.
@@ -78,10 +79,26 @@ public interface RoutineService {
     void applyPreset(Long memberId, java.time.LocalDate startDate, int presetIndex);
 
     /**
+     * AI 루틴 추천 모달에서 "루틴 생성하기"로 오늘부터 N일치 루틴을 저장.
+     */
+    void createRoutinesFromRecommendation(Long memberId, CreateRoutinesFromRecommendationRequest request);
+
+    /**
      * 총 볼륨 통계 조회
      * - period: "month" (월별) 또는 "week" (주별)
      * - 완료된 운동만 포함하여 총 볼륨 계산 (sets × reps × weight)
      */
     VolumeStatsResponse getVolumeStats(Long memberId, String period);
+
+    /**
+     * 두 날짜의 루틴 내용을 맞바꿉니다 (제목·요약·운동 목록).
+     */
+    void swapRoutineDays(Long memberId, LocalDate date1, LocalDate date2);
+
+    /**
+     * 통증 수정 모달에서 사용자가 선택한 대체 운동으로 루틴을 갱신합니다.
+     */
+    void applyPainModify(Long memberId, com.backend.dto.request.PainModifyApplyRequest request);
 }
+
 

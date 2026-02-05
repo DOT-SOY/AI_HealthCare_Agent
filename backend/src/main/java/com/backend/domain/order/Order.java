@@ -165,7 +165,7 @@ public class Order extends AuditEntity {
 
     /**
      * 관리자 배송 상태 변경.
-     * 허용 전이: PAID→SHIPPED, PAID→CANCELED, SHIPPED→DELIVERED, CREATED/PAYMENT_PENDING→CANCELED, CANCELED→PAID(복구)
+     * 허용 전이: PAID→SHIPPED, PAID→CANCELED, SHIPPED→DELIVERED, CREATED/PAYMENT_PENDING→CANCELED
      */
     public void updateStatusByAdmin(OrderStatus newStatus) {
         if (newStatus == OrderStatus.SHIPPED) {
@@ -181,13 +181,8 @@ public class Order extends AuditEntity {
                 throw new IllegalStateException("DELIVERED 상태는 CANCELED로 변경할 수 없습니다.");
             }
             // CREATED, PAYMENT_PENDING, PAID, SHIPPED → CANCELED 허용
-        } else if (newStatus == OrderStatus.PAID) {
-            if (this.status != OrderStatus.CANCELED) {
-                throw new IllegalStateException("PAID(복구)는 CANCELED 상태에서만 가능합니다.");
-            }
-            // CANCELED → PAID 복구 허용
         } else {
-            throw new IllegalStateException("관리자는 SHIPPED, DELIVERED, CANCELED, PAID(복구)로만 변경할 수 있습니다.");
+            throw new IllegalStateException("관리자는 SHIPPED, DELIVERED, CANCELED로만 변경할 수 있습니다.");
         }
         this.status = newStatus;
     }

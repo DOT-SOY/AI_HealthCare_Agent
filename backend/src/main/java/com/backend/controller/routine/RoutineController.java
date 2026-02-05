@@ -1,6 +1,8 @@
 package com.backend.controller.routine;
 
 import com.backend.dto.request.ApplyPresetRequest;
+import com.backend.dto.request.CreateRoutinesFromRecommendationRequest;
+import com.backend.dto.request.PainModifyApplyRequest;
 import com.backend.dto.request.ExerciseAddRequest;
 import com.backend.dto.request.ExerciseUpdateRequest;
 import com.backend.dto.request.RoutineCreateRequest;
@@ -160,6 +162,37 @@ public class RoutineController {
         ));
     }
 
+    /**
+     * AI 루틴 추천 모달에서 "루틴 생성하기" 클릭 시, 오늘부터 N일치 루틴 저장
+     */
+    @PostMapping("/from-recommendation")
+    public ResponseEntity<Map<String, Object>> createFromRecommendation(
+            @RequestBody CreateRoutinesFromRecommendationRequest request) {
+        Long memberId = currentMemberService.getCurrentMemberOrThrow().getId();
+        if (request.getDays() == null || request.getDays().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "days must not be empty"));
+        }
+        routineService.createRoutinesFromRecommendation(memberId, request);
+        return ResponseEntity.ok(Map.of(
+                "message", "루틴이 저장되었습니다.",
+                "startDate", (request.getStartDate() != null ? request.getStartDate() : LocalDate.now()).toString(),
+                "daysCount", request.getDays().size()
+        ));
+    }
+
+    /**
+     * 통증 수정 모달에서 선택한 대체 운동 적용
+     */
+    @PostMapping("/pain-modify-apply")
+    public ResponseEntity<Map<String, Object>> applyPainModify(@RequestBody PainModifyApplyRequest request) {
+        Long memberId = currentMemberService.getCurrentMemberOrThrow().getId();
+        routineService.applyPainModify(memberId, request);
+        return ResponseEntity.ok(Map.of(
+                "message", "루틴이 수정되었습니다.",
+                "date", (request.getDate() != null ? request.getDate() : LocalDate.now()).toString()
+        ));
+    }
+
     @PutMapping("/{routineId}/status")
     public ResponseEntity<RoutineResponse> updateRoutineStatus(
         @PathVariable Long routineId,
@@ -193,7 +226,8 @@ public class RoutineController {
         @PathVariable Long routineId,
         @PathVariable Long exerciseId
     ) {
-        routineService.deleteExercise(routineId, exerciseId);
+        Long memberId = currentMemberService.getCurrentMemberOrThrow().getId();
+        routineService.deleteExercise(memberId, routineId, exerciseId);
         return ResponseEntity.noContent().build();
     }
     

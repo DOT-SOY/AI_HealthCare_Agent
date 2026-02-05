@@ -16,6 +16,12 @@ from services.chat_service import generate_ai_answer
 from services.pain_advice_service import generate_pain_advice
 from services.workout_feedback_service import generate_workout_feedback
 from services.image_classification_service import get_image_classification_service
+from services.routine_recommend_service import (
+    recommend_exercises,
+    recommend_for_split_day,
+    get_alternatives_for_exercise,
+    get_split_definitions,
+)
 
 app = FastAPI(title="GrowLog AI Server")
 
@@ -87,6 +93,24 @@ class FoodAnalyzeResponse(BaseModel):
     intent: str = "FOOD_ANALYSIS"
     message: str
     data: Optional[Dict[str, Any]] = None
+
+
+class RoutineRecommendRequest(BaseModel):
+    """루틴 추천 요청: 타겟/배제 부위 또는 분할+요일, 또는 대체 운동 요청"""
+    target_body_parts: Optional[List[str]] = None
+    exclude_body_parts: Optional[List[str]] = None
+    split_type: Optional[int] = None  # 2, 4, 5
+    day_index: Optional[int] = None   # 0-based
+    replace_exercise_name: Optional[str] = None
+    exclude_exercise_names: Optional[List[str]] = None  # 이미 추천된 운동명 (중복 제외)
+    limit: int = 10
+
+
+class RoutineRecommendResponse(BaseModel):
+    message: str
+    exercises: List[Dict[str, Any]] = []
+    alternatives: Optional[Dict[str, Any]] = None
+    split_definitions: Optional[Dict[str, Any]] = None
 
 
 
@@ -203,6 +227,56 @@ async def analyze_food(file: UploadFile = File(...)):
         intent="FOOD_ANALYSIS",
         message="음식 분석 준비 중입니다. 곧 연결될 예정입니다.",
         data=None
+    )
+
+
+@app.post("/routine/recommend", response_model=RoutineRecommendResponse)
+async def routine_recommend(request: RoutineRecommendRequest):
+    """
+    RAG 기반 루틴/대체 운동 추천.
+    - target_body_parts + exclude_body_parts: 타겟 부위 유지, 위험 부위 배제
+    - split_type + day_index: 2/4/5 분할의 해당 요일 부위로 추천
+    - replace_exercise_name: 해당 운동의 대체 운동 (부상 위험 배제 적용)
+    """
+    exclude = request.exclude_body_parts or []
+
+    if request.replace_exercise_name:
+        alt = get_alternatives_for_exercise(request.replace_exercise_name, exclude)
+        return RoutineRecommendResponse(
+            message=f"'{request.replace_exercise_name}' 대체 운동 추천 (부상 위험 부위 배제 적용)",
+            alternatives=alt,
+        )
+
+    if request.split_type is not None and request.day_index is not None:
+        exercises = recommend_for_split_day(
+            split_type=request.split_type,
+            day_index=request.day_index,
+            exclude_body_parts=exclude,
+            limit=request.limit,
+            exclude_exercise_names=request.exclude_exercise_names,
+        )
+        splits = get_split_definitions()
+        return RoutineRecommendResponse(
+            message=f"{request.split_type}분할 {request.day_index + 1}일차 추천 (위험 부위 배제 적용)",
+            exercises=exercises,
+            split_definitions=splits,
+        )
+
+    if request.target_body_parts:
+        exercises = recommend_exercises(
+            target_body_parts=request.target_body_parts,
+            exclude_body_parts=exclude,
+            limit=request.limit,
+        )
+        return RoutineRecommendResponse(
+            message="타겟 부위 유지, 위험 부위 배제 기준 추천",
+            exercises=exercises,
+        )
+
+    return RoutineRecommendResponse(
+        message="target_body_parts 또는 split_type+day_index 또는 replace_exercise_name 중 하나를 지정해주세요.",
+        exercises=[],
+        split_definitions=get_split_definitions(),
     )
 
 

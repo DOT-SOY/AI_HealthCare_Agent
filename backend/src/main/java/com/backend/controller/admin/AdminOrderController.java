@@ -26,17 +26,6 @@ public class AdminOrderController {
     private final OrderService orderService;
 
     /**
-     * 관리자용 주문 상세 조회 (배송 상태 관리용)
-     * - {orderNo:.+} 로 경로 변수 전체 매칭 (Spring 6에서 NoResourceFoundException 방지)
-     */
-    @GetMapping("/{orderNo:.+}")
-    public ResponseEntity<OrderDetailResponse> getOrderDetail(
-            @PathVariable("orderNo") String orderNo) {
-        OrderDetailResponse response = orderService.getOrderDetailForAdmin(orderNo);
-        return ResponseEntity.ok(response);
-    }
-
-    /**
      * 관리자용 전체 주문 목록 (페이지네이션, 기간·상태 필터)
      */
     @GetMapping
@@ -47,9 +36,19 @@ public class AdminOrderController {
     }
 
     /**
+     * 관리자용 주문 상세 조회 (전체 유저 주문)
+     */
+    @GetMapping("/{orderNo}")
+    public ResponseEntity<OrderDetailResponse> getOrderDetail(
+            @PathVariable("orderNo") String orderNo) {
+        OrderDetailResponse response = orderService.getOrderDetailForAdmin(orderNo);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * 관리자용 주문 배송 상태 변경 (SHIPPED, DELIVERED, CANCELED)
      */
-    @PatchMapping("/{orderNo:.+}/status")
+    @PatchMapping("/{orderNo}/status")
     public ResponseEntity<Void> updateOrderStatus(
             @PathVariable("orderNo") String orderNo,
             @Valid @RequestBody OrderStatusUpdateRequest body) {

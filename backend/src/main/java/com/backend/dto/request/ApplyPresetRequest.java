@@ -12,8 +12,6 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ApplyPresetRequest {
-    /** 적용 시작일 (없으면 오늘) */
     private LocalDate startDate;
-    /** 0 = 분할 4일 (Push→Pull→Leg→Core+), 1 = 상하체 2일 */
     private Integer presetIndex;
 }
