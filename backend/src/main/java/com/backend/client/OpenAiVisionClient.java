@@ -35,11 +35,10 @@ public class OpenAiVisionClient {
             "You are reading an InBody or body composition report image (인바디/체성분 검사 결과). "
             + "Extract every number you see next to these labels (Korean or English): "
             + "체중/weight(kg), 키/height(cm), 골격근량/skeletalMuscleMass(kg), 체지방률/bodyFatPercent(%), "
-            + "체수분/bodyWater(L), 단백질/protein(kg), 무기질/minerals(kg), 체지방량/bodyFatMass(kg). "
+            + "체수분/bodyWater(L), 단백질/protein(kg), 무기질/minerals(kg), 체지방량/bodyFatMass(kg), "
+            + "적정체중/targetWeight(kg), 체중조절/weightControl(kg), 지방조절/fatControl(kg), 근육조절/muscleControl(kg). "
             + "If the image has '검사일시' (inspection date/time), use that date for measurementDate and return it as YYYY-MM-DD (e.g. 2025.01.30. 14:28 -> \"2025-01-30\"). If no 검사일시 or 측정일/검사일, omit or null. "
-            + "Return ONLY a single JSON object, no markdown, no explanation. Use null for any value that is missing, blank, or shown as dash. "
-            + "Example: {\"weight\":72.4,\"height\":173,\"skeletalMuscleMass\":32.1,\"bodyFatPercent\":18.8,\"bodyWater\":42.0,\"protein\":10.5,\"minerals\":3.2,\"bodyFatMass\":13.6,\"measurementDate\":\"2025-01-30\"}";
-
+            + "Return ONLY a single JSON object, no markdown, no explanation. Use null for any value that is missing, blank, or shown as dash. ";
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
@@ -123,6 +122,10 @@ public class OpenAiVisionClient {
                     .protein(asDoubleOrNull(json.path("protein")))
                     .minerals(asDoubleOrNull(json.path("minerals")))
                     .bodyFatMass(asDoubleOrNull(json.path("bodyFatMass")))
+                    .targetWeight(asDoubleOrNull(json.path("targetWeight")))
+                    .weightControl(asDoubleOrNull(json.path("weightControl")))
+                    .fatControl(asDoubleOrNull(json.path("fatControl")))
+                    .muscleControl(asDoubleOrNull(json.path("muscleControl")))
                     .measurementDate(measurementDate)
                     .build();
 

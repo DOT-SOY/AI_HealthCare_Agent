@@ -3,13 +3,16 @@ package com.backend.service.memberinfo;
 import com.backend.common.exception.BusinessException;
 import com.backend.common.exception.ErrorCode;
 import com.backend.domain.member.Member;
+import com.backend.domain.meal.Meal;
 import com.backend.domain.memberinfo.MemberInfoBody;
 import com.backend.domain.memberinfo.MemberInfoBody.DataSource;
 import com.backend.dto.memberinfo.BodyCompareFeedbackDTO;
 import com.backend.dto.memberinfo.MemberInfoBodyDTO;
 import com.backend.dto.memberinfo.MemberInfoBodyResponseDTO;
 import com.backend.repository.member.MemberRepository;
+import com.backend.repository.meal.MealRepository;
 import com.backend.repository.memberinfo.MemberInfoBodyRepository;
+import com.backend.repository.routine.RoutineRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
@@ -20,9 +23,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.time.temporal.ChronoUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +35,8 @@ public class MemberInfoBodyServiceImpl implements MemberInfoBodyService {
 
     private final MemberInfoBodyRepository memberInfoBodyRepository;
     private final MemberRepository memberRepository;
+    private final MealRepository mealRepository;
+    private final RoutineRepository routineRepository;
 
     @Override
     public Long create(Long memberId, MemberInfoBodyDTO dto) {
@@ -218,11 +223,38 @@ public class MemberInfoBodyServiceImpl implements MemberInfoBodyService {
             }
         }
 
+        // 옵션1: 직전 측정일 ~ 이번 측정일 사이 식단/운동 루틴 집계 피드백
+        String mealFeedback = "";
+        String exerciseFeedback = "";
+        if (hasComparison) {
+            Long memberId = current.getMemberId();
+            ZoneId zone = ZoneId.systemDefault();
+            LocalDate startDate = previous.getMeasuredTime() != null
+                    ? previous.getMeasuredTime().atZone(zone).toLocalDate()
+                    : null;
+            LocalDate endDate = current.getMeasuredTime() != null
+                    ? current.getMeasuredTime().atZone(zone).toLocalDate()
+                    : null;
+
+            if (startDate != null && endDate != null) {
+                if (endDate.isBefore(startDate)) {
+                    LocalDate tmp = startDate;
+                    startDate = endDate;
+                    endDate = tmp;
+                }
+                mealFeedback = buildMealFeedback(memberId, startDate, endDate);
+                exerciseFeedback = buildExerciseFeedback(memberId, startDate, endDate);
+            } else {
+                mealFeedback = "식단: 측정일 정보가 부족하여 비교할 수 없어요.";
+                exerciseFeedback = "운동: 측정일 정보가 부족하여 비교할 수 없어요.";
+            }
+        }
+
         return BodyCompareFeedbackDTO.builder()
                 .summary(summary)
                 .bodyChanges(bodyChanges)
-                .mealFeedback("")
-                .exerciseFeedback("")
+                .mealFeedback(mealFeedback)
+                .exerciseFeedback(exerciseFeedback)
                 .recommendations(recommendations)
                 .hasComparison(hasComparison)
                 .build();
@@ -230,6 +262,68 @@ public class MemberInfoBodyServiceImpl implements MemberInfoBodyService {
 
     private static double nullToZero(Double v) {
         return v == null ? 0.0 : v;
+    }
+
+    private String buildMealFeedback(Long userId, LocalDate start, LocalDate end) {
+        List<Meal> meals = mealRepository.findByUserIdAndMealDateBetween(userId, start, end);
+        long days = ChronoUnit.DAYS.between(start, end) + 1;
+
+        if (meals == null || meals.isEmpty()) {
+            return String.format("식단: %s~%s 기간에 기록이 없어 비교가 어려워요. 식단을 기록해보세요.", start, end);
+        }
+
+        int eatenCount = 0;
+        int skippedCount = 0;
+        int totalCalories = 0;
+        int totalProtein = 0;
+        int totalCarbs = 0;
+        int totalFat = 0;
+
+        for (Meal m : meals) {
+            if (m.getStatus() == Meal.MealStatus.EATEN) {
+                eatenCount++;
+                totalCalories += (m.getCalories() != null ? m.getCalories() : 0);
+                totalProtein += (m.getProtein() != null ? m.getProtein() : 0);
+                totalCarbs += (m.getCarbs() != null ? m.getCarbs() : 0);
+                totalFat += (m.getFat() != null ? m.getFat() : 0);
+            } else if (m.getStatus() == Meal.MealStatus.SKIPPED) {
+                skippedCount++;
+            }
+        }
+
+        int avgCalories = days > 0 ? (int) Math.round(totalCalories / (double) days) : totalCalories;
+        int avgProtein = days > 0 ? (int) Math.round(totalProtein / (double) days) : totalProtein;
+
+        return String.format(
+                "식단: %s~%s (%d일) 동안 섭취 %d건, 건너뜀 %d건. 일 평균 약 %dkcal / 단백질 %dg (탄%d·단%d·지%d) 기록이 있어요.",
+                start, end, days, eatenCount, skippedCount,
+                avgCalories, avgProtein, totalCarbs, totalProtein, totalFat
+        );
+    }
+
+    private String buildExerciseFeedback(Long memberId, LocalDate start, LocalDate end) {
+        var routines = routineRepository.findByMemberIdAndDateBetween(memberId, start, end);
+        long days = ChronoUnit.DAYS.between(start, end) + 1;
+
+        if (routines == null || routines.isEmpty()) {
+            return String.format("운동: %s~%s 기간에 루틴 기록이 없어 비교가 어려워요. 루틴을 기록/완료해보세요.", start, end);
+        }
+
+        long routineDays = routines.stream().map(r -> r.getDate()).distinct().count();
+        long completedDays = routines.stream()
+                .filter(r -> r.getStatus() == com.backend.domain.routine.RoutineStatus.COMPLETED)
+                .map(r -> r.getDate())
+                .distinct()
+                .count();
+        long completedExercises = routines.stream()
+                .flatMap(r -> r.getExercises() != null ? r.getExercises().stream() : java.util.stream.Stream.empty())
+                .filter(com.backend.domain.exercise.Exercise::isCompleted)
+                .count();
+
+        return String.format(
+                "운동: %s~%s (%d일) 중 루틴 %d일 기록, 완료 %d일. 완료한 운동(세트) %d개가 있어요.",
+                start, end, days, routineDays, completedDays, completedExercises
+        );
     }
 
     /**
@@ -257,32 +351,37 @@ public class MemberInfoBodyServiceImpl implements MemberInfoBodyService {
 
         // 적정체중: 키만 있으면 BMI 22 기준으로 계산
         double idealWeight = 0.0;
-        if (height != null) {
+        if (height != null && dto.getTargetWeight() == null) {
             double heightM = height / 100.0;
             idealWeight = 22.0 * heightM * heightM;
             dto.setTargetWeight(round1(idealWeight));
         }
 
-        // 체중·지방·근육 조절량: 키와 몸무게가 모두 있을 때만 계산
+        // 체중·지방·근육 조절량: 값이 비어 있을 때만 계산 (OCR 값이 있으면 그대로 사용)
         if (height == null || weight == null) {
-            dto.setWeightControl(0.0);
-            dto.setFatControl(0.0);
-            dto.setMuscleControl(0.0);
+            if (dto.getWeightControl() == null) dto.setWeightControl(0.0);
+            if (dto.getFatControl() == null) dto.setFatControl(0.0);
+            if (dto.getMuscleControl() == null) dto.setMuscleControl(0.0);
             return;
         }
 
-        double weightControl = idealWeight - weight;
-        dto.setWeightControl(round1(weightControl));
+        if (dto.getWeightControl() == null || dto.getFatControl() == null || dto.getMuscleControl() == null) {
+            double heightM = height / 100.0;
+            idealWeight = idealWeight > 0 ? idealWeight : 22.0 * heightM * heightM;
 
-        double targetFatRatio = 0.18;
-        double targetFatMass = idealWeight * targetFatRatio;
-        double currentFatMass = weight * (dto.getBodyFatPercent() != null ? dto.getBodyFatPercent() / 100.0 : 0.0);
-        dto.setFatControl(round1(targetFatMass - currentFatMass));
+            double weightControl = idealWeight - weight;
+            if (dto.getWeightControl() == null) dto.setWeightControl(round1(weightControl));
 
-        double targetLeanMass = idealWeight * (1 - targetFatRatio);
-        double targetSkeletalMuscle = targetLeanMass * 0.45;
-        double currentMuscle = dto.getSkeletalMuscleMass() != null ? dto.getSkeletalMuscleMass() : 0.0;
-        dto.setMuscleControl(round1(targetSkeletalMuscle - currentMuscle));
+            double targetFatRatio = 0.18;
+            double targetFatMass = idealWeight * targetFatRatio;
+            double currentFatMass = weight * (dto.getBodyFatPercent() != null ? dto.getBodyFatPercent() / 100.0 : 0.0);
+            if (dto.getFatControl() == null) dto.setFatControl(round1(targetFatMass - currentFatMass));
+
+            double targetLeanMass = idealWeight * (1 - targetFatRatio);
+            double targetSkeletalMuscle = targetLeanMass * 0.45;
+            double currentMuscle = dto.getSkeletalMuscleMass() != null ? dto.getSkeletalMuscleMass() : 0.0;
+            if (dto.getMuscleControl() == null) dto.setMuscleControl(round1(targetSkeletalMuscle - currentMuscle));
+        }
     }
 
     private static double round1(double v) {

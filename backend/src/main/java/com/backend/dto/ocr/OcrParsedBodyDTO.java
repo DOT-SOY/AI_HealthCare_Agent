@@ -19,6 +19,12 @@ public class OcrParsedBodyDTO {
     private Double minerals;
     private Double bodyFatMass;
 
+    // 인바디 "체중조절(Weight Control)" 영역 (kg)
+    private Double targetWeight;
+    private Double weightControl;
+    private Double fatControl;
+    private Double muscleControl;
+
     /** 이미지에 있는 측정일/검사일 (YYYY-MM-DD, OCR 추출 시) */
     private String measurementDate;
 }

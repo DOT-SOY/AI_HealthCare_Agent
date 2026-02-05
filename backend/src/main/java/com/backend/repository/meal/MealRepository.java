@@ -18,6 +18,12 @@ public interface MealRepository extends JpaRepository<Meal, Long> {
     // 용도: 수정/삭제 시 아침,저녁 다 불러올 필요 없이 얘만 딱 불러오려고 사용함. (성능 최적화)
     Optional<Meal> findByUserIdAndMealDateAndMealTime(Long userId, LocalDate mealDate, Meal.MealTime mealTime);
 
+    /**
+     * 특정 기간의 식단 조회 (옵션1: 직전 측정일 ~ 이번 측정일 사이 집계용)
+     * - LocalDate BETWEEN 은 양 끝 포함(inclusive)입니다.
+     */
+    List<Meal> findByUserIdAndMealDateBetween(Long userId, LocalDate start, LocalDate end);
+
     // 3. 회원 탈퇴 시 전체 삭제 (기존 유지)
     void deleteByUserId(Long userId);
 }

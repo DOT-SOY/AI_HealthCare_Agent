@@ -57,16 +57,20 @@ const ProfileIndex = () => {
   const ocrFileInputRef = useRef(null);
   const ocrSlotToFillRef = useRef(0);
 
+  const hasBodyComposition = (row) =>
+    row != null && (row.skeletalMuscleMass != null || row.bodyFatPercent != null);
+
   const fetchData = async () => {
     try {
       const data = await getMyBodyInfoHistory();
       if (data && data.length > 0) {
         setHistoryData(data);
-        setLatestInfo(data[0]);
+        // 회원가입 레코드(체성분 null)가 최신으로 잡혀도, 화면은 "체성분이 있는 측정값"을 우선 표시
+        const firstBody = data.find(hasBodyComposition);
+        setLatestInfo(firstBody ?? data[0]);
         // 배송지 목록도 함께 조회 (최신 신체정보 기준)
-        if (data[0]?.memberId) {
-          fetchAddressList(data[0].memberId);
-        }
+        const memberIdForAddr = (firstBody ?? data[0])?.memberId;
+        if (memberIdForAddr) fetchAddressList(memberIdForAddr);
       }
     } catch (error) {
       console.error("데이터 로딩 실패:", error);
@@ -175,7 +179,12 @@ const ProfileIndex = () => {
         bodyWater: field("bodyWater") ?? "",
         protein: field("protein") ?? "",
         minerals: field("minerals") ?? "",
-        bodyFatMass: field("bodyFatMass") ?? ""
+        bodyFatMass: field("bodyFatMass") ?? "",
+        // 인바디 "체중조절(Weight Control)" 영역 값들
+        targetWeight: field("targetWeight") ?? "",
+        weightControl: field("weightControl") ?? "",
+        fatControl: field("fatControl") ?? "",
+        muscleControl: field("muscleControl") ?? ""
       });
       const rawDate = parsedData?.measurementDate;
       const dateStr = rawDate
@@ -215,19 +224,31 @@ const ProfileIndex = () => {
     const measuredTime = measuredDateStr
       ? new Date(measuredDateStr + "T12:00:00.000Z").toISOString()
       : new Date().toISOString();
+    const height = field("height");
+    const weight = field("weight");
+    const targetWeight = field("targetWeight");
+    let weightControl = field("weightControl");
+
+    // OCR이 체중조절 값을 못 읽었더라도, targetWeight/weight가 있으면
+    // 인바디와 같은 의미의 체중조절 값(targetWeight - weight)을 보정해서 채워준다.
+    if (weightControl == null && targetWeight != null && weight != null) {
+      weightControl = Number((targetWeight - weight).toFixed(1));
+    }
+
     return {
       height: field("height"),
-      weight: field("weight"),
+      weight,
       skeletalMuscleMass: field("skeletalMuscleMass"),
       bodyFatPercent: field("bodyFatPercent"),
       bodyWater: field("bodyWater"),
       protein: field("protein"),
       minerals: field("minerals"),
       bodyFatMass: field("bodyFatMass"),
-      targetWeight: null,
-      weightControl: null,
-      fatControl: null,
-      muscleControl: null,
+      // 인바디 종이에 적힌 조절 수치를 그대로 저장 (kg)
+      targetWeight,
+      weightControl,
+      fatControl: field("fatControl"),
+      muscleControl: field("muscleControl"),
       exercisePurpose: null,
       measuredTime,
     };
@@ -255,33 +276,43 @@ const ProfileIndex = () => {
 
   const handleSave = async (updatedData) => {
     try {
+      // ✅ 백엔드 MemberInfoBodyDTO에 있는 필드만 전송 (응답 전용: memberName/gender/birthDate 등 제거)
       const payload = {
-        ...latestInfo,
-        ...updatedData
+        id: latestInfo?.id,
+        memberId: latestInfo?.memberId,
+
+        height: updatedData.height ?? latestInfo?.height ?? null,
+        weight: updatedData.weight ?? latestInfo?.weight ?? null,
+
+        skeletalMuscleMass: updatedData.skeletalMuscleMass ?? latestInfo?.skeletalMuscleMass ?? null,
+        bodyFatPercent: updatedData.bodyFatPercent ?? latestInfo?.bodyFatPercent ?? null,
+        bodyWater: updatedData.bodyWater ?? latestInfo?.bodyWater ?? null,
+        protein: updatedData.protein ?? latestInfo?.protein ?? null,
+        minerals: updatedData.minerals ?? latestInfo?.minerals ?? null,
+        bodyFatMass: updatedData.bodyFatMass ?? latestInfo?.bodyFatMass ?? null,
+
+        // 수동 수정에서는 계산값을 서버에서 다시 채우도록 null로 둡니다(또는 기존값 유지)
+        targetWeight: null,
+        weightControl: null,
+        fatControl: null,
+        muscleControl: null,
+
+        // 운동 목적이 폼에서 선택된 값으로 랭킹 '내 그룹'에 반영되도록 확실히 설정
+        exercisePurpose:
+          updatedData.exercisePurpose !== undefined && updatedData.exercisePurpose !== ''
+            ? updatedData.exercisePurpose
+            : (latestInfo?.exercisePurpose ?? null),
       };
 
-      // 운동 목적이 폼에서 선택된 값으로 랭킹 '내 그룹'에 반영되도록 확실히 설정
-      if (updatedData.exercisePurpose !== undefined && updatedData.exercisePurpose !== '') {
-        payload.exercisePurpose = updatedData.exercisePurpose;
-      }
-
-      // 불필요한 BaseEntity 필드 제거
-      delete payload.regDate;
-      delete payload.modDate;
-
-      // 숫자로 변환
-      payload.height = Number(payload.height);
-      payload.weight = Number(payload.weight);
-      payload.skeletalMuscleMass = Number(payload.skeletalMuscleMass);
-      payload.bodyFatPercent = Number(payload.bodyFatPercent);
-      payload.bodyWater = Number(payload.bodyWater);
-      payload.protein = Number(payload.protein);
-      payload.minerals = Number(payload.minerals);
-      payload.bodyFatMass = Number(payload.bodyFatMass);
-      payload.targetWeight = Number(payload.targetWeight);
-      payload.weightControl = Number(payload.weightControl);
-      payload.fatControl = Number(payload.fatControl);
-      payload.muscleControl = Number(payload.muscleControl);
+      const toNumOrNull = (v) => (v === "" || v == null ? null : Number(v));
+      payload.height = toNumOrNull(payload.height);
+      payload.weight = toNumOrNull(payload.weight);
+      payload.skeletalMuscleMass = toNumOrNull(payload.skeletalMuscleMass);
+      payload.bodyFatPercent = toNumOrNull(payload.bodyFatPercent);
+      payload.bodyWater = toNumOrNull(payload.bodyWater);
+      payload.protein = toNumOrNull(payload.protein);
+      payload.minerals = toNumOrNull(payload.minerals);
+      payload.bodyFatMass = toNumOrNull(payload.bodyFatMass);
 
       console.log("🚀 최종 전송 Payload:", payload);
 
@@ -296,8 +327,11 @@ const ProfileIndex = () => {
     }
   };
 
+  // 차트 데이터: 체성분이 있는 측정값만 사용 (회원가입 레코드는 제외)
+  const bodyHistory = historyData.filter(hasBodyComposition);
+
   // 차트 데이터 가공 - measuredTime을 X축에 표시 (오른쪽으로 갈수록 최근 날짜)
-  const sortedHistory = [...historyData].sort((a, b) => {
+  const sortedHistory = [...bodyHistory].sort((a, b) => {
     const aTime = a.measuredTime ? new Date(a.measuredTime).getTime() : 0;
     const bTime = b.measuredTime ? new Date(b.measuredTime).getTime() : 0;
     return aTime - bTime; // 오래된 날짜 -> 최신 날짜 순
@@ -307,13 +341,13 @@ const ProfileIndex = () => {
   const recentHistory = sortedHistory.slice(-3);
 
   const chartData = recentHistory.map((item) => {
-    // measuredTime을 보기 좋은 날짜 라벨로 변환 (예: 03-15)
+    // measuredTime을 X축 라벨로 변환 (예: 1/30)
     let name = "";
     if (item.measuredTime) {
       const date = new Date(item.measuredTime);
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      name = `${month}-${day}`;
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      name = `${month}/${day}`;
     }
     return {
       name,
@@ -335,8 +369,16 @@ const ProfileIndex = () => {
     return `${n} ${unit}`;
   };
 
-  // OCR로 저장된 기록일 때만 체중조절 수치·차트 표시 (프로필 수정/회원가입 직후는 "-")
-  const showOcrControlValues = latestInfo?.dataSource === "OCR";
+  // 체성분 데이터가 있는지 확인 (회원가입 직후 키·몸무게만 있을 때는 false)
+  const hasBodyCompositionData =
+    latestInfo &&
+    (latestInfo.skeletalMuscleMass != null || latestInfo.bodyFatPercent != null);
+
+  // OCR이거나 data_source가 없는 기존 DB 데이터는 차트·체중조절 표시 (프로필 수정 후 MANUAL만 "-")
+  // 단, 체성분 데이터가 있어야 함 (회원가입 직후는 "-")
+  const showOcrControlValues =
+    hasBodyCompositionData &&
+    (latestInfo?.dataSource === "OCR" || latestInfo?.dataSource == null);
 
   const calculateAge = (birthDateString) => {
     if (!birthDateString) return "-";
@@ -461,20 +503,20 @@ const ProfileIndex = () => {
             <div className="info-card">
               <h3 className="section-title text-text-main">체성분 분석</h3>
               <div className="data-list">
-                <DataRow label="체수분(L)" value={val(latestInfo?.bodyWater, "L")} />
-                <DataRow label="단백질(kg)" value={val(latestInfo?.protein, "kg")} />
-                <DataRow label="무기질(kg)" value={val(latestInfo?.minerals, "kg")} />
-                <DataRow label="체지방(kg)" value={val(latestInfo?.bodyFatMass, "kg")} />
+                <DataRow label="체수분(L)" value={hasBodyCompositionData ? val(latestInfo?.bodyWater, "L") : "-"} />
+                <DataRow label="단백질(kg)" value={hasBodyCompositionData ? val(latestInfo?.protein, "kg") : "-"} />
+                <DataRow label="무기질(kg)" value={hasBodyCompositionData ? val(latestInfo?.minerals, "kg") : "-"} />
+                <DataRow label="체지방(kg)" value={hasBodyCompositionData ? val(latestInfo?.bodyFatMass, "kg") : "-"} />
               </div>
             </div>
 
             <div className="info-card">
               <h3 className="section-title text-text-main">체중조절</h3>
               <div className="data-list">
-                <DataRow label="적정체중" value={showOcrControlValues ? valNum(latestInfo.targetWeight, "kg") : "-"} />
-                <DataRow label="체중조절" value={showOcrControlValues ? formatControl(latestInfo.weightControl) : "-"} />
-                <DataRow label="지방조절" value={showOcrControlValues ? formatControl(latestInfo.fatControl) : "-"} />
-                <DataRow label="근육조절" value={showOcrControlValues ? formatControl(latestInfo.muscleControl) : "-"} />
+                <DataRow label="적정체중" value={showOcrControlValues ? valNum(latestInfo?.targetWeight, "kg") : "-"} />
+                <DataRow label="체중조절" value={showOcrControlValues ? formatControl(latestInfo?.weightControl) : "-"} />
+                <DataRow label="지방조절" value={showOcrControlValues ? formatControl(latestInfo?.fatControl) : "-"} />
+                <DataRow label="근육조절" value={showOcrControlValues ? formatControl(latestInfo?.muscleControl) : "-"} />
               </div>
             </div>
           </aside>
@@ -658,7 +700,12 @@ const ProfileIndex = () => {
                       { key: "체수분", field: "bodyWater", unit: "L" },
                       { key: "단백질", field: "protein", unit: "kg" },
                       { key: "무기질", field: "minerals", unit: "kg" },
-                      { key: "체지방량", field: "bodyFatMass", unit: "kg" }
+                      { key: "체지방량", field: "bodyFatMass", unit: "kg" },
+                      // 인바디 체중조절 박스 값들도 함께 편집/확인
+                      { key: "적정체중", field: "targetWeight", unit: "kg" },
+                      { key: "체중조절", field: "weightControl", unit: "kg" },
+                      { key: "지방조절", field: "fatControl", unit: "kg" },
+                      { key: "근육조절", field: "muscleControl", unit: "kg" }
                     ].map(({ key, field, unit }) => (
                       <div key={field} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", gap: "8px" }}>
                         <span style={{ minWidth: "80px" }}>{key}</span>
