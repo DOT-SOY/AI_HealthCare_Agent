@@ -15,6 +15,7 @@ import QtyStepper from '../../components/cart/QtyStepper';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import LoadingModal from '../../components/common/LoadingModal';
+import { uploadFiles } from '../../services/fileApi';
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -34,8 +35,11 @@ const ProductDetail = () => {
   const [reviewPage, setReviewPage] = useState(1);
   const [reviewForm, setReviewForm] = useState({ rating: 5, content: '' });
   const [reviewFormOpen, setReviewFormOpen] = useState(false);
+  const [reviewImages, setReviewImages] = useState([]);
+  const [uploadingReviews, setUploadingReviews] = useState(false);
   const [editingReviewId, setEditingReviewId] = useState(null);
   const [editReviewForm, setEditReviewForm] = useState({ rating: 5, content: '' });
+  const [editReviewImagesById, setEditReviewImagesById] = useState({});
   const [replyFormByReviewId, setReplyFormByReviewId] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const isLoggedIn = !!loginState?.email || loginState?.id != null;
@@ -77,11 +81,31 @@ const ProductDetail = () => {
 
   const handleSubmitReview = async (e) => {
     e.preventDefault();
-    if (!id || submitting) return;
+    if (!id || submitting || uploadingReviews) return;
+    if (reviewImages.length > 10) {
+      alert('리뷰 이미지는 최대 10개까지 업로드할 수 있습니다.');
+      return;
+    }
+
     setSubmitting(true);
     try {
-      await createReview(id, { rating: reviewForm.rating, content: reviewForm.content || null });
+      let imageFilePaths = [];
+
+      if (reviewImages.length > 0) {
+        setUploadingReviews(true);
+        const uploadResults = await uploadFiles(reviewImages, 'reviews');
+        imageFilePaths = uploadResults
+          .map((res) => res.filePath)
+          .filter((path) => !!path);
+      }
+
+      await createReview(id, {
+        rating: reviewForm.rating,
+        content: reviewForm.content || null,
+        imageFilePaths,
+      });
       setReviewForm({ rating: 5, content: '' });
+      setReviewImages([]);
       setReviewFormOpen(false);
       loadReviews();
       // 리뷰 작성 후 상품의 review_status도 최신 상태로 갱신
@@ -90,6 +114,7 @@ const ProductDetail = () => {
       const msg = err.response?.data?.message ?? err.message ?? '리뷰 작성에 실패했습니다.';
       alert(msg);
     } finally {
+      setUploadingReviews(false);
       setSubmitting(false);
     }
   };
@@ -99,8 +124,41 @@ const ProductDetail = () => {
     if (submitting) return;
     setSubmitting(true);
     try {
-      await updateReview(reviewId, { rating: editReviewForm.rating, content: editReviewForm.content || null });
+      const editState = editReviewImagesById[reviewId];
+      let imageFilePaths;
+
+      if (editState) {
+        // 기존 이미지 중 유지할 것들
+        const existingPaths =
+          editState.existing?.map((img) => img.filePath).filter((p) => !!p) ?? [];
+
+        let newPaths = [];
+        if (editState.files && editState.files.length > 0) {
+          const uploadResults = await uploadFiles(editState.files, 'reviews');
+          newPaths = uploadResults
+            .map((res) => res.filePath)
+            .filter((path) => !!path);
+        }
+
+        imageFilePaths = [...existingPaths, ...newPaths];
+      } else {
+        // editState가 없으면 현재 리뷰의 이미지를 그대로 유지
+        const currentReview = reviewsData.items.find((r) => r.id === reviewId);
+        imageFilePaths = currentReview?.images?.map((img) => img.filePath).filter((p) => !!p) ?? [];
+      }
+
+      // 항상 imageFilePaths를 전달 (빈 배열도 포함하여 명시적으로 처리)
+      await updateReview(reviewId, {
+        rating: editReviewForm.rating,
+        content: editReviewForm.content || null,
+        imageFilePaths: imageFilePaths ?? [],
+      });
       setEditingReviewId(null);
+      setEditReviewImagesById((prev) => {
+        const next = { ...prev };
+        delete next[reviewId];
+        return next;
+      });
       loadReviews();
       // 리뷰 수정 후에도 상품의 review_status를 한 번 동기화 (상태는 ALREADY_REVIEWED 유지)
       refreshProductReviewStatus();
@@ -456,7 +514,30 @@ const ProductDetail = () => {
         </div>
 
         {reviewFormOpen && (
-          <form onSubmit={handleSubmitReview} className="mb-6 p-4 bg-bg-surface rounded-lg">
+          <form
+            onSubmit={handleSubmitReview}
+            className="mb-6 p-4 bg-bg-surface rounded-lg"
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const files = Array.from(e.dataTransfer.files || []).filter((file) =>
+                file.type.startsWith('image/'),
+              );
+              if (files.length === 0) return;
+              setReviewImages((prev) => {
+                const next = [...prev, ...files];
+                if (next.length > 10) {
+                  alert('리뷰 이미지는 최대 10장까지 선택할 수 있습니다.');
+                  return next.slice(0, 10);
+                }
+                return next;
+              });
+            }}
+          >
             <div className="mb-3">
               <label className="block text-sm font-medium text-text-main mb-1">평점</label>
               <select
@@ -478,6 +559,52 @@ const ProductDetail = () => {
                 className="border border-border-default rounded px-3 py-2 w-full bg-bg-card text-text-main placeholder-text-muted"
                 placeholder="리뷰를 입력하세요"
               />
+            </div>
+            <div className="mb-3">
+              <label className="block text-sm font-medium text-text-main mb-1">
+                리뷰 이미지 (선택, 최대 10장)
+              </label>
+              <p className="text-xs text-text-muted mb-1">
+                아래 영역에 이미지를 드래그 앤 드랍해도 첨부됩니다.
+              </p>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  setReviewImages((prev) => {
+                    const next = [...prev, ...files];
+                    if (next.length > 10) {
+                      alert('리뷰 이미지는 최대 10장까지 선택할 수 있습니다.');
+                      return next.slice(0, 10);
+                    }
+                    return next;
+                  });
+                }}
+                className="block w-full text-sm text-text-sub file:mr-4 file:py-2 file:px-4 file:rounded-token file:border-0 file:text-sm file:font-semibold file:bg-primary-500/10 file:text-primary-500 hover:file:bg-primary-500/20"
+              />
+              {reviewImages.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {reviewImages.map((file, index) => (
+                    <div
+                      key={`${file.name}-${index}`}
+                      className="relative w-16 h-16 rounded-md overflow-hidden border border-border-default bg-bg-card"
+                    >
+                      <img src={URL.createObjectURL(file)} alt={file.name} className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setReviewImages((prev) => prev.filter((_, i) => i !== index))
+                        }
+                        className="absolute -top-1 -right-1 bg-bg-root/80 text-xs text-primary-500 rounded-full px-1"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <Button type="submit" variant="primary" size="sm" disabled={submitting}>
               등록
@@ -510,7 +637,41 @@ const ProductDetail = () => {
                         </span>
                       </div>
                       {editingReviewId === review.id ? (
-                        <form onSubmit={(e) => handleUpdateReview(e, review.id)} className="mt-2">
+                        <form
+                          onSubmit={(e) => handleUpdateReview(e, review.id)}
+                          className="mt-2"
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const files = Array.from(e.dataTransfer.files || []).filter(
+                              (file) => file.type.startsWith('image/'),
+                            );
+                            if (files.length === 0) return;
+                            setEditReviewImagesById((prev) => {
+                              const current = prev[review.id] || {
+                                existing: review.images || [],
+                                files: [],
+                              };
+                              const nextFiles = [...current.files, ...files];
+                              const totalCount =
+                                (current.existing?.length || 0) + nextFiles.length;
+                              if (totalCount > 10) {
+                                alert('리뷰 이미지는 최대 10장까지 선택할 수 있습니다.');
+                              }
+                              return {
+                                ...prev,
+                                [review.id]: {
+                                  ...current,
+                                  files: totalCount > 10 ? nextFiles.slice(0, 10 - (current.existing?.length || 0)) : nextFiles,
+                                },
+                              };
+                            });
+                          }}
+                        >
                           <select
                             value={editReviewForm.rating}
                             onChange={(e) => setEditReviewForm((prev) => ({ ...prev, rating: Number(e.target.value) }))}
@@ -522,13 +683,181 @@ const ProductDetail = () => {
                           </select>
                           <textarea
                             value={editReviewForm.content}
-                            onChange={(e) => setEditReviewForm((prev) => ({ ...prev, content: e.target.value }))}
+                            onChange={(e) =>
+                              setEditReviewForm((prev) => ({ ...prev, content: e.target.value }))
+                            }
                             rows={2}
                             className="border border-border-default rounded px-2 py-1 w-full text-sm block mb-2 bg-bg-card text-text-main"
                           />
-                          <div className="flex gap-2">
-                            <button type="submit" disabled={submitting} className="text-sm text-primary-500 hover:underline">저장</button>
-                            <button type="button" onClick={() => setEditingReviewId(null)} className="text-sm text-text-muted hover:underline">취소</button>
+                          <div className="mb-2">
+                            <label className="block text-xs font-medium text-text-main mb-1">
+                              리뷰 이미지 수정 (최대 10장)
+                            </label>
+                            <p className="text-[11px] text-text-muted mb-1">
+                              이미지를 드래그 앤 드랍하거나 파일 선택으로 추가하세요. 삭제한 기존 이미지는
+                              저장 시 제거됩니다.
+                            </p>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              onChange={(e) => {
+                                const files = Array.from(e.target.files || []);
+                                setEditReviewImagesById((prev) => {
+                                  const current = prev[review.id] || {
+                                    existing: review.images || [],
+                                    files: [],
+                                  };
+                                  const nextFiles = [...current.files, ...files];
+                                  const totalCount =
+                                    (current.existing?.length || 0) + nextFiles.length;
+                                  if (totalCount > 10) {
+                                    alert('리뷰 이미지는 최대 10장까지 선택할 수 있습니다.');
+                                  }
+                                  return {
+                                    ...prev,
+                                    [review.id]: {
+                                      ...current,
+                                      files:
+                                        totalCount > 10
+                                          ? nextFiles.slice(
+                                              0,
+                                              10 - (current.existing?.length || 0),
+                                            )
+                                          : nextFiles,
+                                    },
+                                  };
+                                });
+                              }}
+                              className="block w-full text-xs text-text-sub file:mr-3 file:py-1.5 file:px-3 file:rounded-token file:border-0 file:text-xs file:font-semibold file:bg-primary-500/10 file:text-primary-500 hover:file:bg-primary-500/20"
+                            />
+                            {(() => {
+                              const state = editReviewImagesById[review.id] || {
+                                existing: review.images || [],
+                                files: [],
+                              };
+                              const existing = state.existing || [];
+                              const files = state.files || [];
+                              return (
+                                <>
+                                  {(existing.length > 0 || files.length > 0) && (
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                      {existing.map((image, idx) => (
+                                        <div
+                                          key={`${image.uuid || image.filePath || image.url || idx}`}
+                                          className="relative flex-shrink-0 w-16 h-16 rounded-md overflow-visible border border-border-default bg-bg-card"
+                                        >
+                                          <div className="w-full h-full overflow-hidden rounded-md">
+                                            {image.url ? (
+                                              <img
+                                                src={image.url}
+                                                alt={`기존 이미지 ${idx + 1}`}
+                                                className="w-full h-full object-cover"
+                                                onError={(e) => {
+                                                  e.target.src =
+                                                    'https://via.placeholder.com/64x64?text=No+Image';
+                                                }}
+                                              />
+                                            ) : (
+                                              <span className="text-[10px] text-text-muted px-1">
+                                                이미지 없음
+                                              </span>
+                                            )}
+                                          </div>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setEditReviewImagesById((prev) => {
+                                                const current = prev[review.id] || {
+                                                  existing: review.images || [],
+                                                  files: [],
+                                                };
+                                                const nextExisting = current.existing.filter(
+                                                  (_img, i) => i !== idx,
+                                                );
+                                                return {
+                                                  ...prev,
+                                                  [review.id]: {
+                                                    ...current,
+                                                    existing: nextExisting,
+                                                  },
+                                                };
+                                              })
+                                            }
+                                            className="absolute top-0 right-0 bg-bg-root/90 text-xs text-primary-500 rounded-full w-5 h-5 flex items-center justify-center hover:bg-primary-500 hover:text-bg-root transition"
+                                            title="삭제"
+                                          >
+                                            ×
+                                          </button>
+                                        </div>
+                                      ))}
+                                      {files.map((file, idx) => (
+                                        <div
+                                          key={`${file.name}-${idx}`}
+                                          className="relative flex-shrink-0 w-16 h-16 rounded-md overflow-visible border border-border-default bg-bg-card"
+                                        >
+                                          <div className="w-full h-full overflow-hidden rounded-md">
+                                            <img
+                                              src={URL.createObjectURL(file)}
+                                              alt={file.name}
+                                              className="w-full h-full object-cover"
+                                            />
+                                          </div>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setEditReviewImagesById((prev) => {
+                                                const current = prev[review.id] || {
+                                                  existing: review.images || [],
+                                                  files: [],
+                                                };
+                                                const nextFiles = current.files.filter(
+                                                  (_f, i) => i !== idx,
+                                                );
+                                                return {
+                                                  ...prev,
+                                                  [review.id]: {
+                                                    ...current,
+                                                    files: nextFiles,
+                                                  },
+                                                };
+                                              })
+                                            }
+                                            className="absolute top-0 right-0 bg-bg-root/90 text-xs text-primary-500 rounded-full w-5 h-5 flex items-center justify-center hover:bg-primary-500 hover:text-bg-root transition"
+                                            title="삭제"
+                                          >
+                                            ×
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </div>
+                          <div className="flex gap-2 mt-2">
+                            <button
+                              type="submit"
+                              disabled={submitting}
+                              className="text-sm text-primary-500 hover:underline"
+                            >
+                              저장
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingReviewId(null);
+                                setEditReviewImagesById((prev) => {
+                                  const next = { ...prev };
+                                  delete next[review.id];
+                                  return next;
+                                });
+                              }}
+                              className="text-sm text-text-muted hover:underline"
+                            >
+                              취소
+                            </button>
                           </div>
                         </form>
                       ) : (
@@ -559,6 +888,38 @@ const ProductDetail = () => {
                         </div>
                       )}
                   </div>
+                  {!editingReviewId && review.images && review.images.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {review.images.map((image, idx) => (
+                        <button
+                          key={`${image.uuid || image.filePath || image.url || idx}`}
+                          type="button"
+                          className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden border border-border-default bg-bg-card"
+                          onClick={() => {
+                            if (image.url) {
+                              window.open(image.url, '_blank', 'noopener,noreferrer');
+                            }
+                          }}
+                        >
+                          {image.url ? (
+                            <img
+                              src={image.url}
+                              alt={`리뷰 이미지 ${idx + 1}`}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.src =
+                                  'https://via.placeholder.com/64x64?text=No+Image';
+                              }}
+                            />
+                          ) : (
+                            <span className="text-[10px] text-text-muted px-1">
+                              이미지 없음
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   {review.replies && review.replies.length > 0 && (
                     <ul className="ml-4 mt-2 pl-4 border-l-2 border-border-default space-y-2">
                       {review.replies.map((reply) => (
