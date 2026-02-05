@@ -23,6 +23,7 @@ import java.time.LocalDate;
 @RequiredArgsConstructor
 @Transactional // 트랜잭션 처리 (오류 발생 시 롤백)
 @Log4j2        // 로그 기록용
+@SuppressWarnings("null")
 public class MemberServiceImpl implements MemberService {
 
     private final MemberRepository memberRepository;
@@ -41,7 +42,7 @@ public class MemberServiceImpl implements MemberService {
         Member member = dtoToEntity(memberDTO, passwordEncoder);
 
         // 3. DB 저장
-        memberRepository.save(member);
+        Member savedMember = memberRepository.save(member);
 
         // 4. 회원가입 시점의 기본 신체 정보 저장 (member_info_body)
         MemberInfoBody.ExercisePurpose purpose = null;
@@ -55,9 +56,9 @@ public class MemberServiceImpl implements MemberService {
                 .weight(memberDTO.getWeight())
                 .exercisePurpose(purpose)
                 .build();
-        memberInfoBodyService.create(member.getId(), bodyDto);
+        memberInfoBodyService.create(savedMember.getId(), bodyDto);
 
-        return member.getId();
+        return savedMember.getId();
     }
 
     // 중복 검사 로직 (탈퇴 회원 제외, existsById 패턴처럼 존재 여부만 확인)

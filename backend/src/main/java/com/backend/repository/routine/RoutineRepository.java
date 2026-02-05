@@ -18,6 +18,10 @@ public interface RoutineRepository extends JpaRepository<Routine, Long> {
     @Query("SELECT DISTINCT r FROM Routine r LEFT JOIN FETCH r.exercises e LEFT JOIN FETCH e.exerciseType WHERE r.member.id = :memberId AND r.date BETWEEN :start AND :end ORDER BY r.date DESC")
     List<Routine> findByMemberIdAndDateBetween(@Param("memberId") Long memberId, @Param("start") LocalDate start, @Param("end") LocalDate end);
     
+    // 여러 회원의 특정 기간 동안의 루틴을 한 번에 조회 (N+1 문제 해결용, 랭킹 계산용이므로 exercises는 불필요)
+    @Query("SELECT r FROM Routine r WHERE r.member.id IN :memberIds AND r.date BETWEEN :start AND :end ORDER BY r.date DESC")
+    List<Routine> findByMemberIdInAndDateBetween(@Param("memberIds") List<Long> memberIds, @Param("start") LocalDate start, @Param("end") LocalDate end);
+    
     @Query("SELECT r FROM Routine r LEFT JOIN FETCH r.exercises e LEFT JOIN FETCH e.exerciseType WHERE r.id = :id")
     Optional<Routine> findByIdWithExercises(@Param("id") Long id);
 

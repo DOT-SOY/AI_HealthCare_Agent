@@ -27,10 +27,6 @@ public class OrderController {
     private final CurrentMemberService currentMemberService;
     private final PaymentService paymentService;
 
-    /**
-     * 장바구니 기준 주문 생성 (from-cart)
-     * - 로그인 회원만 사용. 장바구니 조회 → 검증 → Order + OrderItem + 스냅샷 생성, OrderStatus = CREATED
-     */
     @PostMapping("/from-cart")
     public ResponseEntity<OrderCreateFromCartResponse> createOrderFromCart(
             @Valid @RequestBody OrderCreateFromCartRequest request) {
@@ -39,9 +35,6 @@ public class OrderController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * 회원 본인 주문 목록 조회 (페이지네이션, 기간·상태 필터). JWT 인증 필수.
-     */
     @GetMapping("/me")
     public ResponseEntity<PageResponse<OrderSummaryResponse>> getMyOrders(
             @Valid @ModelAttribute OrderListRequest request) {
@@ -50,10 +43,6 @@ public class OrderController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * 회원 주문 상세 조회
-     * - 로그인한 member의 주문만 접근 가능
-     */
     @GetMapping("/{orderNo}")
     public ResponseEntity<OrderDetailResponse> getOrderDetail(@PathVariable("orderNo") String orderNo) {
         var member = currentMemberService.getCurrentMemberOrThrow();
@@ -76,11 +65,6 @@ public class OrderController {
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * 결제 준비 (Toss 결제 위젯용)
-     * - 주문 상태가 CREATED 인 경우에만 허용
-     * - 로그인한 회원의 주문만 접근 가능
-     */
     @PostMapping("/{orderNo}/pay/ready")
     public ResponseEntity<PaymentReadyResponse> preparePayment(@PathVariable("orderNo") String orderNo) {
         var member = currentMemberService.getCurrentMemberOrThrow();

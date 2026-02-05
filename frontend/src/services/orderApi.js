@@ -24,11 +24,6 @@ export const preparePayment = async (orderNo) => {
   return data;
 };
 
-/**
- * Toss 결제 승인 (success 리다이렉트 후 호출)
- * @param {object} body - { paymentKey, orderId, amount }
- * @returns {Promise<{ orderId, orderStatus, amount, approvedAt }>}
- */
 export const confirmTossPayment = async (body) => {
   const { data } = await jwtAxios.post('/payments/toss/confirm', body);
   return data;
@@ -81,11 +76,6 @@ export const getOrderDetail = async (orderNo) => {
   return data;
 };
 
-/**
- * 회원 주문 배송지 수정
- * @param {string} orderNo - 주문번호
- * @param {object} body - { recipientName, recipientPhone, zipcode, address1, address2 }
- */
 export const updateOrderShipTo = async (orderNo, body) => {
   const { data } = await jwtAxios.patch(`/orders/${encodeURIComponent(orderNo)}/ship-to`, body);
   return data;

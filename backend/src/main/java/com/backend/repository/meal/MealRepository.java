@@ -20,5 +20,8 @@ public interface MealRepository extends JpaRepository<Meal, Long> {
 
     // 3. 회원 탈퇴 시 전체 삭제 (기존 유지)
     void deleteByUserId(Long userId);
+
+    // 4. 여러 회원의 특정 기간 동안의 식단 일정을 한 번에 조회 (N+1 문제 해결용)
+    List<Meal> findByUserIdInAndMealDateBetween(List<Long> userIds, LocalDate startDate, LocalDate endDate);
 }
 

@@ -108,7 +108,7 @@ tasks.named('test') {
 
 // .env
 def loadDotenv() {
-    def envFile = rootProject.file(".env")
+    def envFile = project.file(".env")
     if (!envFile.exists()) {
         return [:]
     }

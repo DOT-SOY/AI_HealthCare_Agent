@@ -42,6 +42,11 @@ public class MealDashboardDto {
 
     @Getter @AllArgsConstructor @Builder
     public static class MealTimeSection {
+        /**
+         * 해당 끼니가 "끼니 전체 생략" 상태인지 (UI에서 취소/재정비 흐름에 사용)
+         * - meals 리스트에서는 SKIPPED 항목이 숨겨질 수 있으므로 별도 플래그로 제공합니다.
+         */
+        private Boolean skipped;
         private Integer totalCalories;
         private Integer totalCarbs;
         private Integer totalProtein;
@@ -52,4 +57,5 @@ public class MealDashboardDto {
         private List<MealDto> meals;
     }
 }
+
 

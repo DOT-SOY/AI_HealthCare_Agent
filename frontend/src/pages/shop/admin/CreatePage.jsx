@@ -21,7 +21,7 @@ const ProductCreatePage = () => {
     name: '',
     description: '',
     basePrice: '',
-    status: 'DRAFT', // 기본값: DRAFT
+    status: 'DRAFT',
   });
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploadedFiles, setUploadedFiles] = useState([]);
@@ -71,14 +71,12 @@ const ProductCreatePage = () => {
       setIsUploading(true);
       setError(null);
 
-      // 업로드 진행률 초기화
       const progress = {};
       selectedFiles.forEach((_, index) => {
         progress[index] = 0;
       });
       setUploadProgress(progress);
 
-      // 파일 업로드
       const results = await uploadFiles(
         selectedFiles,
         'products',
@@ -91,7 +89,7 @@ const ProductCreatePage = () => {
       );
 
       setUploadedFiles(results);
-      setSelectedFiles([]); // 업로드 완료 후 선택 파일 초기화
+      setSelectedFiles([]);
     } catch (err) {
       setError(err.message || '파일 업로드에 실패했습니다.');
       console.error('Upload failed:', err);
@@ -161,7 +159,6 @@ const ProductCreatePage = () => {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-token-6">
-        {/* 기본 정보 */}
         <Card className="p-token-6 space-y-4">
           <h2 className="text-lg font-semibold text-text-main">기본 정보</h2>
 
@@ -259,7 +256,6 @@ const ProductCreatePage = () => {
           </div>
         </Card>
 
-        {/* 상품 변형(Variants) */}
         <Card className="p-token-6 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-text-main">상품 변형</h2>
@@ -390,7 +386,6 @@ const ProductCreatePage = () => {
         <Card className="p-token-6 space-y-4">
           <h2 className="text-lg font-semibold text-text-main">상품 이미지</h2>
 
-          {/* 파일 선택 */}
           <div>
             <input
               type="file"
@@ -401,7 +396,6 @@ const ProductCreatePage = () => {
             />
           </div>
 
-          {/* 선택된 파일 목록 (업로드 전) */}
           {selectedFiles.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -465,7 +459,6 @@ const ProductCreatePage = () => {
           )}
         </Card>
 
-        {/* 버튼 */}
         <div className="flex gap-4 justify-end">
           <Button
             type="button"

@@ -11,7 +11,7 @@ import LoadingModal from "../components/common/LoadingModal";
 import memberRouter from "./memberRouter";
 import adminRouter from "./adminRouter";
 
-const Loading = <LoadingModal isOpen={true} message="로딩 중입니다" />;
+const Loading = <LoadingModal isOpen={true} message="로딩 중..." />;
 
 const Main = lazy(() => import("../pages/MainPage"));
 const RoutineIndex = lazy(() => import("../pages/routine/RoutineIndex"));

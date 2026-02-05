@@ -3,6 +3,8 @@ import { useDispatch } from "react-redux";
 import BasicLayout from "../../components/layout/BasicLayout";
 import { Home, User, Moon, Sun, X, Plus, Edit, Trash2 } from "lucide-react";
 import { logout } from "../../slices/loginSlice";
+import { User, Moon, Sun, X, Plus, Edit, Trash2 } from "lucide-react";
+import AddressSearchModal from "../../components/common/AddressSearchModal";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip,
 } from "recharts";
@@ -44,16 +46,17 @@ const ProfileIndex = () => {
     shipAddress2: '',
     isDefault: false
   });
-
+  const [isAddressSearchOpen, setIsAddressSearchOpen] = useState(false);
   const fetchData = async () => {
     try {
       const data = await getMyBodyInfoHistory();
       if (data && data.length > 0) {
         setHistoryData(data);
-        setLatestInfo(data[data.length - 1]);
+        // ✅ 백엔드에서 이미 최신순으로 정렬해서 반환하므로 첫 번째가 최신
+        setLatestInfo(data[0]);
         // 배송지 목록도 함께 조회
-        if (data[data.length - 1]?.memberId) {
-          fetchAddressList(data[data.length - 1].memberId);
+        if (data[0]?.memberId) {
+          fetchAddressList(data[0].memberId);
         }
       }
     } catch (error) {
@@ -133,28 +136,37 @@ const ProfileIndex = () => {
     }
   };
 
-  // 차트 데이터 가공 - measuredTime을 X축에 표시 (오른쪽으로 갈수록 최근 날짜)
-  const sortedHistory = [...historyData].sort((a, b) => {
-    const aTime = a.measuredTime ? new Date(a.measuredTime).getTime() : 0;
-    const bTime = b.measuredTime ? new Date(b.measuredTime).getTime() : 0;
-    return aTime - bTime; // 오래된 날짜 -> 최신 날짜 순
-  });
+  // 차트 데이터 가공 - 날짜별 최신 1건만 남기고 표시 (같은 날 여러 기록 시 그래프 튐 방지)
+  const getDateKey = (isoString) => {
+    if (!isoString) return "";
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return "";
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
 
-  const chartData = sortedHistory.map((item) => {
-    let name = "";
-    if (item.measuredTime) {
-      const date = new Date(item.measuredTime);
-      const month = date.getMonth() + 1;
-      const day = date.getDate();
-      name = `${month}/${day}`;
+  const dailyLatestMap = new Map();
+  for (const item of historyData) {
+    const dateKey = getDateKey(item.measuredTime);
+    if (!dateKey) continue;
+    const current = dailyLatestMap.get(dateKey);
+    const currentTime = current?.measuredTime ? new Date(current.measuredTime).getTime() : 0;
+    const itemTime = item.measuredTime ? new Date(item.measuredTime).getTime() : 0;
+    if (!current || itemTime >= currentTime) {
+      dailyLatestMap.set(dateKey, item);
     }
-    return {
-      name,
+  }
+
+  const chartData = Array.from(dailyLatestMap.entries())
+    .sort((a, b) => (a[0] > b[0] ? 1 : -1))
+    .map(([dateKey, item]) => ({
+      name: dateKey,
       fatRate: item.bodyFatPercent,
       muscle: item.skeletalMuscleMass,
       weight: item.weight,
-    };
-  });
+    }));
 
   const val = (v, unit = "") => (v !== null && v !== undefined ? `${v} ${unit}` : "-");
 
@@ -344,8 +356,19 @@ const ProfileIndex = () => {
             onChange={(field, value) => setAddressFormData(prev => ({ ...prev, [field]: value }))}
             onClose={() => setIsAddressModalOpen(false)}
             onSave={handleAddressSave}
+            onAddressSearch={() => setIsAddressSearchOpen(true)}
           />
-        )}
+          )}
+
+        {/* 주소 검색 모달 */}
+        <AddressSearchModal
+          isOpen={isAddressSearchOpen}
+          onClose={() => setIsAddressSearchOpen(false)}
+          onSelect={(addressData) => {
+            setAddressFormData(prev => ({ ...prev, shipZipcode: addressData.zipcode, shipAddress1: addressData.address1, shipAddress2: addressData.address2 || prev.shipAddress2 }));
+            setIsAddressSearchOpen(false);
+          }}
+        />
       </div>
     </BasicLayout>
   );
@@ -573,7 +596,7 @@ const BodyInfoModifyModal = ({ data, addressList, onClose, onSave, onAddAddress,
 };
 
 // ✅ 배송지 추가/수정 모달
-const AddressEditModal = ({ data, onChange, onClose, onSave }) => {
+const AddressEditModal = ({ data, onChange, onClose, onSave, onAddressSearch }) => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     onChange(name, value);
@@ -602,8 +625,46 @@ const AddressEditModal = ({ data, onChange, onClose, onSave }) => {
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <InputGroup label="받는 분" name="shipToName" value={data.shipToName || ''} onChange={handleChange} />
           <InputGroup label="연락처" name="shipToPhone" value={data.shipToPhone || ''} onChange={handleChange} />
-          <InputGroup label="우편번호" name="shipZipcode" value={data.shipZipcode || ''} onChange={handleChange} />
-          <InputGroup label="주소" name="shipAddress1" value={data.shipAddress1 || ''} onChange={handleChange} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            <label style={{ fontSize: '12px', color: '#666', fontWeight:'bold' }}>우편번호</label>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="text"
+                name="shipZipcode"
+                value={data.shipZipcode || ''}
+                onChange={handleChange}
+                style={{
+                  flex: 1, padding: '8px', border: '1px solid #ddd', borderRadius: '4px',
+                  fontSize:'14px'
+                }}
+                placeholder="우편번호"
+              />
+              <button
+                type="button"
+                onClick={onAddressSearch}
+                style={{
+                  padding: '8px 16px', backgroundColor: '#4A90E2', color: 'white',
+                  border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '14px', whiteSpace: 'nowrap'
+                }}
+              >
+                주소 검색
+              </button>
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            <label style={{ fontSize: '12px', color: '#666', fontWeight:'bold' }}>주소</label>
+            <input
+              type="text"
+              name="shipAddress1"
+              value={data.shipAddress1 || ''}
+              onChange={handleChange}
+              style={{
+                padding: '8px', border: '1px solid #ddd', borderRadius: '4px',
+                fontSize:'14px'
+              }}
+              placeholder="주소"
+            />
+          </div>
           <InputGroup label="상세주소" name="shipAddress2" value={data.shipAddress2 || ''} onChange={handleChange} />
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

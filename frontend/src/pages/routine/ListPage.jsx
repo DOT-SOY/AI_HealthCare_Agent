@@ -7,6 +7,7 @@ import WeeklyCalendar from '../../components/routine/WeeklyCalendar';
 import AISummaryCard from '../../components/routine/AISummaryCard';
 import ExerciseCard from '../../components/routine/ExerciseCard';
 import ExerciseEditModal from '../../components/routine/ExerciseEditModal';
+import LoadingModal from '../../components/common/LoadingModal';
 
 export default function TodayRoutinePage() {
   const { todayRoutine, weekRoutines, loading, fetchRoutineByDate, fetchTodayRoutine, fetchWeekRoutines } = useRoutines();
@@ -36,7 +37,7 @@ export default function TodayRoutinePage() {
         : new Date(r.date).toISOString().split('T')[0];
       return routineDateStr === selectedDateStr;
     });
-    
+
     return found || null;
   }, [selectedDate, todayRoutine, weekRoutines, refreshKey]);
 
@@ -127,9 +128,7 @@ export default function TodayRoutinePage() {
       />
 
       {loading && !displayRoutine ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="text-neutral-400">로딩 중...</div>
-        </div>
+        <LoadingModal isOpen={true} message="로딩 중..." />
       ) : !displayRoutine ? (
         <>
           {/* 루틴이 없을 때도 운동 추가 가능 */}

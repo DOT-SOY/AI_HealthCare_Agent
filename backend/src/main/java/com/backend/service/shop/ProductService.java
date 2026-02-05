@@ -12,10 +12,7 @@ public interface ProductService {
 
     ProductResponse findById(Long id);
 
-    /**
-     * 상품 응답에 canReview를 설정한다. 구매 이력이 있고 아직 리뷰를 쓰지 않았으면 true.
-     */
-    void setCanReview(ProductResponse response, Long productId, Long memberId);
+    void setReviewStatus(ProductResponse response, Long productId, Long memberId);
 
     PageResponse<ProductResponse> findAll(PageRequest pageRequest, ProductSearchRequest searchRequest);
 
