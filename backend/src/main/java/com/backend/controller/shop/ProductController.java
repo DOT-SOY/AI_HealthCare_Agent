@@ -27,7 +27,6 @@ public class ProductController {
     private final ProductService productService;
     private final CurrentMemberService currentMemberService;
 
-    // 상품 등록 (ADMIN 전용)
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('ADMIN')")
@@ -41,7 +40,6 @@ public class ProductController {
                 .body(response);
     }
 
-    // 상품 단건 조회
     @GetMapping("/{id}")
     public ResponseEntity<ProductResponse> findById(@PathVariable("id") Long id) {
         ProductResponse response = productService.findById(id);
@@ -50,7 +48,6 @@ public class ProductController {
         return ResponseEntity.ok(response);
     }
 
-    // 상품 리스트 조회 (페이징, 검색, 필터링, 정렬)
     @GetMapping
     public ResponseEntity<PageResponse<ProductResponse>> findAll(
             @Valid @ModelAttribute PageRequest pageRequest,
@@ -59,7 +56,6 @@ public class ProductController {
         return ResponseEntity.ok(response);
     }
 
-    // 상품 정보 수정 (ADMIN 전용)
     @PatchMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ProductResponse> update(
@@ -69,7 +65,6 @@ public class ProductController {
         return ResponseEntity.ok(response);
     }
 
-    // 상품 삭제 (ADMIN 전용)
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasRole('ADMIN')")

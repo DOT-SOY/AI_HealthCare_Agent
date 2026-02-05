@@ -1,14 +1,15 @@
-from fastapi import FastAPI, UploadFile, File
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, UploadFile, File, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
+import asyncio
 import os
 import base64
 from dotenv import load_dotenv
 
 # 환경 변수 로드 (ai-server 폴더의 .env 파일)
 import pathlib
-
 env_path = pathlib.Path(__file__).parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
@@ -18,6 +19,15 @@ from services.chat_service import generate_ai_answer
 from services.pain_advice_service import generate_pain_advice
 from services.workout_feedback_service import generate_workout_feedback
 from services.image_classification_service import get_image_classification_service
+from services.commerce import handle_commerce_recommend, state_machine, CommerceState
+from services.embedding_service import load_embedding_model
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """앱 시작 시 임베딩 모델 로딩"""
+    await asyncio.to_thread(load_embedding_model)
+    yield
 
 # Meal(Gemini) 추가
 from services.meal_service import (
@@ -35,7 +45,7 @@ from services.meal_command_service import resolve_meal_command
 from services.gemini_service import generate_json
 from prompts.meal_vision_followup import SYSTEM_PROMPT as VISION_FOLLOWUP_SYSTEM_PROMPT, get_followup_prompt
 
-app = FastAPI(title="GrowLog AI Server")
+app = FastAPI(title="GrowLog AI Server", lifespan=lifespan)
 
 # CORS 설정
 app.add_middleware(
@@ -149,9 +159,9 @@ async def chat(request: ChatRequest):
         full_text = f"이전 대화:\n{request.context}\n\n현재 입력: {request.text}"
     else:
         full_text = request.text
-    
-    # 1. 의도 분류 (intent, action, entities, ai_answer 포함)
-    intent_result = classify_intent(full_text)
+
+    # 1. 의도 분류
+    intent_result = await asyncio.to_thread(classify_intent, full_text)
     intent = intent_result.get("intent", "GENERAL_CHAT")
     action = intent_result.get("action", "CHAT")
     entities = intent_result.get("entities", {}) or {}
@@ -159,10 +169,12 @@ async def chat(request: ChatRequest):
 
     # 2. ai_answer가 비어 있으면 기존 방식대로 답변 생성 (하위 호환)
     if not ai_answer.strip():
-        ai_answer = generate_ai_answer(request.text, intent, entities)
+        ai_answer = await asyncio.to_thread(
+            generate_ai_answer, request.text, intent, entities
+        )
 
     # 3. DB 체크 필요 여부 플래그 (백엔드 오케스트레이션 참고용)
-    requires_db_check = intent in ["PAIN_REPORT", "WORKOUT", "MEAL_QUERY", "BODY_QUERY", "DELIVERY_QUERY"]
+    requires_db_check = intent in ["PAIN_REPORT", "WORKOUT", "MEAL_QUERY", "BODY_QUERY", "DELIVERY_QUERY", "PRODUCT_RECOMMEND"]
 
     return ChatResponse(
         intent=intent,
@@ -396,6 +408,52 @@ async def meal_vision_followup(request: AiMealVisionFollowupRequest):
         mt = None
     reply = raw.get("assistantReply") or "추가할까요, 변경할까요?"
     return {"operation": op, "mealTime": mt, "assistantReply": reply}
+
+
+class CommerceRecommendRequest(BaseModel):
+    text: str
+    session_id: str
+
+
+class CommerceSessionCheckRequest(BaseModel):
+    session_id: str
+
+
+@app.post("/commerce/session/check")
+async def commerce_session_check(request: CommerceSessionCheckRequest):
+    """
+    Commerce 세션 상태 확인 (SSOT).
+    Redis에 해당 세션 키가 존재하면 in_flow=True, 없으면 False.
+    """
+    session = state_machine.get_session(request.session_id)
+    in_flow = session is not None
+    return {
+        "in_flow": in_flow,
+        "state": session.state.value if session and session.state else None
+    }
+
+
+@app.post("/commerce/recommend")
+async def commerce_recommend(
+    request: CommerceRecommendRequest,
+    authorization: Optional[str] = Header(None, alias="Authorization")
+):
+    """
+    Commerce 상품 추천 엔드포인트
+
+    - 인증 토큰은 Authorization 헤더로만 전달
+    - 상태머신 기반 대화 플로우 처리
+    - Backend에서 내부 호출 시 authorization이 없을 수 있음 (선택적)
+    """
+    auth_token = authorization  # Header에서 받은 값 그대로 사용 (없으면 None)
+
+    result = handle_commerce_recommend(
+        text=request.text,
+        session_id=request.session_id,
+        auth_token=auth_token
+    )
+
+    return result
 
 
 if __name__ == "__main__":

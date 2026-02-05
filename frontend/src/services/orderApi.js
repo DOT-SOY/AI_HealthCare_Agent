@@ -24,20 +24,11 @@ export const preparePayment = async (orderNo) => {
   return res.data;
 };
 
-/**
- * Toss 결제 승인 (success 리다이렉트 후 호출)
- * @param {object} body - { paymentKey, orderId, amount }
- * @returns {Promise<{ orderId, orderStatus, amount, approvedAt }>}
- */
 export const confirmTossPayment = async (body) => {
   const res = await jwtAxios.post('/payments/toss/confirm', body);
   return res.data;
 };
 
-/**
- * 회원 본인 주문 목록 조회 (JWT 인증 필수)
- * @param {object} params - { page?, page_size?, from_date?, to_date?, status? }
- */
 export const getMyOrders = async (params = {}) => {
   const {
     page = 1,
@@ -68,11 +59,6 @@ export const getOrderDetail = async (orderNo) => {
   return res.data;
 };
 
-/**
- * 회원 주문 배송지 수정
- * @param {string} orderNo - 주문번호
- * @param {object} body - { recipientName, recipientPhone, zipcode, address1, address2 }
- */
 export const updateOrderShipTo = async (orderNo, body) => {
   const res = await jwtAxios.patch(`/orders/${encodeURIComponent(orderNo)}/ship-to`, body);
   return res.data;

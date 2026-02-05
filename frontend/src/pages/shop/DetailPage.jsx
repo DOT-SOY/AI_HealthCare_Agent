@@ -29,7 +29,6 @@ const ProductDetail = () => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [qty, setQty] = useState(1);
-  // 리뷰
   const [reviewsData, setReviewsData] = useState({ items: [], page: 1, page_size: 10, total: 0, pages: 0 });
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewPage, setReviewPage] = useState(1);
@@ -232,10 +231,7 @@ const ProductDetail = () => {
           }
         }
       } catch (err) {
-        // AbortError는 무시 (요청 취소)
         if (err.name === 'AbortError') return;
-        
-        // 요청이 취소되었는지 확인
         if (abortController.signal.aborted) return;
         
         setError(err.message || '상품 정보를 불러오는데 실패했습니다.');
@@ -249,8 +245,6 @@ const ProductDetail = () => {
     };
     
     loadProduct();
-    
-    // cleanup: 컴포넌트 언마운트 또는 id 변경 시 이전 요청 취소
     return () => {
       abortController.abort();
     };

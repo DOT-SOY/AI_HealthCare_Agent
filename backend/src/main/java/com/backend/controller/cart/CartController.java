@@ -29,13 +29,6 @@ public class CartController {
     private final CookieUtil cookieUtil;
     private final CurrentMemberService currentMemberService;
 
-    /**
-     * 장바구니 조회
-     * 
-     * @param request HTTP 요청 (쿠키 읽기용)
-     * @param response HTTP 응답 (쿠키 설정용)
-     * @return 장바구니 응답
-     */
     @GetMapping
     public ResponseEntity<CartResponse> getCart(
             HttpServletRequest request,
@@ -61,8 +54,6 @@ public class CartController {
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
         CartKey cartKey = resolveCartKey(httpRequest, httpResponse);
-        
-        // variantId가 있으면 variantId로 추가, 없으면 productId로 추가
         if (request.getVariantId() != null) {
             cartService.addItem(cartKey, request.getVariantId(), request.getQty());
         } else if (request.getProductId() != null) {
@@ -95,14 +86,6 @@ public class CartController {
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * 장바구니 아이템 제거
-     * 
-     * @param itemId 장바구니 아이템 ID
-     * @param httpRequest HTTP 요청 (쿠키 읽기용)
-     * @param httpResponse HTTP 응답 (쿠키 설정용)
-     * @return 204 No Content
-     */
     @DeleteMapping("/items/{itemId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public ResponseEntity<Void> removeItem(
@@ -114,13 +97,6 @@ public class CartController {
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * 장바구니 비우기
-     * 
-     * @param httpRequest HTTP 요청 (쿠키 읽기용)
-     * @param httpResponse HTTP 응답 (쿠키 설정용)
-     * @return 204 No Content
-     */
     @DeleteMapping
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public ResponseEntity<Void> clearCart(
@@ -131,19 +107,10 @@ public class CartController {
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * 게스트 장바구니를 회원 장바구니로 병합
-     * JWT 필수 (인증된 회원만 사용 가능)
-     * 
-     * @param httpRequest HTTP 요청 (쿠키 읽기용)
-     * @param httpResponse HTTP 응답 (쿠키 설정용)
-     * @return 병합된 장바구니 응답
-     */
     @PostMapping("/merge")
     public ResponseEntity<CartResponse> mergeCart(
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
-        // JWT 인증 필수 확인 + 회원 조회는 CurrentMemberService 를 통해 수행
         final Member member;
         try {
             member = currentMemberService.getCurrentMemberOrThrow();
@@ -153,19 +120,11 @@ public class CartController {
             }
             throw e;
         }
-        
-        // 게스트 토큰 읽기
         String guestToken = cookieUtil.getGuestToken(httpRequest);
-        
         if (guestToken != null && !guestToken.trim().isEmpty()) {
-            // 게스트 카트를 회원 카트로 병합
             cartService.mergeGuestCartToMemberCart(guestToken.trim(), member.getId());
-            
-            // 게스트 토큰 쿠키 삭제
             cookieUtil.removeGuestToken(httpRequest, httpResponse);
         }
-        
-        // 병합된 회원 카트 반환
         CartKey memberCartKey = CartKey.ofMember(member.getId());
         CartResponse cartResponse = cartService.getCart(memberCartKey);
         return ResponseEntity.ok(cartResponse);
@@ -192,7 +151,6 @@ public class CartController {
                     principal, memberId, memberId);
             return key;
         } catch (BusinessException e) {
-            // JWT 미인증 또는 회원 없음/삭제 등은 게스트 플로우로 처리
             if (e.getErrorCode() != ErrorCode.JWT_ERROR && e.getErrorCode() != ErrorCode.MEMBER_NOT_FOUND) {
                 throw e;
             }

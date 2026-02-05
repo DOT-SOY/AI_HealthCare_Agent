@@ -5,7 +5,6 @@ AI 호출 관련 서비스 (공통)
 - 식단(Meal) 기능은 Gemini를 사용합니다.
 - 그 외 일반 기능(의도 분류, 통증 상담 등)은 OpenAI(GPT)를 사용합니다.
 """
-
 import os
 import json
 from typing import Dict, Any, Optional
@@ -26,7 +25,7 @@ except Exception as e:
 
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 # 통증 조언용 모델 (간단한 대답용)
-PAIN_ADVICE_MODEL = os.getenv("PAIN_ADVICE_MODEL", "gpt-4o-mini")
+PAIN_ADVICE_MODEL = os.getenv("PAIN_ADVICE_MODEL", "gpt-4.1-nano")
 
 
 def call_ai(
