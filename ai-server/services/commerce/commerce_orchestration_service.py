@@ -34,10 +34,12 @@ import httpx
 from services.backend_client import get_user_profile
 from schemas.commerce.recommendation_schema import RecommendationCondition
 
-from services.intent_service import classify_intent as classify_intent_top_level
-
 from .commerce_intent_service import extract_commerce_intent_and_slots
-from .commerce_recommendation_service import generate_recommendation_condition, generate_fallback_conditions
+from .commerce_recommendation_service import (
+    generate_recommendation_condition,
+    generate_fallback_conditions,
+    generate_slots_and_condition_combined,
+)
 from .commerce_state_machine import state_machine, CommerceState, SessionData
 from .commerce_exception_handler import (
     handle_exception,
@@ -48,7 +50,11 @@ from .commerce_logging_service import (
     log_recommendation_generated,
     log_user_rejected,
 )
-from services.ai_service import call_ai
+from services.ai_service import call_ai, call_ai_json
+from prompts.commerce.commerce_variant_pick import (
+    SYSTEM_PROMPT as VARIANT_PICK_SYSTEM_PROMPT,
+    build_user_prompt as build_variant_pick_user_prompt,
+)
 
 # CONFIRM_* 상태에서 문장형 발화 시 intent 재분류 기준: 이 길이 이상이면 yes/no가 아닌 새 요청으로 간주
 _CONFIRM_STATE_SENTENCE_MIN_LEN = 5
@@ -59,6 +65,9 @@ _COMMERCE_DOMAIN_INTENT = "PRODUCT_RECOMMEND"
 BACKEND_BASE_URL = os.getenv("BACKEND_BASE_URL", "http://localhost:8080")
 _http_client: Optional[httpx.Client] = None
 HTTP_CLIENT_TIMEOUT = 10.0
+USE_COMBINED_CONDITION_LLM = os.getenv("USE_COMBINED_CONDITION_LLM", "false").strip().lower() in (
+    "1", "true", "yes"
+)
 
 
 def _get_http_client() -> httpx.Client:
@@ -426,7 +435,64 @@ def _parse_numeric_from_name(name: str) -> Optional[float]:
     return None
 
 
+def _pick_variant_id_via_llm(available_variants: List[Dict], option_keyword: str) -> Optional[int]:
+    """
+    LLM을 사용해 사용자 옵션 키워드와 가장 잘 맞는 variant를 선택한다.
+    
+    Args:
+        available_variants: [{"variantId": int, "name": str, "stockQty": int, "price": float|None}, ...]
+        option_keyword: 사용자가 원하는 옵션 문자열 (예: "흰색", "L 사이즈", "20kg", "가벼운 거")
+    
+    Returns:
+        선택된 variantId 또는 None (실패/매칭 없음)
+    """
+    try:
+        # LLM에 전달할 형태로 변환 (재고 수량, 가격 포함)
+        variants_for_llm = [
+            {
+                "variantId": v.get("variantId"),
+                "name": v.get("name", ""),
+                "stockQty": v.get("stockQty") or 0,
+                "price": v.get("price"),  # 있으면 전달, 없으면 None
+            }
+            for v in available_variants
+        ]
+        
+        user_prompt = build_variant_pick_user_prompt(variants_for_llm, option_keyword)
+        
+        result = call_ai_json(
+            system_prompt=VARIANT_PICK_SYSTEM_PROMPT,
+            user_prompt=user_prompt,
+            temperature=0.0,
+        )
+        
+        selected_id = result.get("variantId")
+        if selected_id is None:
+            return None
+        
+        # 반환된 ID가 실제 목록에 있는지 검증
+        valid_ids = {v.get("variantId") for v in available_variants}
+        if selected_id in valid_ids:
+            return selected_id
+        
+        print(f"[variant_pick] LLM이 반환한 variantId={selected_id}가 목록에 없음")
+        return None
+        
+    except Exception as e:
+        print(f"[variant_pick] LLM 호출 실패, fallback 사용: {e}")
+        return None
+
+
 def _pick_variant_id(available_variants: List[Dict], option_keyword: Optional[str]) -> Optional[int]:
+    """
+    사용자 옵션 키워드와 가장 잘 맞는 variant를 선택한다.
+    
+    우선순위:
+    1. LLM 기반 선택 (색상/사이즈/무게/가격 등 모든 옵션 처리)
+    2. Fallback: 가벼운/무거운 숫자 정렬
+    3. Fallback: 문자열 토큰 매칭
+    4. Fallback: 첫 번째 variant
+    """
     if not available_variants:
         return None
     raw = (option_keyword or "").strip()
@@ -436,6 +502,15 @@ def _pick_variant_id(available_variants: List[Dict], option_keyword: Optional[st
     def norm(s: str) -> str:
         return (s or "").strip().lower()
 
+    # 1. LLM 기반 옵션 선택 시도 (variant가 2개 이상일 때만)
+    if len(available_variants) >= 2:
+        llm_result = _pick_variant_id_via_llm(available_variants, raw)
+        if llm_result is not None:
+            print(f"[variant_pick] LLM 선택 성공: variantId={llm_result}, option_keyword={raw}")
+            return llm_result
+        print(f"[variant_pick] LLM 선택 실패, fallback 사용: option_keyword={raw}")
+
+    # 2. Fallback: 가벼운/무거운 숫자 정렬 로직
     raw_lower = norm(raw)
     want_light = any(k in raw_lower for k in ("가벼운", "가벼운걸", "가벼운 걸", "제일 가벼운", "낮은", "작은", "최소", "light", "small"))
     want_heavy = any(k in raw_lower for k in ("무거운", "무거운걸", "무거운 걸", "제일 무거운", "높은", "큰", "최대", "heavy", "large", "big"))
@@ -452,6 +527,7 @@ def _pick_variant_id(available_variants: List[Dict], option_keyword: Optional[st
             idx = 0 if want_light else -1
             return sorted_candidates[idx].get("variantId")
 
+    # 3. Fallback: 문자열 토큰 매칭 로직
     tokens = [t.strip() for t in re.split(r"[\s,]+", raw) if len(t.strip()) >= VARIANT_MATCH_MIN_LEN]
     if not tokens:
         return available_variants[0].get("variantId")
@@ -464,6 +540,8 @@ def _pick_variant_id(available_variants: List[Dict], option_keyword: Optional[st
             continue
         if any(n in name or name in n for n in [norm(t) for t in tokens]):
             return v.get("variantId")
+    
+    # 4. Fallback: 첫 번째 variant
     return candidates[0].get("variantId")
 
 
@@ -544,32 +622,35 @@ def handle_commerce_recommend(
 def handle_recommend_state(
     text: str,
     session_id: str,
-    auth_token: Optional[str]
+    auth_token: Optional[str],
+    pre_extracted_slots: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     t_recommend_start = time.time()
     try:
         session = state_machine.get_session(session_id)
         text_stripped = (text or "").strip()
+        combined_condition: Optional[RecommendationCondition] = None
 
-        # RECOMMEND 상태 오프토픽: 문장형 발화일 때만 상위 의도 분류. 짧은 발화("추천해줘" 등)는 건너뛰어 INFO_LACK 등 기존 동작 유지.
-        if _is_sentence_like_for_confirm(text_stripped):
-            try:
-                top_intent_result = classify_intent_top_level(text_stripped)
-                top_intent = (top_intent_result.get("intent") or "").strip()
-                if top_intent and top_intent != _COMMERCE_DOMAIN_INTENT:
-                    state_machine.delete_session(session_id)
-                    return {
-                        "state": CommerceState.RECOMMEND.value,
-                        "message": "지금 말씀하신 내용은 상품 추천과는 다른 주제 같아요. 해당 주제는 다른 메뉴에서 도와드릴 수 있어요.",
-                        "error": "OFF_TOPIC",
-                        "intent": top_intent,
-                        "entities": top_intent_result.get("entities") or {},
-                    }
-            except Exception as e:
-                print(f"[commerce] RECOMMEND classify_intent_top_level failed: {e}")
+        if pre_extracted_slots is not None:
+            extracted_slots = pre_extracted_slots
+        else:
+            if USE_COMBINED_CONDITION_LLM:
+                try:
+                    combined_slots_raw, combined_condition = generate_slots_and_condition_combined(
+                        text_stripped or text,
+                        extracted_slots_hint={},
+                        auth_token=auth_token,
+                        profile_context=None,
+                    )
+                    extracted_slots = _apply_slot_policy(combined_slots_raw)
+                    print("[commerce] combined_condition_used=true")
+                except Exception as e:
+                    combined_condition = None
+                    print(f"[commerce] combined_condition_failed: {e}")
 
-        raw_slots = extract_commerce_intent_and_slots(text_stripped or text)
-        extracted_slots = _apply_slot_policy(raw_slots)
+            if combined_condition is None:
+                raw_slots = extract_commerce_intent_and_slots(text_stripped or text)
+                extracted_slots = _apply_slot_policy(raw_slots)
 
         # 직전 추천 결과 상태와, 이번 발화가 "완전히 새로운 추천 요청"인지 여부를 확인한다.
         prev_last_result_type = getattr(session, "last_result_type", None) if session else None
@@ -712,12 +793,21 @@ def handle_recommend_state(
         if reuse_condition:
             condition = RecommendationCondition.from_dict(existing_condition_dict)
         else:
-            condition = generate_recommendation_condition(
-                text,
-                merged_slots,
-                auth_token=auth_token,
-                profile_context=profile_context,
-            )
+            if combined_condition is not None:
+                condition = combined_condition
+                # merged 슬롯 값과 condition의 기본 필드 정합성 보정
+                condition.goal = merged_goal
+                condition.product_category = merged_category
+                condition.budget_max = merged_budget
+                condition.keyword = merged_keyword
+                condition.avoid = merged_slot_avoid
+            else:
+                condition = generate_recommendation_condition(
+                    text,
+                    merged_slots,
+                    auth_token=auth_token,
+                    profile_context=profile_context,
+                )
         # 대화에서 목적을 지정하지 않았을 때(goal=ALL) 프로필을 썼다면 user_profile_used=True, goal 등 반영
         if condition and profile_context and merged_goal == "ALL":
             condition.user_profile_used = True
@@ -966,29 +1056,15 @@ def handle_confirm_product_state(
             "error": None,
         }
 
-    # 문장형 발화: intent 재분류 후 새 추천 요청이면 RECOMMEND로, 비커머스면 OFF_TOPIC 반환
+    # 문장형 발화: 새 추천 요청이면 RECOMMEND로 전환
     if _is_sentence_like_for_confirm(text_stripped):
         try:
-            top_intent_result = classify_intent_top_level(text_stripped)
-            top_intent = (top_intent_result.get("intent") or "").strip()
-            if top_intent and top_intent != _COMMERCE_DOMAIN_INTENT:
-                state_machine.delete_session(session_id)
-                return {
-                    "state": CommerceState.RECOMMEND.value,
-                    "message": "지금 말씀하신 내용은 상품 추천·결제와 다른 주제 같아요. 해당 주제는 다른 메뉴에서 도와드릴 수 있어요.",
-                    "error": "OFF_TOPIC",
-                    "intent": top_intent,
-                    "entities": top_intent_result.get("entities") or {},
-                }
-        except Exception as e:
-            print(f"[commerce] CONFIRM_PRODUCT classify_intent_top_level failed: {e}")
-
-        try:
             extracted = extract_commerce_intent_and_slots(text_stripped)
-            if _is_new_recommendation_request(text_stripped, extracted):
+            extracted_slots = _apply_slot_policy(extracted)
+            if _is_new_recommendation_request(text_stripped, extracted_slots):
                 state_machine.transition_state(session_id, CommerceState.RECOMMEND)
                 state_machine.update_session(session_id, awaiting_since=None)
-                return handle_recommend_state(text_stripped, session_id, auth_token)
+                return handle_recommend_state(text_stripped, session_id, auth_token, pre_extracted_slots=extracted_slots)
         except Exception as e:
             print(f"[commerce] CONFIRM_PRODUCT extract_commerce_intent_and_slots failed: {e}")
 
@@ -1224,29 +1300,15 @@ def handle_confirm_address_state(
                 except Exception as e:
                     print(f"[commerce] CONFIRM_ADDRESS recipient extract/match failed: {e}")
 
-            # 문장형 발화: intent 재분류 후 비커머스면 OFF_TOPIC, 새 추천 요청이면 RECOMMEND로 전환
+            # 문장형 발화: 새 추천 요청이면 RECOMMEND로 전환
             if _is_sentence_like_for_confirm(text_stripped):
                 try:
-                    top_intent_result = classify_intent_top_level(text_stripped)
-                    top_intent = (top_intent_result.get("intent") or "").strip()
-                    if top_intent and top_intent != _COMMERCE_DOMAIN_INTENT:
-                        state_machine.delete_session(session_id)
-                        return {
-                            "state": CommerceState.RECOMMEND.value,
-                            "message": "지금 말씀하신 내용은 상품 추천·결제와 다른 주제 같아요. 해당 주제는 다른 메뉴에서 도와드릴 수 있어요.",
-                            "error": "OFF_TOPIC",
-                            "intent": top_intent,
-                            "entities": top_intent_result.get("entities") or {},
-                        }
-                except Exception as e:
-                    print(f"[commerce] CONFIRM_ADDRESS classify_intent_top_level failed: {e}")
-
-                try:
                     extracted = extract_commerce_intent_and_slots(text_stripped)
-                    if _is_new_recommendation_request(text_stripped, extracted):
+                    extracted_slots = _apply_slot_policy(extracted)
+                    if _is_new_recommendation_request(text_stripped, extracted_slots):
                         state_machine.transition_state(session_id, CommerceState.RECOMMEND)
                         state_machine.update_session(session_id, awaiting_since=None)
-                        return handle_recommend_state(text_stripped, session_id, auth_token)
+                        return handle_recommend_state(text_stripped, session_id, auth_token, pre_extracted_slots=extracted_slots)
                 except Exception as e:
                     print(f"[commerce] CONFIRM_ADDRESS extract_commerce_intent_and_slots failed: {e}")
 

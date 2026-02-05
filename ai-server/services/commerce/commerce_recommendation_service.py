@@ -1,11 +1,15 @@
 """Commerce 추천 조건 생성 (RAG 정책 문서 + LLM)."""
 import time
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple
 
 from services.ai_service import call_ai_json
 from services.backend_client import get_user_profile
 from .commerce_rag_service import search_commerce_rag, COMMERCE_POLICY_DOC_TYPES
 from prompts.commerce.commerce_recommendation import build_system_prompt, build_user_prompt
+from prompts.commerce.commerce_combined_condition import (
+    build_system_prompt as build_combined_system_prompt,
+    build_user_prompt as build_combined_user_prompt,
+)
 from schemas.commerce.recommendation_schema import RecommendationCondition
 
 
@@ -324,6 +328,143 @@ def generate_recommendation_condition(
     except Exception as e:
         print(f"추천 조건 생성 실패: {e}")
         return None
+
+
+def generate_slots_and_condition_combined(
+    user_text: str,
+    extracted_slots_hint: Dict[str, Any],
+    auth_token: Optional[str] = None,
+    profile_context: Optional[Dict[str, Any]] = None,
+) -> Tuple[Dict[str, Any], RecommendationCondition]:
+    """
+    단일 LLM 호출로 slots + RecommendationCondition 생성.
+    실패 시 예외 발생 → 호출부에서 폴백.
+    """
+    t0 = time.time()
+    user_profile: Optional[Dict[str, Any]] = None
+    if profile_context is not None:
+        user_profile = {
+            "goal": profile_context.get("goal_type"),
+            "heightCm": profile_context.get("member_height_cm"),
+            "weightKg": profile_context.get("member_weight_kg"),
+            "budgetMax": profile_context.get("budget_max") or profile_context.get("budgetMax"),
+            "avoid": list(profile_context.get("profile_avoid") or []),
+            "gender": profile_context.get("member_gender"),
+        }
+        print(f"[commerce] combined_condition_start using_session_profile total={time.time() - t0:.2f}s")
+    elif auth_token:
+        t_profile_start = time.time()
+        user_profile = get_user_profile(auth_token)
+        print(
+            f"[commerce] combined_profile_fetch done elapsed={time.time() - t_profile_start:.2f}s "
+            f"total={time.time() - t0:.2f}s"
+        )
+    else:
+        print(f"[commerce] combined_condition_start (no profile) total={time.time() - t0:.2f}s")
+
+    slots_hint = dict(extracted_slots_hint or {})
+    if "keyword" in slots_hint:
+        slots_hint["keyword"] = _normalize_keyword_for_catalog(slots_hint.get("keyword"))
+
+    core_kw_raw = slots_hint.get("core_keywords") or []
+    core_keywords: List[str] = []
+    if isinstance(core_kw_raw, list):
+        core_keywords = [str(x).strip() for x in core_kw_raw if x is not None and str(x).strip()]
+
+    t_rag_start = time.time()
+    goal = slots_hint.get("goal", "ALL")
+    product_category = slots_hint.get("product_category", "ALL")
+    doc_types = COMMERCE_POLICY_DOC_TYPES
+
+    rag_out = search_commerce_rag(
+        goal=goal if goal != "ALL" else None,
+        product_category=product_category if product_category != "ALL" else None,
+        doc_types=doc_types,
+        query_text=user_text,
+        limit=3,
+    )
+    rag_results = rag_out.get("results") or []
+    rag_hit = rag_out.get("rag_hit", False)
+    retrieved_chunks = rag_out.get("retrieved_chunks", 0)
+    rag_error = rag_out.get("error")
+
+    if not rag_hit:
+        print(f"[commerce] combined_rag_done rag_hit=false retrieved_chunks=0 error={rag_error!r} elapsed={time.time() - t_rag_start:.2f}s total={time.time() - t0:.2f}s")
+    else:
+        print(f"[commerce] combined_rag_done rag_hit=true retrieved_chunks={retrieved_chunks} elapsed={time.time() - t_rag_start:.2f}s total={time.time() - t0:.2f}s")
+
+    top_results = sorted(
+        rag_results,
+        key=lambda r: r.get("score", 0.0),
+        reverse=True,
+    )
+
+    rag_context_parts = []
+    for result in top_results:
+        if result.get("title"):
+            rag_context_parts.append(f"## {result['title']}")
+        if result.get("content"):
+            content = str(result["content"])
+            if len(content) > 500:
+                content = content[:500] + " ..."
+            rag_context_parts.append(content)
+        if result.get("section"):
+            rag_context_parts.append(f"\n섹션: {result['section']}")
+        rag_context_parts.append("")
+
+    if rag_context_parts:
+        rag_context = "\n".join(rag_context_parts)
+    else:
+        rag_context = "추천 규칙 정보가 없습니다. (RAG 검색 미사용 또는 결과 없음)"
+    print(f"[commerce] combined_rag_context built elapsed={time.time() - t_rag_start:.2f}s total={time.time() - t0:.2f}s")
+
+    system_prompt = build_combined_system_prompt(rag_context, user_profile or {})
+    user_prompt = build_combined_user_prompt(user_text, slots_hint)
+
+    t_llm_start = time.time()
+    result = call_ai_json(
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        temperature=0.3,
+    )
+    print(f"[commerce] combined_llm_done elapsed={time.time() - t_llm_start:.2f}s total={time.time() - t0:.2f}s")
+
+    if not isinstance(result, dict):
+        raise ValueError("combined_condition_result_not_dict")
+
+    slots = result.get("slots") or {}
+    condition_dict = result.get("condition") or {}
+    if not isinstance(slots, dict) or not isinstance(condition_dict, dict):
+        raise ValueError("combined_condition_invalid_shape")
+
+    condition = RecommendationCondition.from_dict(condition_dict)
+    if not condition.validate():
+        raise ValueError("combined_condition_validation_failed")
+
+    # core_keywords를 부위/상품유형/영양으로 분류하여 condition에 반영
+    try:
+        if core_keywords:
+            classified = _classify_keywords(core_keywords)
+
+            base_must = list(condition.must_have or [])
+            base_lower = {m.lower() for m in base_must}
+            for term in classified["type_must"]:
+                if term.lower() not in base_lower:
+                    base_must.append(term)
+                    base_lower.add(term.lower())
+            condition.must_have = base_must
+
+            base_priority = list(condition.priority or [])
+            base_lower = {p.lower() for p in base_priority}
+            for term in classified["priority"]:
+                if term.lower() not in base_lower:
+                    base_priority.append(term)
+                    base_lower.add(term.lower())
+            condition.priority = base_priority
+    except Exception:
+        pass
+
+    return slots, condition
 
 
 def generate_fallback_conditions(

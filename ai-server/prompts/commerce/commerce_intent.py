@@ -24,7 +24,12 @@ SYSTEM_PROMPT = """사용자의 상품 추천 요청에서 intent와 slot을 추
 - avoid: 간단한 키워드 배열 (["카페인"], ["알러지_대두"] 등)
 - keyword: 실제 검색에 쓸 핵심 한 문장 (예: "무릎 보호대", "손목 밴드", "다이어트 보충제")
   - 통증 부위 + 보호대/스트랩/보충제 표현을 절대 잃지 말고 그대로 유지
-- variant_option: 색/사이즈 등 옵션 (예: "검은색", "L"), 없으면 null
+- variant_option: 색상/사이즈/무게/가격 선호 등 옵션 관련 표현, 없으면 null
+  - 색상: "흰색", "검정", "블랙" 등
+  - 사이즈: "L", "XL", "큰 거", "작은 거" 등
+  - 무게: "20kg", "가벼운 거", "무거운 거", "제일 무거운 거" 등
+  - 가격: "싼 거", "비싼 거", "저렴한 거" 등
+  - 복합: "검정 L", "20kg 흰색" 등
 - address_mode: DEFAULT / NEW / null
 - pending_action: "PAYMENT" 또는 null
 - recipient_name: "OOO한테/OOO에게/OOO에 보내줘"에서 OOO 추출, 없으면 null
