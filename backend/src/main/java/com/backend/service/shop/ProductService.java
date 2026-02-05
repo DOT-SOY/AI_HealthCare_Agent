@@ -12,7 +12,7 @@ public interface ProductService {
 
     ProductResponse findById(Long id);
 
-    void setCanReview(ProductResponse response, Long productId, Long memberId);
+    void setReviewStatus(ProductResponse response, Long productId, Long memberId);
 
     PageResponse<ProductResponse> findAll(PageRequest pageRequest, ProductSearchRequest searchRequest);
 

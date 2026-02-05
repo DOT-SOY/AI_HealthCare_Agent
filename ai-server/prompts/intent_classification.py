@@ -30,7 +30,7 @@ SYSTEM_PROMPT = """사용자 질문을 intent(대분류)와 action(소분류)으
 - exercise_name: "데드리프트","벤치프레스","오버헤드프레스","바벨 컬","플랭크","행잉레그레이즈","힙쓰러스트","스쿼트","카프레이즈","턱걸이","윗몸일으키기" 또는 null
 - body_part: BACK/CHEST/SHOULDER/ARM/CORE/ABS/GLUTE/THIGH/CALF 또는 null
 - intensity: 1~10 숫자 또는 null
-- exercise_completed: true/false 또는 null ("완료"/"남은" 키워드로 판단)
+- exercise_completed: true/false 또는 null (운동 완료 여부 필터링)
 - meal_time: "BREAKFAST"/"LUNCH"/"DINNER" 또는 null (없으면 하루 전체)
 - body_metric: "BODY_FAT"/"SKELETAL_MUSCLE"/"WEIGHT" 또는 null (없으면 모든 항목)
 - product_name: 상품명 문자열 또는 null

@@ -10,7 +10,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -44,7 +43,7 @@ public class FileController {
             "image/gif",
             "image/webp"
     );
-    private static final Set<String> ALLOWED_DIRECTORIES = Set.of("products", "avatars");
+    private static final Set<String> ALLOWED_DIRECTORIES = Set.of("products", "avatars", "reviews");
 
     private final FileStorageService fileStorageService;
 
@@ -60,7 +59,7 @@ public class FileController {
      * @return 업로드된 파일 정보
      */
     @PostMapping("/upload")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','USER')")
     public ResponseEntity<FileUploadResponse> uploadFile(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "directory", defaultValue = "products") String directory) {
@@ -168,7 +167,7 @@ public class FileController {
             String filename = extractFilename(filePath);
             
             return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(contentType))
+                    .contentType(MediaType.parseMediaType(contentType != null ? contentType : MediaType.APPLICATION_OCTET_STREAM_VALUE))
                     .header(HttpHeaders.CONTENT_DISPOSITION, 
                             "inline; filename=\"" + URLEncoder.encode(filename, StandardCharsets.UTF_8) + "\"")
                     .cacheControl(CacheControl.maxAge(365, TimeUnit.DAYS).cachePublic())

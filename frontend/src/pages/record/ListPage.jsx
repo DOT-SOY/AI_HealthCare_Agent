@@ -3,6 +3,7 @@ import { routineApi } from '../../api/routineApi';
 import FilterButtons from '../../components/record/FilterButtons';
 import ExerciseCard from '../../components/record/ExerciseCard';
 import ExerciseDetailModal from '../../components/record/ExerciseDetailModal';
+import LoadingModal from '../../components/common/LoadingModal';
 
 // 부위별 카테고리 매핑
 const bodyPartToCategory = {
@@ -109,10 +110,7 @@ export default function HistoryPage() {
 
       {/* 운동 카드 그리드 */}
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-12 gap-token-4">
-          <div className="spinner-token" />
-          <p className="text-text-sub font-medium">로딩 중...</p>
-        </div>
+        <LoadingModal isOpen={true} message="로딩 중..." />
       ) : exercises.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-token-8">
           {exercises.map((exercise, index) => (

@@ -13,6 +13,19 @@ const aiSlice = createSlice({
     addMessage: (state, action) => {
       state.messages.push(action.payload);
     },
+    upsertMealGenerateMessage: (state, action) => {
+      const content = action.payload?.content ?? '';
+      // 마지막 MEAL_GENERATE 메시지가 있으면 그걸 업데이트(퍼센트만 바뀌는 UX)
+      for (let i = state.messages.length - 1; i >= 0; i -= 1) {
+        const m = state.messages[i];
+        if (m?.role === 'assistant' && m?.meta?.kind === 'MEAL_GENERATE') {
+          state.messages[i] = { ...m, content };
+          return;
+        }
+      }
+      // 없으면 새로 추가
+      state.messages.push({ role: 'assistant', content, meta: { kind: 'MEAL_GENERATE' } });
+    },
     setLastResponse: (state, action) => {
       state.lastResponse = action.payload;
     },
@@ -49,6 +62,7 @@ const aiSlice = createSlice({
 
 export const {
   addMessage,
+  upsertMealGenerateMessage,
   setLastResponse,
   toggleChat,
   setChatOpen,

@@ -228,8 +228,8 @@
 
   /* ---------- 로딩 스피너 (전역) ---------- */
   .spinner-token {
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 3rem;
+    height: 3rem;
     border: 2px solid var(--primary-500);
     border-top-color: transparent;
     border-radius: 9999px;

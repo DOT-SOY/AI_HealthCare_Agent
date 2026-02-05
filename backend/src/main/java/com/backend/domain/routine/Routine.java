@@ -37,6 +37,7 @@ public class Routine {
     private String aiSummary; // AI가 생성한 요약
     
     @Enumerated(EnumType.STRING)
+    @Column(length = 20)
     private RoutineStatus status; // COMPLETED, IN_PROGRESS, EXPECTED
     
     @OneToMany(mappedBy = "routine", cascade = CascadeType.ALL, orphanRemoval = true)

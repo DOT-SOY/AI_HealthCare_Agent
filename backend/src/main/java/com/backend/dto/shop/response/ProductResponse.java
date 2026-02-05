@@ -2,6 +2,7 @@ package com.backend.dto.shop.response;
 
 import com.backend.domain.shop.Product;
 import com.backend.domain.shop.ProductStatus;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -30,7 +31,10 @@ public class ProductResponse {
     private List<ProductVariantResponse> variants;
     private List<CategoryResponse> categories;
     private ReviewSummaryResponse reviewSummary;
-    private Boolean canReview;
+
+    // 로그인 회원 기준 리뷰 상태
+    @JsonProperty("review_status")
+    private ReviewStatus reviewStatus;
 
     public static ProductResponse from(Product product) {
         if (product == null) {

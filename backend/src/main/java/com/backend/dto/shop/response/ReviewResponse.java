@@ -25,4 +25,5 @@ public class ReviewResponse {
     @JsonProperty("updated_at")
     private Instant updatedAt;
     private List<ReplyResponse> replies;
+    private List<ReviewImageResponse> images;
 }

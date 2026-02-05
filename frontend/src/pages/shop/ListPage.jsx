@@ -5,6 +5,7 @@ import { Search, RotateCcw, LayoutGrid, UtensilsCrossed, Pill, Dumbbell, Shirt, 
 import { getProductList } from '../../services/productApi';
 import ProductCard from '../../components/shop/ProductCard';
 import Button from '../../components/common/Button';
+import LoadingModal from '../../components/common/LoadingModal';
 
 const SEGMENT_CARDS = [
   { id: null, label: '전체', Icon: LayoutGrid },
@@ -114,12 +115,7 @@ const ProductList = () => {
   };
 
   if (loading && products.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-token-4 bg-bg-root">
-        <div className="spinner-token" />
-        <p className="text-text-sub font-medium">로딩 중...</p>
-      </div>
-    );
+    return <LoadingModal isOpen={true} message="로딩 중..." />;
   }
 
   if (error) {

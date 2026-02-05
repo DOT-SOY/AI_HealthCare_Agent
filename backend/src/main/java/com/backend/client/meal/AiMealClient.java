@@ -2,6 +2,7 @@ package com.backend.client.meal;
 
 import com.backend.dto.meal.AiMealRequestDto;
 import com.backend.dto.meal.AiMealResponseDto;
+import com.backend.dto.meal.AiMealVisionFollowupDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@SuppressWarnings("null")
 public class AiMealClient {
 
     private final WebClient webClient;
@@ -54,8 +56,8 @@ public class AiMealClient {
                 .bodyValue(request)
                 .retrieve()
                 .bodyToMono(AiMealResponseDto.class)
-                .timeout(Duration.ofSeconds(30))
-                .retryWhen(Retry.fixedDelay(2, Duration.ofSeconds(1))
+                .timeout(Duration.ofSeconds(60)) // 이미지 분석 등으로 인해 타임아웃 증가
+                .retryWhen(Retry.fixedDelay(1, Duration.ofSeconds(2)) // 재시도 횟수 감소, 지연 증가
                         .filter(throwable -> {
                             log.warn("[AiMealClient] 재시도 가능한 오류: {}", throwable.getMessage());
                             return throwable instanceof java.util.concurrent.TimeoutException
@@ -74,6 +76,20 @@ public class AiMealClient {
                     log.error("[AiMealClient] AI 서버 통신 중 예외 발생: ", throwable);
                     throw new RuntimeException("AI 서버 통신 실패: " + throwable.getMessage(), throwable);
                 });
+    }
+
+    public CompletableFuture<AiMealVisionFollowupDto.Response> sendVisionFollowupAsync(AiMealVisionFollowupDto.Request request) {
+        log.info("[AiMealClient] Vision followup 요청 시작");
+        return webClient
+                .post()
+                .uri(aiServerUrl + "/vision/followup")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .retrieve()
+                .bodyToMono(AiMealVisionFollowupDto.Response.class)
+                .timeout(Duration.ofSeconds(20))
+                .retryWhen(Retry.fixedDelay(1, Duration.ofSeconds(1)))
+                .toFuture();
     }
 }
 

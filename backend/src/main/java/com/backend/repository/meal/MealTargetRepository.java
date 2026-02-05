@@ -20,3 +20,5 @@ public interface MealTargetRepository extends JpaRepository<MealTarget, Long> {
     void deleteByUserId(Long userId);
 }
 
+
+

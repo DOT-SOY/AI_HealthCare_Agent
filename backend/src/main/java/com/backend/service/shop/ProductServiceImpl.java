@@ -13,6 +13,7 @@ import com.backend.dto.shop.request.ProductVariantRequest;
 import com.backend.dto.shop.response.CategoryResponse;
 import com.backend.dto.shop.response.ProductImageResponse;
 import com.backend.dto.shop.response.ProductResponse;
+import com.backend.dto.shop.response.ReviewStatus;
 import com.backend.dto.shop.response.ProductVariantResponse;
 import com.backend.dto.shop.response.ReviewSummaryResponse;
 import com.backend.domain.order.OrderItemStatus;
@@ -107,11 +108,22 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
-    public void setCanReview(ProductResponse response, Long productId, Long memberId) {
+    public void setReviewStatus(ProductResponse response, Long productId, Long memberId) {
+        if (memberId == null) { response.setReviewStatus(ReviewStatus.NOT_LOGGED_IN);
+            return;
+        }
+
         boolean purchased = orderItemRepository.existsByMemberIdAndProductIdAndOrderStatusInAndItemStatus(
                 memberId, productId, PAID_OR_LATER, OrderItemStatus.ORDERED);
+
+        if (!purchased) { response.setReviewStatus(ReviewStatus.NOT_PURCHASED);
+            return;
+        }
+
         boolean alreadyReviewed = productReviewRepository.existsByProductIdAndMemberId(productId, memberId);
-        response.setCanReview(purchased && !alreadyReviewed);
+        if (alreadyReviewed) { response.setReviewStatus(ReviewStatus.ALREADY_REVIEWED);
+        } else { response.setReviewStatus(ReviewStatus.CAN_REVIEW);
+        }
     }
 
     @Override

@@ -4,6 +4,7 @@ import { useCart } from '../../components/layout/ShopLayout';
 import { getCart } from '../../services/cartApi';
 import { createOrderFromCart, preparePayment, getOrderDetail } from '../../services/orderApi';
 import { getMyAddressList } from '../../services/memberInfoAddrApi';
+import AddressSearchModal from '../../components/common/AddressSearchModal';
 
 const TOSS_V1_URL = 'https://js.tosspayments.com/v1/payment.js';
 const TOSS_V2_URL = 'https://js.tosspayments.com/v2/payment.js';
@@ -74,8 +75,6 @@ const loadTossScript = () => {
 const CheckoutPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  // useCart는 ShopLayout 내부에서만 사용 가능 (Context)
-  // ShopLayout은 ShopIndex에서 제공되므로 항상 사용 가능해야 함
   const cartContext = useCart();
   const { cartItems = [], totals = {} } = cartContext || {};
   const [cartSummary, setCartSummary] = useState(null);
@@ -93,6 +92,8 @@ const CheckoutPage = () => {
   const [addressList, setAddressList] = useState([]);
   const [showAddressSelect, setShowAddressSelect] = useState(false);
   const defaultAppliedRef = useRef(false);
+  /** 주소 검색 모달 표시 여부 */
+  const [isAddressSearchOpen, setIsAddressSearchOpen] = useState(false);
   const fromAIRef = useRef(false);
   const submitLockRef = useRef(false);
 
@@ -156,7 +157,7 @@ const CheckoutPage = () => {
     const state = location.state;
     if (state?.fromAI && state?.orderNo && state?.paymentReady && !fromAIRef.current) {
       fromAIRef.current = true;
-      
+
       const { orderNo, paymentReady } = state;
 
       const loadOrderAndInitPayment = async () => {
@@ -175,7 +176,7 @@ const CheckoutPage = () => {
               },
             }));
           }
-          
+
           if (orderDetail.buyer) {
             setForm((prev) => ({
               ...prev,
@@ -190,8 +191,8 @@ const CheckoutPage = () => {
           const clientKey = paymentReady?.clientKey ?? '';
           const customerKey = paymentReady?.customerKey ?? `guest-${orderNo}`;
           const orderName = paymentReady?.orderName ?? `주문 ${orderNo}`;
-          const amountNumber = typeof paymentReady?.amount === 'number' 
-            ? paymentReady.amount 
+          const amountNumber = typeof paymentReady?.amount === 'number'
+            ? paymentReady.amount
             : Number(paymentReady?.amount || 0);
           const orderIdStr = typeof orderNo === 'string' ? orderNo : String(orderNo);
           const baseUrl = window.location.origin + '/shop';
@@ -208,7 +209,7 @@ const CheckoutPage = () => {
             await widgets.renderPaymentMethods({ selector: '#toss-payment-method' });
             await widgets.renderAgreement({ selector: '#toss-agreement' });
             widgetInstanceRef.current = widgets;
-            
+
             setWidgetOrderPayload({
               orderId: orderIdStr,
               orderName,
@@ -494,13 +495,23 @@ const CheckoutPage = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-text-main mb-1">우편번호</label>
-              <input
-                type="text"
-                required
-                className="input-token w-full"
-                value={form.shipTo.zipcode}
-                onChange={(e) => handleChange('shipTo', 'zipcode', e.target.value)}
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  required
+                  className="input-token flex-1"
+                  value={form.shipTo.zipcode}
+                  onChange={(e) => handleChange('shipTo', 'zipcode', e.target.value)}
+                  placeholder="우편번호"
+                />
+                <button
+                  type="button"
+                  onClick={() => setIsAddressSearchOpen(true)}
+                  className="px-4 py-2 border border-border-default rounded-token bg-bg-card text-text-main hover:border-primary-500 hover:text-primary-500 hover:bg-primary-500/10 transition-colors whitespace-nowrap"
+                >
+                  주소 검색
+                </button>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-text-main mb-1">주소</label>
@@ -510,6 +521,7 @@ const CheckoutPage = () => {
                 className="input-token w-full"
                 value={form.shipTo.address1}
                 onChange={(e) => handleChange('shipTo', 'address1', e.target.value)}
+                placeholder="주소"
               />
             </div>
             <div>
@@ -605,6 +617,24 @@ const CheckoutPage = () => {
           </button>
         </div>
       </form>
+
+      {/* 주소 검색 모달 */}
+      <AddressSearchModal
+        isOpen={isAddressSearchOpen}
+        onClose={() => setIsAddressSearchOpen(false)}
+        onSelect={(addressData) => {
+          setForm((prev) => ({
+            ...prev,
+            shipTo: {
+              ...prev.shipTo,
+              zipcode: addressData.zipcode,
+              address1: addressData.address1,
+              address2: addressData.address2 || prev.shipTo.address2
+            }
+          }));
+          setIsAddressSearchOpen(false);
+        }}
+      />
     </div>
   );
 };

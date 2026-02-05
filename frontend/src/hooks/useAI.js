@@ -1,6 +1,6 @@
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { addMessage, setLastResponse, setLoading } from '../store/aiSlice';
+import { addMessage, upsertMealGenerateMessage, setLastResponse, setLoading } from '../store/aiSlice';
 import { aiApi } from '../api/aiApi';
 
 export function useAI() {
@@ -51,20 +51,25 @@ export function useAI() {
         }
       }
       
-      // AI 응답 메시지에 data 정보도 함께 저장 (루틴 정보 등)
-      dispatch(addMessage({ 
-        role: 'assistant', 
-        content: aiResponseText,
-        data: response.data || null,
-        intent: response.intent || null
-      }));
+      // 식단 생성은 같은 버블에서 퍼센트만 업데이트되어야 하므로 meta로 관리
+      if (response.intent === 'MEAL_QUERY' && typeof aiResponseText === 'string' && aiResponseText.startsWith('식단 생성')) {
+        dispatch(upsertMealGenerateMessage({ content: aiResponseText }));
+      } else {
+        // AI 응답 메시지에 data 정보도 함께 저장 (루틴 정보 등)
+        dispatch(addMessage({
+          role: 'assistant',
+          content: aiResponseText,
+          data: response.data || null,
+          intent: response.intent || null
+        }));
+      }
       dispatch(setLastResponse(response));
       
       // 상품 추천 플로우: PAYMENT_READY 상태면 결제 페이지로 이동
       if (response.data && response.data.state === 'PAYMENT_READY' && response.data.payment_ready) {
         const orderNo = response.data.order_no;
         const paymentReady = response.data.payment_ready;
-        
+
         // 결제 페이지로 이동 (주문 번호와 결제 정보 전달)
         navigate('/shop/checkout', {
           state: {
@@ -74,7 +79,7 @@ export function useAI() {
           }
         });
       }
-      
+
       return response;
     } catch (error) {
       console.error('AI 메시지 전송 실패:', error);

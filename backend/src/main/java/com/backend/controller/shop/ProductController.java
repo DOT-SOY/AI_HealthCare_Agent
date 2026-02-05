@@ -44,7 +44,7 @@ public class ProductController {
     public ResponseEntity<ProductResponse> findById(@PathVariable("id") Long id) {
         ProductResponse response = productService.findById(id);
         currentMemberService.getCurrentMemberIdOptional()
-                .ifPresent(memberId -> productService.setCanReview(response, id, memberId));
+                .ifPresent(memberId -> productService.setReviewStatus(response, id, memberId));
         return ResponseEntity.ok(response);
     }
 

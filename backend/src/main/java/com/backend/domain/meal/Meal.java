@@ -3,6 +3,7 @@ package com.backend.domain.meal;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDate;
+import java.time.Instant;
 
 @Entity
 @Table(name = "meal_schedule")
@@ -60,6 +61,41 @@ public class Meal {
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
     private MealStatus status = MealStatus.PLANNED;
+
+    /**
+     * [계획 버전/활성 플래그]
+     * - 덮어쓰기(replan/overwrite) 시 기존 PLANNED를 삭제하지 않고 inactive로 전환하여 "직전 계획"을 보존합니다.
+     * - UI/집계/겹침검사는 activePlan=true인 PLANNED만 기준으로 삼습니다.
+     *
+     * 정책:
+     * - 끼니(mealTime)별 "직전 1개"만 보관 (더 이전 inactive는 정리)
+     */
+    @Column(name = "plan_version", nullable = false)
+    @Builder.Default
+    private Integer planVersion = 1;
+
+    @Column(name = "active_plan", nullable = false)
+    @Builder.Default
+    private Boolean activePlan = true;
+
+    @Column(name = "replaced_at")
+    private Instant replacedAt;
+
+    public void deactivatePlan(Instant replacedAt) {
+        this.activePlan = false;
+        this.replacedAt = replacedAt;
+    }
+
+    /**
+     * 계획 교체 로직에서만 사용하는 최소 Setter (컴파일/캡슐화 균형)
+     */
+    public void setActivePlan(Boolean activePlan) {
+        this.activePlan = activePlan;
+    }
+
+    public void setPlanVersion(Integer planVersion) {
+        this.planVersion = planVersion;
+    }
 
     @Column(name = "is_additional", nullable = false)
     @Builder.Default

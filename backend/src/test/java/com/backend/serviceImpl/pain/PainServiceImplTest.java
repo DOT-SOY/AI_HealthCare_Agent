@@ -51,8 +51,6 @@ class PainServiceImplTest {
             .pw("encodedPw")
             .name("테스트 회원")
             .gender(Member.Gender.MALE)
-            .height(175)
-            .weight(70.0)
             .build();
     }
     

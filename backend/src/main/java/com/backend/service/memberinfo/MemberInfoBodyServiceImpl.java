@@ -17,7 +17,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -45,21 +44,22 @@ public class MemberInfoBodyServiceImpl implements MemberInfoBodyService {
     public MemberInfoBodyResponseDTO update(Long id, MemberInfoBodyDTO dto) {
         log.info("신체 정보 수정 요청: id={}", id);
 
-        MemberInfoBody entity = memberInfoBodyRepository.findByIdAndNotDeleted(id)
+        MemberInfoBody existingEntity = memberInfoBodyRepository.findByIdAndNotDeleted(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, id));
 
-        entity.update(
-                dto.getHeight(), dto.getWeight(),
-                dto.getSkeletalMuscleMass(), dto.getBodyFatPercent(),
-                dto.getBodyWater(), dto.getProtein(), dto.getMinerals(), dto.getBodyFatMass(),
-                dto.getTargetWeight(), dto.getWeightControl(), dto.getFatControl(), dto.getMuscleControl(),
-                dto.getExercisePurpose()
-        );
+        Long memberId = existingEntity.getMemberId();
 
-        MemberInfoBody saved = memberInfoBodyRepository.save(entity);
-        log.info("신체 정보 수정 완료: id={}", id);
+        dto.setId(null);
+        dto.setMeasuredTime(Instant.now());
+        MemberInfoBody newEntity = dto.toEntity(memberId);
 
-        return MemberInfoBodyResponseDTO.fromEntity(saved);
+        MemberInfoBody saved = memberInfoBodyRepository.save(newEntity);
+        log.info("신체 정보 새 레코드 생성 완료: id={}, memberId={}", saved.getId(), memberId);
+
+        // Member 정보 조회
+        Member member = memberRepository.findById(memberId).orElse(null);
+
+        return MemberInfoBodyResponseDTO.fromEntityWithMember(saved, member);
     }
 
     @Override
@@ -96,10 +96,9 @@ public class MemberInfoBodyServiceImpl implements MemberInfoBodyService {
     public MemberInfoBodyResponseDTO getLatest(Long memberId) {
         log.info("최신 신체 정보 조회 요청: memberId={}", memberId);
 
-        // getHistory와 동일한 @Query로 조회 후 최신 1건 사용 (DB에 있는 bodyInfo 확실히 조회)
-        List<MemberInfoBody> list = memberInfoBodyRepository
+        List<MemberInfoBody> bodyList = memberInfoBodyRepository
                 .findByMemberIdAndNotDeletedOrderByMeasuredTimeDesc(memberId);
-        MemberInfoBody entity = list.isEmpty() ? null : list.get(0);
+        MemberInfoBody entity = bodyList.isEmpty() ? null : bodyList.get(0);
 
         Member member = memberRepository.findById(memberId).orElse(null);
 

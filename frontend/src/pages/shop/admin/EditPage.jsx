@@ -6,6 +6,7 @@ import Card from '../../../components/common/Card';
 import { getProduct, updateProduct } from '../../../services/productApi';
 import { uploadFiles } from '../../../services/fileApi';
 import { CATEGORY_TYPES } from '../../../constants/categoryTypes';
+import LoadingModal from '../../../components/common/LoadingModal';
 
 const ProductEditPage = () => {
   const { id } = useParams();
@@ -200,11 +201,7 @@ const ProductEditPage = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-[400px] text-text-main">
-        <p className="text-text-sub">로딩 중...</p>
-      </div>
-    );
+    return <LoadingModal isOpen={true} message="로딩 중..." />;
   }
 
   if (!product) {
