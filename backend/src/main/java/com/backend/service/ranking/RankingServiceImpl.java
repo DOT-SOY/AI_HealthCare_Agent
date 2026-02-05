@@ -50,7 +50,7 @@ public class RankingServiceImpl implements RankingService {
 
         // 0-1. 기준 회원의 운동 목적 (최신 인바디 기준) 조회
         MemberInfoBody latestCurrentBody = memberInfoBodyRepository
-                .findFirstByMemberIdAndDeletedAtIsNullOrderByMeasuredTimeDescCreatedAtDesc(currentMember.getId())
+                .findTopByMemberIdAndNotDeletedOrderByMeasuredTimeDesc(currentMember.getId())
                 .orElse(null);
 
         if (latestCurrentBody == null || latestCurrentBody.getExercisePurpose() == null) {

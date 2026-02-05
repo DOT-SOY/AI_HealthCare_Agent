@@ -1,5 +1,5 @@
 import { useDispatch, useSelector } from 'react-redux';
-import { addMessage, setLastResponse, setLoading } from '../store/aiSlice';
+import { addMessage, upsertMealGenerateMessage, setLastResponse, setLoading } from '../store/aiSlice';
 import { aiApi } from '../api/aiApi';
 
 export function useAI() {
@@ -49,13 +49,18 @@ export function useAI() {
         }
       }
       
-      // AI 응답 메시지에 data 정보도 함께 저장 (루틴 정보 등)
-      dispatch(addMessage({ 
-        role: 'assistant', 
-        content: aiResponseText,
-        data: response.data || null,
-        intent: response.intent || null
-      }));
+      // 식단 생성은 같은 버블에서 퍼센트만 업데이트되어야 하므로 meta로 관리
+      if (response.intent === 'MEAL_QUERY' && typeof aiResponseText === 'string' && aiResponseText.startsWith('식단 생성')) {
+        dispatch(upsertMealGenerateMessage({ content: aiResponseText }));
+      } else {
+        // AI 응답 메시지에 data 정보도 함께 저장 (루틴 정보 등)
+        dispatch(addMessage({ 
+          role: 'assistant', 
+          content: aiResponseText,
+          data: response.data || null,
+          intent: response.intent || null
+        }));
+      }
       dispatch(setLastResponse(response));
       
       return response;

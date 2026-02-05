@@ -127,19 +127,28 @@ public class APIRefreshController {
         }
 
         // 2순위: 클레임이 비어 있으면 DB에서 사용자 정보 조회
+        Member member = memberRepository.getWithRoles(email);
+        if (member == null || member.isDeleted()) {
+            return ResponseEntity.status(401).body(Map.of("error", "MEMBER_NOT_FOUND"));
+        }
+        List<String> roleNames = member.getRoleList().stream()
+                .map(MemberRole::name)
+                .collect(Collectors.toList());
+
         if (newAccessClaims.isEmpty()) {
-            Member member = memberRepository.getWithRoles(email);
-            if (member == null || member.isDeleted()) {
-                return ResponseEntity.status(401).body(Map.of("error", "MEMBER_NOT_FOUND"));
-            }
-            List<String> roleNames = member.getRoleList().stream()
-                    .map(MemberRole::name)
-                    .collect(Collectors.toList());
             newAccessClaims.put("email", member.getEmail());
             newAccessClaims.put("name", member.getName());
             newAccessClaims.put("roleNames", roleNames);
             newAccessClaims.put("amr", refreshClaims.getOrDefault("amr", "pwd").toString());
+        } else {
+            // 기존 Access claims 복사 경로에서도 memberId/roleNames는 확실히 보장
+            newAccessClaims.putIfAbsent("email", member.getEmail());
+            newAccessClaims.putIfAbsent("name", member.getName());
+            newAccessClaims.putIfAbsent("roleNames", roleNames);
         }
+
+        // 프론트/WS 구독을 위해 항상 memberId 포함
+        newAccessClaims.put("memberId", member.getId());
 
         newAccessClaims.put("tokenType", TokenType.ACCESS.name());
         newAccessClaims.put("auth_time", Instant.now().getEpochSecond());

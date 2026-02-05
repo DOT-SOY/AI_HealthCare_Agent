@@ -131,6 +131,7 @@ public class SocialController {
 
         // claims 구성 (일반 로그인과 동일하게)
         Map<String, Object> claims = new HashMap<>();
+        claims.put("memberId", withRoles.getId());
         claims.put("email", withRoles.getEmail());
         claims.put("name", withRoles.getName());
         claims.put("roleNames", roleNames);

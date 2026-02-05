@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { toggleChat, addMessage, setLoading, incrementNotification, clearNotification, setLastResponse } from '../store/aiSlice';
+import { toggleChat, addMessage, upsertMealGenerateMessage, setLoading, incrementNotification, clearNotification, setLastResponse } from '../store/aiSlice';
 import { useAI } from '../hooks/useAI';
 import { useSTT } from '../hooks/useSTT';
 import { useWebSocket } from '../hooks/useWebSocket';
+import { mealApi } from '../api/mealApi';
 import ExerciseRecognitionModal from '../components/exercise/ExerciseRecognitionModal';
 
 export default function AIChatOverlay() {
@@ -13,10 +14,10 @@ export default function AIChatOverlay() {
   const { isChatOpen, messages, loading, notificationCount } = useSelector((state) => state.ai);
   const { sendAIMessage, lastResponse } = useAI();
   const { isListening, transcript, startListening, stopListening } = useSTT();
-  const { subscribeToReview, connectWebSocket, disconnect } = useWebSocket();
+  const { subscribeToReview, subscribeToMealGenerate, subscribeToMealVision, subscribeToMealError, subscribeToMealReplan, connectWebSocket, disconnect } = useWebSocket();
 
   const [inputText, setInputText] = useState('');
-  const [selectedImage, setSelectedImage] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [isExerciseModalOpen, setIsExerciseModalOpen] = useState(false);
   const [exerciseName, setExerciseName] = useState(null);
@@ -31,6 +32,7 @@ export default function AIChatOverlay() {
   const lastMessageTimeRef = useRef(0);
   const subscriptionInitializedRef = useRef(false);
   const lastSentTranscriptRef = useRef('');
+  const visionPendingRef = useRef(false);
 
   // 1. WebSocket 및 알림 로직
   useEffect(() => {
@@ -50,11 +52,103 @@ export default function AIChatOverlay() {
       if (!isChatOpen) dispatch(incrementNotification());
     });
 
+    // 식단 생성 완료 알림 구독
+    subscribeToMealGenerate((data) => {
+      const messageContent = data.message || '식단 생성이 완료되었습니다.';
+      const now = Date.now();
+      
+      // 같은 메시지가 1초 이내에 다시 오면 무시
+      if (lastMessageRef.current === messageContent && (now - lastMessageTimeRef.current) < 1000) {
+        return;
+      }
+      
+      lastMessageRef.current = messageContent;
+      lastMessageTimeRef.current = now;
+
+      // 식단 생성 진행률은 같은 버블에서 퍼센트 숫자만 업데이트
+      if (typeof messageContent === 'string' && messageContent.startsWith('식단 생성')) {
+        dispatch(upsertMealGenerateMessage({ content: messageContent }));
+      } else {
+        dispatch(addMessage({ role: 'assistant', content: messageContent }));
+      }
+      
+      // 채팅창이 닫혀있으면 알림 카운트 증가
+      if (!isChatOpen) {
+        dispatch(incrementNotification());
+      }
+    });
+
+    // Replan(재정비) 완료/실패 알림 구독
+    subscribeToMealReplan((data) => {
+      const messageContent = data.message || '식단 재정비가 완료되었습니다.';
+      const now = Date.now();
+
+      if (lastMessageRef.current === messageContent && (now - lastMessageTimeRef.current) < 1000) {
+        return;
+      }
+      lastMessageRef.current = messageContent;
+      lastMessageTimeRef.current = now;
+
+      dispatch(addMessage({ role: 'assistant', content: messageContent }));
+      dispatch(setLoading(false));
+
+      if (!isChatOpen) {
+        dispatch(incrementNotification());
+      }
+    });
+
+    // Vision 분석 결과 구독 (이미지 업로드 결과)
+    subscribeToMealVision((analyzedFood) => {
+      visionPendingRef.current = false;
+      dispatch(setLoading(false));
+
+      const foodName = analyzedFood?.foodName || '알 수 없음';
+      const calories = analyzedFood?.calories ?? 0;
+      const carbs = analyzedFood?.carbs ?? 0;
+      const protein = analyzedFood?.protein ?? 0;
+      const fat = analyzedFood?.fat ?? 0;
+
+      const foodInfo =
+        `음식명: ${foodName}\n` +
+        `칼로리: ${calories} kcal\n` +
+        `탄수화물: ${carbs} g\n` +
+        `단백질: ${protein} g\n` +
+        `지방: ${fat} g`;
+
+      dispatch(addMessage({
+        role: 'assistant',
+        content: `이미지 분석 완료!\n\n${foodInfo}\n\n이 메뉴를 오늘 식사에 반영할까요?\n예: "점심으로 바꿔줘", "추가로 기록해줘", "취소"`,
+      }));
+
+      setImageFile(null);
+      setImagePreview(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+
+      if (!isChatOpen) {
+        dispatch(incrementNotification());
+      }
+    });
+
+    // Vision 분석 오류 구독
+    subscribeToMealError((data) => {
+      visionPendingRef.current = false;
+      dispatch(setLoading(false));
+      dispatch(addMessage({
+        role: 'assistant',
+        content: data.message || '이미지 분석 중 오류가 발생했습니다.',
+      }));
+      if (!isChatOpen) {
+        dispatch(incrementNotification());
+      }
+    });
+
     return () => {
       subscriptionInitializedRef.current = false;
       disconnect();
     };
-  }, [subscribeToReview, connectWebSocket, disconnect, dispatch, isChatOpen]);
+  }, [subscribeToReview, subscribeToMealGenerate, subscribeToMealReplan, subscribeToMealVision, subscribeToMealError, connectWebSocket, disconnect, dispatch, isChatOpen]);
 
   // 2. 음성 인식 및 자동 전송 로직
   useEffect(() => {
@@ -110,30 +204,99 @@ export default function AIChatOverlay() {
     setExerciseData(null);
   };
 
-  const handleImageSelect = (e) => {
-    const file = e.target.files?.[0] || e.dataTransfer?.files?.[0];
-    if (file) processImageFile(file);
+  const isFileDropEvent = (e) => {
+    const types = Array.from(e?.dataTransfer?.types || []);
+    return types.includes('Files');
   };
 
-  const processImageFile = (file) => {
-    if (file.size > 5 * 1024 * 1024) return alert('이미지 크기는 5MB 이하여야 합니다.');
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
-    if (!allowedTypes.includes(file.type)) return alert('JPEG/PNG 이미지만 가능합니다.');
-    setSelectedImage(file);
-    const reader = new FileReader();
-    reader.onloadend = () => setImagePreview(reader.result);
-    reader.readAsDataURL(file);
+  const handleImageInputChange = (e) => {
+    const file = e.target.files?.[0] || null;
+    // 첨부 버튼 업로드도 업로드 즉시 채팅 버블로 남기고, 입력창 프리뷰는 남기지 않음
+    if (file) handleImageFile(file, { showComposerPreview: false });
+  };
+
+  const handleImageDrop = (e) => {
+    // 채팅 내 이미지(URI/text) 드래그 등은 무시하고, 실제 파일 드롭만 처리
+    if (!isFileDropEvent(e)) return;
+    const file = e.dataTransfer?.files?.[0] || null;
+    if (file) handleImageFile(file, { showComposerPreview: false });
+  };
+
+  const handleImageFile = async (file, options = { showComposerPreview: true }) => {
+    if (!file || !file.type.startsWith('image/')) {
+      return;
+    }
+
+    try {
+      setImageFile(file);
+      if (!options?.showComposerPreview) {
+        setImagePreview(null);
+      }
+      // DataURL 1회만 읽어서 (1)프리뷰 표시 (2)base64 추출에 재사용
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const result = reader.result;
+          if (typeof result === 'string' && result.includes(',')) {
+            resolve(result);
+          } else {
+            reject(new Error('이미지 읽기 실패'));
+          }
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      // 첨부 버튼 업로드 루트에서만 입력창 프리뷰를 표시 (Drag&Drop은 채팅 버블만 표시)
+      if (options?.showComposerPreview) {
+        setImagePreview(dataUrl);
+      }
+      dispatch(addMessage({
+        role: 'user',
+        content: '[음식 이미지 업로드]',
+        imageUrl: dataUrl,
+        meta: { kind: 'MEAL_IMAGE' },
+      }));
+
+      // 업로드가 채팅 버블로 반영됐으면, 입력창(첨부) 상태는 즉시 비움
+      setImageFile(null);
+      setImagePreview(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+
+      // 자동으로 이미지 분석 시작
+      dispatch(setLoading(true));
+
+      const base64 = dataUrl.split(',')[1] || '';
+      // 백엔드는 202 ACCEPTED만 반환하고, 실제 결과는 WebSocket(/topic/meal/vision/{userId})로 옴
+      visionPendingRef.current = true;
+      await mealApi.analyzeVision(base64);
+
+      dispatch(addMessage({
+        role: 'assistant',
+        content: '이미지 분석을 시작했어요. 잠시만 기다려주세요...',
+      }));
+    } catch (error) {
+      console.error('이미지 분석 실패:', error);
+      visionPendingRef.current = false;
+      dispatch(addMessage({ 
+        role: 'assistant', 
+        content: '이미지 분석 중 오류가 발생했습니다.' 
+      }));
+    } finally {
+      // 결과는 WebSocket으로 오므로 여기서 loading을 끄지 않음 (실패 시에만 위에서 끔)
+      if (!visionPendingRef.current) {
+        dispatch(setLoading(false));
+      }
+    }
   };
 
   const handleSend = async () => {
-    if (!inputText.trim() && !selectedImage) return;
+    if (!inputText.trim()) return;
     const text = inputText.trim();
-    const image = selectedImage;
     setInputText('');
-    setSelectedImage(null);
-    setImagePreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-    await sendAIMessage(text, image);
+    await sendAIMessage(text);
   };
 
   const handleKeyPress = (e) => {
@@ -173,6 +336,10 @@ export default function AIChatOverlay() {
           <div
             className="card-token fixed bottom-8 right-8 w-[500px] h-[600px] rounded-token shadow-card flex flex-col z-50 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
+            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+            onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
+            onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleImageDrop(e); }}
+            style={isDragging ? { borderColor: 'var(--primary-500)', borderWidth: '2px', borderStyle: 'dashed' } : {}}
           >
             {/* 헤더 */}
             <div className="flex items-center justify-between p-4 border-b border-border-default bg-bg-surface">
@@ -189,7 +356,8 @@ export default function AIChatOverlay() {
               {messages.length === 0 && (
                 <div className="text-center text-text-sub py-8">
                   <p>안녕하세요! AI 코치입니다.</p>
-                  <p className="mt-2 text-sm">운동 질문이나 통증 보고를 해주세요.</p>
+                  <p className="mt-2 text-sm">운동이나 식단, 부상관련 질문을 해주세요.</p>
+                  <p className="mt-2 text-xs">음식 사진을 드래그 앤 드롭하면 자동으로 분석합니다.</p>
                 </div>
               )}
               {messages.map((message, index) => (
@@ -203,6 +371,8 @@ export default function AIChatOverlay() {
                         <img 
                           src={message.imageUrl} 
                           alt="첨부 이미지" 
+                          draggable={false}
+                          onDragStart={(e) => e.preventDefault()}
                           className="max-w-[200px] max-h-[200px] rounded-token border border-border-default/50 shadow-sm object-cover"
                         />
                       </div>
@@ -240,16 +410,17 @@ export default function AIChatOverlay() {
             </div>
 
             {/* 입력 영역 (v3의 이미지 기능 + v2의 디자인) */}
-            <div
-              className={`p-4 border-t border-border-default bg-bg-surface ${isDragging ? 'bg-primary-500/10 border-2 border-dashed border-primary-500' : ''}`}
-              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-              onDragLeave={() => setIsDragging(false)}
-              onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleImageSelect(e); }}
-            >
+            <div className="p-4 border-t border-border-default bg-bg-surface">
               {imagePreview && (
                 <div className="mb-2 relative inline-block">
-                  <img src={imagePreview} alt="미리보기" className="max-w-[120px] rounded-token border border-border-default shadow-sm" />
-                  <button onClick={() => { setSelectedImage(null); setImagePreview(null); }} className="absolute -top-2 -right-2 bg-accent-secondary text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">✕</button>
+                  <img
+                    src={imagePreview}
+                    alt="미리보기"
+                    draggable={false}
+                    onDragStart={(e) => e.preventDefault()}
+                    className="max-w-[120px] rounded-token border border-border-default shadow-sm"
+                  />
+                  <button onClick={() => { setImageFile(null); setImagePreview(null); }} className="absolute -top-2 -right-2 bg-accent-secondary text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">✕</button>
                 </div>
               )}
 
@@ -262,7 +433,7 @@ export default function AIChatOverlay() {
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
                 </button>
 
-                <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" id="image-input" ref={fileInputRef} />
+                <input type="file" accept="image/*" onChange={handleImageInputChange} className="hidden" id="image-input" ref={fileInputRef} />
                 <label htmlFor="image-input" className="p-2 rounded-token bg-bg-root text-text-sub hover:text-text-main border border-border-default cursor-pointer">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                 </label>
@@ -279,12 +450,15 @@ export default function AIChatOverlay() {
                 <button
                   type="button"
                   onClick={handleSend}
-                  disabled={(!inputText.trim() && !selectedImage) || loading}
+                  disabled={!inputText.trim() || loading}
                   className="px-4 py-2 rounded-token font-medium transition-all bg-primary-500 text-bg-root disabled:opacity-50"
                 >
                   전송
                 </button>
               </div>
+              {isDragging && (
+                <p className="text-xs mt-2 text-center text-primary-500 font-medium">이미지를 놓아주세요...</p>
+              )}
               {isListening && <p className="text-[10px] mt-1 text-primary-500 font-medium animate-pulse">음성 인식 활성화 중...</p>}
             </div>
           </div>

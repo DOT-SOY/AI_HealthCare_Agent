@@ -25,3 +25,5 @@ public interface MealTargetSearch {
     List<MealTarget> findTargetsBetweenDates(Long userId, LocalDate startDate, LocalDate endDate);
 }
 
+
+
