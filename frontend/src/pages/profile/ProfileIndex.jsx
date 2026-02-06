@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
+import { useDispatch } from "react-redux";
 import BasicLayout from "../../components/layout/BasicLayout";
-import { User, Moon, Sun, X, Plus, Edit, Trash2 } from "lucide-react";
+import { Home, User, Moon, Sun, X, Plus, Edit, Trash2 } from "lucide-react";
+import { logout } from "../../slices/loginSlice";
 import AddressSearchModal from "../../components/common/AddressSearchModal";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip,
@@ -15,12 +17,19 @@ import {
 } from "../../services/memberInfoAddrApi";
 
 const ProfileIndex = () => {
+  const dispatch = useDispatch();
+  const [isDark, setIsDark] = useState(false);
+  const toggleDarkMode = () => setIsDark((prev) => !prev);
+
+  const handleLogout = async () => {
+    if (!window.confirm("로그아웃 하시겠습니까?")) return;
+    await dispatch(logout());
+  };
+
   const [historyData, setHistoryData] = useState([]);
   const [latestInfo, setLatestInfo] = useState(null);
 
   // 대시보드 차트/레이아웃에서 사용할 다크 모드 플래그
-  const isDark = true;
-
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editData, setEditData] = useState({});
 
@@ -240,13 +249,20 @@ const ProfileIndex = () => {
   };
 
   return (
-    <BasicLayout containerClassName="page-container dashboard-container">
-      <div className="w-full">
-        <header className="section-header-token">
+    <BasicLayout>
+      <div className="dashboard-container" data-theme={isDark ? "dark" : "light"}>
+        <header className="dashboard-header">
           <h1 className="section-title">
             <span className="text-text-main">My </span>
             <span className="text-primary-500">Profile</span>
+            <Home className="icon-home" size={24} />
           </h1>
+          <div className="header-right">
+            <button className="btn-toggle-theme" onClick={toggleDarkMode}>
+              {isDark ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
+            <button type="button" className="btn-logout" onClick={handleLogout}>로그아웃</button>
+          </div>
         </header>
 
         <div className="dashboard-main mt-6">

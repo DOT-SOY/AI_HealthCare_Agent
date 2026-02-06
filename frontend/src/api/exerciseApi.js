@@ -25,8 +25,13 @@ export const exerciseApi = {
   },
   
   delete: async (routineId, exerciseId) => {
+    const rId = Number(routineId);
+    const eId = Number(exerciseId);
+    if (Number.isNaN(rId) || Number.isNaN(eId)) {
+      throw new Error('루틴 ID 또는 운동 ID가 올바르지 않습니다.');
+    }
     await jwtAxios.delete(
-      `/routines/${routineId}/exercises/${exerciseId}`
+      `/routines/${rId}/exercises/${eId}`
     );
   },
   

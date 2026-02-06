@@ -10,20 +10,20 @@ import {
   clearNotification,
   setLastResponse,
 } from '../store/aiSlice';
-
 import { useAI } from '../hooks/useAI';
 import { useSTT } from '../hooks/useSTT';
 import { useWebSocket } from '../hooks/useWebSocket';
+import RoutineRecommendModal from '../components/ai/RoutineRecommendModal';
+import PainModifyModal from '../components/ai/PainModifyModal';
 import { mealApi } from '../api/mealApi';
 import ExerciseRecognitionModal from '../components/exercise/ExerciseRecognitionModal';
 
 export default function AIChatOverlay() {
   const dispatch = useDispatch();
 
-  const { isChatOpen, messages, loading, notificationCount } = useSelector((state) => state.ai);
-  const { sendAIMessage, lastResponse } = useAI();
+  const { isChatOpen, messages, loading, notificationCount, lastResponse } = useSelector((state) => state.ai);
+  const { sendAIMessage } = useAI();
   const { isListening, transcript, startListening, stopListening } = useSTT();
-
   const {
     subscribeToReview,
     subscribeToMealGenerate,
@@ -36,6 +36,10 @@ export default function AIChatOverlay() {
 
   // input / image
   const [inputText, setInputText] = useState('');
+  const [routineModalOpen, setRoutineModalOpen] = useState(false);
+  const [routineModalPayload, setRoutineModalPayload] = useState({ splitType: 2, days: [] });
+  const [painModifyModalOpen, setPainModifyModalOpen] = useState(false);
+  const [painModifyPayload, setPainModifyPayload] = useState({ date: '', painArea: '', routineTitle: '', replacements: [] });
   const [imagePreview, setImagePreview] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -50,6 +54,11 @@ export default function AIChatOverlay() {
 
   // refs
   const messagesEndRef = useRef(null);
+  const lastOpenedModalForIndexRef = useRef(-1);
+  const lastOpenedPainModalForIndexRef = useRef(-1);
+  /** 새로고침 시 복원된 메시지로는 모달을 열지 않기 위해, 마운트 시점의 메시지 개수 저장 */
+  const initialMessageCountRef = useRef(null);
+
   const previousMessagesLengthRef = useRef(messages.length);
   const wasChatOpenRef = useRef(isChatOpen);
   const fileInputRef = useRef(null);
@@ -89,12 +98,16 @@ export default function AIChatOverlay() {
   };
 
   // ---------- websocket subscriptions ----------
+
   useEffect(() => {
+    // AIChatOverlay가 마운트될 때 WebSocket 연결 시도 (알림을 받기 위해 미리 연결)
     connectWebSocket();
 
+    // 구독은 한 번만 초기화 (중복 구독 방지)
     if (subscriptionInitializedRef.current) return;
     subscriptionInitializedRef.current = true;
 
+    // WebSocket 구독 - 채팅창이 닫혀있어도 알림을 받아서 메시지에 추가
     subscribeToReview((data) => {
       const messageContent =
         data.message || '오늘 운동은 어땠나요? 피드백을 주시면 다음 루틴에 반영하겠습니다.';
@@ -187,15 +200,22 @@ export default function AIChatOverlay() {
     isChatOpen,
   ]);
 
-  // ---------- STT ----------
   useEffect(() => {
-    if (transcript) setInputText(transcript);
+    // 음성 인식 결과를 입력 필드에 반영
+    if (transcript) {
+      setInputText(transcript);
+    }
   }, [transcript]);
+
+  useEffect(() => {
+    // 메시지가 추가될 때 스크롤
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   useEffect(() => {
     if (!isListening && transcript && transcript.trim() && !loading) {
       const text = transcript.trim();
-      if (lastSentTranscriptRef.current === text) return;
+      if (lastSentTranscriptRef.current === text) return undefined;
 
       const timer = setTimeout(async () => {
         lastSentTranscriptRef.current = text;
@@ -205,6 +225,7 @@ export default function AIChatOverlay() {
 
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [isListening, transcript, loading, sendAIMessage]);
 
   const handleStartListening = () => {
@@ -213,21 +234,24 @@ export default function AIChatOverlay() {
   };
 
   // ---------- scroll / notification ----------
+  // 채팅창이 열릴 때 맨 아래로 스크롤
   useEffect(() => {
-    if (messages.length > previousMessagesLengthRef.current && isChatOpen) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (isChatOpen) {
+      // 채팅창이 열릴 때 약간의 지연 후 스크롤 (렌더링 완료 후)
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+      }, 100);
     }
-    previousMessagesLengthRef.current = messages.length;
-  }, [messages, isChatOpen]);
+  }, [isChatOpen]);
 
+  // 채팅창이 열릴 때 알림 카운트 초기화
   useEffect(() => {
-    if (isChatOpen && !wasChatOpenRef.current) {
-      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'auto' }), 100);
-    }
-    wasChatOpenRef.current = isChatOpen;
     if (isChatOpen && notificationCount > 0) dispatch(clearNotification());
+    wasChatOpenRef.current = isChatOpen;
   }, [isChatOpen, notificationCount, dispatch]);
 
+  // 마지막 assistant 메시지에 루틴 추천 / 통증 수정 모달 데이터가 있으면 모달 열기 (같은 메시지에 대해 한 번만)
+  // 새로고침 시 복원된 메시지로는 열지 않음 — 이 세션에서 새로 도착한 메시지일 때만 모달 오픈
   // ---------- v2 enter/leave animation ----------
   useEffect(() => {
     if (isChatOpen && !isLeaving) {
@@ -248,6 +272,10 @@ export default function AIChatOverlay() {
 
   // ---------- lastResponse (exercise modal) ----------
   useEffect(() => {
+    if (messages.length === 0) return;
+    if (initialMessageCountRef.current === null) {
+      initialMessageCountRef.current = messages.length;
+    }
     if (lastResponse?.data?.openExerciseModal === true) {
       setExerciseName(lastResponse.data.exerciseName || null);
       if (lastResponse.data.exercise) setExerciseData(lastResponse.data.exercise);
@@ -260,7 +288,32 @@ export default function AIChatOverlay() {
         }),
       );
     }
-  }, [lastResponse, dispatch]);
+    const idx = messages.length - 1;
+    const last = messages[idx];
+    if (last.role !== 'assistant' || !last.data) return;
+    const data = last.data;
+    const isNewMessageThisSession = messages.length > initialMessageCountRef.current;
+    if (!isNewMessageThisSession) return;
+
+    if (data.openRoutineRecommendModal && Array.isArray(data.days) && data.days.length > 0 && lastOpenedModalForIndexRef.current !== idx) {
+      lastOpenedModalForIndexRef.current = idx;
+      setRoutineModalPayload({
+        splitType: data.splitType ?? 2,
+        days: data.days,
+      });
+      setRoutineModalOpen(true);
+    }
+    if (data.openPainModifyModal && Array.isArray(data.replacements) && lastOpenedPainModalForIndexRef.current !== idx) {
+      lastOpenedPainModalForIndexRef.current = idx;
+      setPainModifyPayload({
+        date: data.date ?? '',
+        painArea: data.painArea ?? '',
+        routineTitle: data.routineTitle ?? '',
+        replacements: data.replacements ?? [],
+      });
+      setPainModifyModalOpen(true);
+    }
+  }, [lastResponse, dispatch, messages]);
 
   // ---------- image handling (unified to vision pipeline) ----------
   const handleImageInputChange = (e) => {
@@ -330,7 +383,6 @@ export default function AIChatOverlay() {
     }
   };
 
-  // ---------- send text ----------
   const handleSend = async () => {
     if (!inputText.trim()) return;
     const text = inputText.trim();
@@ -347,6 +399,23 @@ export default function AIChatOverlay() {
 
   return (
     <>
+      <RoutineRecommendModal
+        open={routineModalOpen}
+        onClose={() => setRoutineModalOpen(false)}
+        splitType={routineModalPayload.splitType}
+        days={routineModalPayload.days}
+      />
+      <PainModifyModal
+        open={painModifyModalOpen}
+        onClose={() => setPainModifyModalOpen(false)}
+        date={painModifyPayload.date}
+        painArea={painModifyPayload.painArea}
+        routineTitle={painModifyPayload.routineTitle}
+        replacements={painModifyPayload.replacements}
+      />
+      {/* 플로팅 버튼 */}
+      {!isChatOpen && (
+        <div className="fixed bottom-8 right-8 z-50">
       {/* FAB (닫힘 상태) */}
       {!isChatOpen && !isLeaving && (
         <div className="fixed bottom-8 right-8 z-50 ai-fab-wrapper ai-fab-enter" style={{ overflow: 'visible' }}>
@@ -355,6 +424,9 @@ export default function AIChatOverlay() {
             onClick={handleOpen}
             className="ai-fab-btn w-16 h-16 rounded-full flex items-center justify-center relative focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
             aria-label="AI 코치 채팅 열기"
+            style={{ backgroundColor: '#88ce02' }}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(136, 206, 2, 0.8)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#88ce02'; }}
           >
             <span className="ai-fab-mask" aria-hidden />
             <svg className="w-8 h-8 relative z-[2] text-neutral-950" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -368,6 +440,8 @@ export default function AIChatOverlay() {
             )}
           </button>
         </div>
+      )}
+      </div>
       )}
 
       {/* 채팅 패널 (열림 or leave 애니메이션 중) */}

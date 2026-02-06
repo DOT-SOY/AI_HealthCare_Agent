@@ -94,6 +94,7 @@ class OrderDummyDataGeneratorTest {
 
         ProductVariant variant = ProductVariant.builder()
                 .product(savedProduct)
+                .sku("PROD-" + savedProduct.getId() + "-TEST")
                 .optionText("기본옵션")
                 .price(new BigDecimal("10000"))
                 .stockQty(1000)

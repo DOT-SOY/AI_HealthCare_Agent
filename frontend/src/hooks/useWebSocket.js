@@ -22,6 +22,8 @@ export function useWebSocket() {
   const mealErrorCallbackRef = useRef(null);
   const mealReplanCallbackRef = useRef(null);
   const mealChangedCallbackRef = useRef(null);
+  const subscriptionRoutineRef = useRef(null);
+  const routineUpdateCallbackRef = useRef(null);
   const isConnectingRef = useRef(false);
 
   const parseMemberCookie = useCallback(() => {
@@ -69,6 +71,18 @@ export function useWebSocket() {
     }
   }, [parseMemberCookie, getAccessTokenFromCookie]);
 
+  // 루틴 생성/수정 알림 처리
+  const handleRoutineMessage = useCallback((message) => {
+    try {
+      const data = JSON.parse(message.body);
+      if (routineUpdateCallbackRef.current) {
+        routineUpdateCallbackRef.current(data);
+      }
+    } catch (error) {
+      console.error('루틴 WebSocket 메시지 파싱 오류:', error);
+    }
+  }, []);
+
   // 공통 메시지 처리 함수
   const handleMessage = useCallback((message) => {
     try {
@@ -109,7 +123,7 @@ export function useWebSocket() {
     }
   }, []);
 
-  // 실제 구독을 수행하는 함수
+  // 실제 구독을 수행하는 함수 (리뷰 알림)
   const doSubscribe = useCallback(() => {
     if (!clientRef.current || !clientRef.current.connected) {
       return;
@@ -237,6 +251,23 @@ export function useWebSocket() {
     );
   }, []);
 
+  // 루틴 생성/수정 알림 구독 (요일 맞바꾸기 등 후 자동 새로고침용)
+  const doSubscribeRoutine = useCallback(() => {
+    if (!clientRef.current || !clientRef.current.connected || !routineUpdateCallbackRef.current) {
+      return;
+    }
+    if (subscriptionRoutineRef.current) {
+      try {
+        subscriptionRoutineRef.current.unsubscribe();
+      } catch (e) {}
+      subscriptionRoutineRef.current = null;
+    }
+    subscriptionRoutineRef.current = clientRef.current.subscribe(
+      '/topic/routine/generate',
+      handleRoutineMessage
+    );
+  }, [handleRoutineMessage]);
+
   // WebSocket 연결 함수 (필요할 때만 호출)
   const connectWebSocket = useCallback(() => {
     // 이미 연결되어 있거나 연결 중이면 무시
@@ -323,6 +354,13 @@ export function useWebSocket() {
             if (mealReplanCallbackRef.current) doSubscribeMealReplan(userId);
             if (mealChangedCallbackRef.current) doSubscribeMealChanged(userId);
           }
+          // 콜백이 이미 설정되어 있다면, 연결 완료 시점에 구독
+          if (callbackRef.current) {
+            doSubscribe();
+          }
+          if (routineUpdateCallbackRef.current) {
+            doSubscribeRoutine();
+          }
         },
         onDisconnect: () => {
           setConnected(false);
@@ -364,7 +402,8 @@ export function useWebSocket() {
         console.error('WebSocket 클라이언트 초기화 실패:', error);
       }
     }
-  }, [doSubscribe, getAccessTokenFromCookie, getUserIdFromCookie, doSubscribeMeal, doSubscribeMealVision, doSubscribeMealError]);
+  }, [doSubscribe, getAccessTokenFromCookie, getUserIdFromCookie, doSubscribeMeal, doSubscribeMealVision, doSubscribeMealError,doSubscribeRoutine]);
+
 
   const subscribeToReview = useCallback(
     (callback) => {
@@ -391,7 +430,7 @@ export function useWebSocket() {
 
       // userId 가져오기
       const userId = getUserIdFromCookie();
-      
+
       if (!userId) {
         console.warn('식단 생성 알림 구독 실패: userId를 찾을 수 없습니다.');
         return null;
@@ -442,6 +481,15 @@ export function useWebSocket() {
       }
       doSubscribeMealError(userId);
       return mealErrorSubscriptionRef.current;
+      // WebSocket이 연결되어 있지 않으면 연결 시도만 하고 반환
+      if (!clientRef.current?.connected && !isConnectingRef.current) {
+        connectWebSocket();
+        return null;
+      }
+
+      // 이미 연결되어 있으면 즉시 구독 수행
+      doSubscribe();
+      return subscriptionRef.current;
     },
     [connectWebSocket, doSubscribeMealError, getUserIdFromCookie]
   );
@@ -512,6 +560,18 @@ export function useWebSocket() {
     }
   }, []);
 
+  const subscribeToRoutineUpdate = useCallback(
+    (callback) => {
+      routineUpdateCallbackRef.current = callback;
+      if (clientRef.current?.connected) {
+        doSubscribeRoutine();
+      } else if (!isConnectingRef.current) {
+        connectWebSocket();
+      }
+    },
+    [connectWebSocket, doSubscribeRoutine]
+  );
+
   // 정리 함수
   const disconnect = useCallback(() => {
     if (subscriptionRef.current) {
@@ -538,6 +598,13 @@ export function useWebSocket() {
       mealChangedSubscriptionRef.current.unsubscribe();
       mealChangedSubscriptionRef.current = null;
     }
+    if (subscriptionRoutineRef.current) {
+      try {
+        subscriptionRoutineRef.current.unsubscribe();
+      } catch (e) {}
+      subscriptionRoutineRef.current = null;
+    }
+    routineUpdateCallbackRef.current = null;
     if (clientRef.current) {
       try {
         clientRef.current.deactivate();
@@ -554,6 +621,7 @@ export function useWebSocket() {
     connected,
     connectWebSocket,
     subscribeToReview,
+    subscribeToRoutineUpdate,
     subscribeToMealGenerate,
     subscribeToMealVision,
     subscribeToMealError,

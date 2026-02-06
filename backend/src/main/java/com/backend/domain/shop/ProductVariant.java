@@ -22,10 +22,19 @@ public class ProductVariant extends BaseEntity {
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
+    @Column(name = "sku", nullable = false, unique = true, length = 100)
+    private String sku;
+
     @Lob
     @Column(name = "option_text", nullable = false)
     private String optionText;
 
+    // 옵션 정보 (JSON, 예: {"색상":"빨강","사이즈":"L"})
+    @Lob
+    @Column(name = "option_json")
+    private String optionJson;
+
+    // 가격 (null이면 product.basePrice 사용)
     @Column(precision = 18, scale = 2)
     private BigDecimal price;
 
@@ -37,12 +46,19 @@ public class ProductVariant extends BaseEntity {
 
     @Builder
     public ProductVariant(Product product,
+                         String sku,
                          String optionText,
+                         String optionJson,
                          BigDecimal price,
                          Integer stockQty,
                          Boolean active) {
         this.product = product;
+        if (sku == null || sku.isBlank()) {
+            throw new IllegalArgumentException("sku는 필수입니다.");
+        }
+        this.sku = sku.trim();
         this.optionText = optionText;
+        this.optionJson = (optionJson != null && !optionJson.isBlank()) ? optionJson : "{}";
         this.price = price;
         this.stockQty = (stockQty != null) ? stockQty : 0;
         this.active = (active != null) ? active : true;

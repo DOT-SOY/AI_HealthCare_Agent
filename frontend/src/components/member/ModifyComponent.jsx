@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { modifyMember } from "../../api/memberApi";
+import { modifyMember, withdrawMember } from "../../api/memberApi";
 import useCustomLogin from "../../hooks/useCustomLogin";
 import { validatePassword, getPasswordPolicyText } from "../../util/passwordValidator";
 
@@ -104,6 +104,31 @@ const ModifyComponent = () => {
       });
   };
 
+  // 회원 탈퇴 처리
+  const handleClickWithdraw = async (e) => {
+    if (e) e.preventDefault();
+
+    const confirmMessage = "정말 회원 탈퇴를 진행하시겠습니까?\n탈퇴 후에는 복구할 수 없습니다.";
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      const result = await withdrawMember();
+      alert(result?.message || "회원 탈퇴가 완료되었습니다.");
+
+      // 탈퇴 성공 시 로그아웃 및 로그인 페이지 이동
+      await doLogout();
+      moveToLogin();
+    } catch (err) {
+      const msg =
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        "회원 탈퇴 처리 중 오류가 발생했습니다.";
+      alert(msg);
+    }
+  };
+
   return (
     <div className="ui-card p-8 lg:p-10">
       <div className="flex flex-col items-center mb-8">
@@ -201,6 +226,20 @@ const ModifyComponent = () => {
           업데이트 및 재승인
         </button>
       </form>
+
+      {/* 회원 탈퇴 섹션 */}
+      <div className="mt-8 pt-6 border-t border-gray-700">
+        <button
+          type="button"
+          onClick={handleClickWithdraw}
+          className="w-full py-3 px-4 text-sm text-red-400 hover:text-red-300 border border-red-500/50 hover:border-red-500 rounded-lg transition-colors"
+        >
+          회원 탈퇴
+        </button>
+        <p className="text-xs text-baseMuted mt-2 text-center">
+          탈퇴 후에는 계정을 복구할 수 없습니다.
+        </p>
+      </div>
     </div>
   );
 };
