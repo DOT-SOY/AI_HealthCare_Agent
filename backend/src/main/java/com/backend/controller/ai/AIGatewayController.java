@@ -8,73 +8,63 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
  * AI Gateway Controller
- * 
- * AI 채팅 요청을 받아 AIChatOrchestrationService에 위임합니다.
- * 비즈니스 로직은 Service 계층에서 처리됩니다.
+ *
+ * FormData(text, image, conversationHistory)를 받아 AIChatRequest로 조립한 뒤
+ * AIChatOrchestrationService에 위임하여 의도 분류 및 MEAL_QUERY, WORKOUT, PAIN_REPORT 등 전체 의도를 처리합니다.
  */
 @RestController
 @RequestMapping("/api/ai")
 @RequiredArgsConstructor
 @Slf4j
 public class AIGatewayController {
-    
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     private final AIChatOrchestrationService aiChatOrchestrationService;
-    private final ObjectMapper objectMapper;
-    
+
     /**
-     * AI 채팅 처리 (텍스트 및 이미지 지원)
-     * 
-     * multipart/form-data로 텍스트, 이미지, 대화 히스토리를 받습니다.
-     * 
-     * @param text 사용자 입력 텍스트 (선택적)
-     * @param image 첨부된 이미지 파일 (선택적)
-     * @return AI 응답
+     * AI 채팅 처리 (multipart/form-data 수신)
+     *
+     * 프론트엔드에서 FormData(text, image, conversationHistory)로 전송하므로
+     * @RequestParam으로 수신 후 AIChatRequest로 조립하고, 오케스트레이션 서비스에 위임합니다.
      */
-    @PostMapping(value = "/chat", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/chat", consumes = "multipart/form-data")
     public ResponseEntity<AIChatResponse> handleAIChat(
             @RequestParam(value = "text", required = false) String text,
             @RequestParam(value = "image", required = false) MultipartFile image,
             @RequestParam(value = "conversationHistory", required = false) String conversationHistoryJson) {
-        
-        try {
-            AIChatRequest request = new AIChatRequest();
-            request.setText(text);
-            request.setImage(image);
-            
-            // 대화 히스토리 파싱
-            if (conversationHistoryJson != null && !conversationHistoryJson.trim().isEmpty()) {
-                try {
-                    List<ChatMessage> history = objectMapper.readValue(
+
+        AIChatRequest request = buildAIChatRequest(text, image, conversationHistoryJson);
+        log.info("AI 채팅 요청: text={}, hasImage={}", request.getText(), request.getImage() != null && !request.getImage().isEmpty());
+
+        AIChatResponse response = aiChatOrchestrationService.handleAIChat(request);
+        return ResponseEntity.ok(response);
+    }
+
+    private AIChatRequest buildAIChatRequest(String text, MultipartFile image, String conversationHistoryJson) {
+        List<ChatMessage> conversationHistory = null;
+        if (conversationHistoryJson != null && !conversationHistoryJson.isBlank()) {
+            try {
+                conversationHistory = OBJECT_MAPPER.readValue(
                         conversationHistoryJson,
-                        new TypeReference<List<ChatMessage>>() {}
-                    );
-                    request.setConversationHistory(history);
-                } catch (Exception e) {
-                    log.warn("대화 히스토리 파싱 실패: {}", e.getMessage());
-                    request.setConversationHistory(new ArrayList<>());
-                }
+                        new TypeReference<List<ChatMessage>>() {});
+            } catch (Exception e) {
+                log.warn("conversationHistory JSON 파싱 실패, 무시: {}", e.getMessage());
             }
-            
-            AIChatResponse response = aiChatOrchestrationService.handleAIChat(request);
-            return ResponseEntity.ok(response);
-            
-        } catch (Exception e) {
-            log.error("AI 채팅 처리 실패", e);
-            AIChatResponse errorResponse = AIChatResponse.builder()
-                .intent("ERROR")
-                .message("처리 중 오류가 발생했습니다: " + e.getMessage())
-                .build();
-            return ResponseEntity.ok(errorResponse);
         }
+        AIChatRequest request = new AIChatRequest();
+        request.setText(text != null ? text : "");
+        request.setImage(image);
+        request.setConversationHistory(conversationHistory != null ? conversationHistory : Collections.emptyList());
+        return request;
     }
 }

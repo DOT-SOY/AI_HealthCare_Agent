@@ -17,7 +17,6 @@ RAG 데이터를 Qdrant에 업로드하는 단일 스크립트 (최종 병합본
   - RAG_DATA_PATH: 기본 rag_data.json
   - RECREATE_COLLECTION: true/false (기본 true)  # true면 컬렉션 삭제 후 재생성
 """
-
 import json
 import os
 import pathlib
@@ -363,6 +362,85 @@ def main():
     print(f"- RECREATE_COLLECTION: {RECREATE_COLLECTION}")
     print(f"- ST_MODEL_NAME: {ST_MODEL_NAME}")
     print("=" * 60)
+    
+    # 텍스트 RAG 처리
+    print("\n[텍스트 RAG 데이터 처리]")
+    print("-" * 60)
+    
+    knowledge_data = load_knowledge()
+    if knowledge_data:
+        print(f"총 {len(knowledge_data)}개의 지식 항목 로드됨")
+        
+        # 첫 번째 항목으로 벡터 크기 확인
+        sample_text = f"{knowledge_data[0].get('title', '')} {knowledge_data[0].get('content', '')}"
+        sample_embedding = get_embedding(sample_text)
+        if not sample_embedding:
+            print("임베딩 생성 실패 (임베딩 모델 초기화 또는 인코딩 오류).")
+            return
+        else:
+            vector_size = len(sample_embedding)
+            print(f"벡터 크기: {vector_size}")
+            
+            # 컬렉션 생성/재생성
+            ensure_collection(qdrant_client, QDRANT_COLLECTION, vector_size)
+            
+            # 각 항목을 벡터화하여 업로드
+            points = []
+            for idx, item in enumerate(knowledge_data):
+                # 텍스트 결합 (제목 + 내용)
+                text = f"{item.get('title', '')} {item.get('content', '')}"
+                
+                # 임베딩 생성
+                embedding = get_embedding(text)
+                if not embedding:
+                    print(f"항목 {idx + 1} 임베딩 생성 실패, 건너뜀")
+                    continue
+                
+                # payload 기본 필드 + 스키마 확장 (risk_factors, injury_risks, alternatives, split_*)
+                payload = {
+                    "category": item.get("category", ""),
+                    "title": item.get("title", ""),
+                    "content": item.get("content", ""),
+                    "body_part": item.get("body_part", ""),
+                    "exercise_name": item.get("exercise_name", ""),
+                    "tags": item.get("tags", [])
+                }
+                if "risk_factors" in item:
+                    payload["risk_factors"] = item["risk_factors"]
+                if "injury_risks" in item:
+                    payload["injury_risks"] = item["injury_risks"]
+                if "alternatives" in item:
+                    payload["alternatives"] = item["alternatives"]
+                if "split_2" in item:
+                    payload["split_2"] = item["split_2"]
+                if "split_4" in item:
+                    payload["split_4"] = item["split_4"]
+                if "split_5" in item:
+                    payload["split_5"] = item["split_5"]
+                point = PointStruct(
+                    id=item.get("id", idx + 1),
+                    vector=embedding,
+                    payload=payload
+                )
+                points.append(point)
+                
+                print(f"항목 {idx + 1}/{len(knowledge_data)} 처리 완료: {item.get('title', '')}")
+            
+            # Qdrant에 업로드
+            if points:
+                try:
+                    qdrant_client.upsert(
+                        collection_name=QDRANT_COLLECTION,
+                        points=points
+                    )
+                    print(f"\n총 {len(points)}개의 텍스트 항목이 Qdrant에 업로드되었습니다.")
+                except Exception as e:
+                    print(f"업로드 실패: {e}")
+            else:
+                print("업로드할 텍스트 항목이 없습니다.")
+    else:
+        print("로드할 텍스트 데이터가 없습니다.")
+    
 
     data = load_knowledge()
     if not data:

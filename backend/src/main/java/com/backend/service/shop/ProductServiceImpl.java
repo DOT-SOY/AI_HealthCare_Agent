@@ -133,7 +133,6 @@ public class ProductServiceImpl implements ProductService {
                 ? searchRequest.toCondition()
                 : ProductSearchCondition.builder()
                         .keyword(searchRequest.getKeyword())
-                        .searchType(searchRequest.getSearchType())
                         .categoryId(searchRequest.getCategoryId())
                         .minPrice(searchRequest.getMinPrice())
                         .maxPrice(searchRequest.getMaxPrice())
@@ -275,9 +274,9 @@ public class ProductServiceImpl implements ProductService {
             return;
         }
 
+        // 기존 활성 이미지: filePath -> image
         Map<String, ProductImage> activeByPath = product.getImages().stream()
                 .filter(img -> img.getDeletedAt() == null)
-                .filter(img -> img.getFilePath() != null && !img.getFilePath().trim().isEmpty())
                 .collect(Collectors.toMap(
                         ProductImage::getFilePath,
                         Function.identity(),
@@ -330,18 +329,15 @@ public class ProductServiceImpl implements ProductService {
         product.getImages().removeAll(actives);
     }
 
-    /**
-     * 옵션(variant) 수정: 기존은 ID로 수정, 새 행은 추가, 요청에 없고 참조도 없는 것만 삭제.
-     * 주문/장바구니에 참조된 옵션은 삭제하지 않아 FK 제약 없이 수정 가능.
-     */
     private void replaceVariants(Product product, List<ProductVariantRequest> requests) {
-        if (requests == null) {
-            log.info("replaceVariants: requests is null, skipping");
+        if (requests == null) return;
+
+        product.getVariants().clear();
+
+        if (requests.isEmpty()) {
+            log.info("All variants removed from product: productId={}", product.getId());
             return;
         }
-        
-        log.info("replaceVariants: processing {} variant requests for product {}", 
-                requests.size(), product.getId());
 
         List<ProductVariant> currentVariants = product.getVariants();
         List<Long> currentIds = currentVariants.stream().map(ProductVariant::getId).toList();
@@ -361,26 +357,20 @@ public class ProductServiceImpl implements ProductService {
 
         // 수정: 요청에 id가 있고 해당 variant가 있으면 updateDetails
         for (ProductVariantRequest req : requests) {
-            if (req.getId() != null && currentById.containsKey(req.getId())) {
-                ProductVariant existing = currentById.get(req.getId());
-                existing.updateDetails(
-                        normalizeOptionText(req.getOptionText()),
-                        req.getPrice(),
-                        req.getStockQty(),
-                        req.getActive()
-                );
-            } else {
-                String optionText = normalizeOptionText(req.getOptionText());
-                product.getVariants().add(ProductVariant.builder()
-                        .product(product)
-                        .optionText(optionText)
-                        .price(req.getPrice())
-                        .stockQty(req.getStockQty() != null ? req.getStockQty() : 0)
-                        .active(req.getActive() != null ? req.getActive() : true)
-                        .build());
-            }
+            String sku = (req.getSku() != null && !req.getSku().isBlank())
+                    ? req.getSku().trim()
+                    : "PROD-" + product.getId() + "-" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+            product.getVariants().add(ProductVariant.builder()
+                    .product(product)
+                    .sku(sku)
+                    .optionText(req.getOptionText())
+                    .price(req.getPrice())
+                    .stockQty(req.getStockQty() != null ? req.getStockQty() : 0)
+                    .active(req.getActive() != null ? req.getActive() : true)
+                    .build());
         }
 
+        log.info("Product variants replaced: productId={}, variantCount={}", product.getId(), requests.size());
         List<ProductVariant> toRemove = currentVariants.stream()
                 .filter(v -> v.getId() != null && !requestIds.contains(v.getId()) && !inUseIds.contains(v.getId()))
                 .toList();
@@ -419,14 +409,6 @@ public class ProductServiceImpl implements ProductService {
     // ===========================
     // Helpers
     // ===========================
-
-    /** 옵션 텍스트: null/blank면 "기본 옵션" (DB nullable=false 및 검증 완화 대응) */
-    private static String normalizeOptionText(String optionText) {
-        if (optionText != null && !optionText.trim().isEmpty()) {
-            return optionText.trim();
-        }
-        return "기본 옵션";
-    }
 
     private Product findActiveProduct(Long id) {
         return productRepository.findByIdAndDeletedAtIsNull(id)
@@ -491,7 +473,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Transactional
     private Category getOrCreateRootCategory(CategoryType categoryType) {
-        return categoryRepository.findByCategoryTypeAndParentIsNull(categoryType)
+        return categoryRepository.findFirstByCategoryTypeAndParentIsNullOrderBySortOrderAsc(categoryType)
                 .orElseGet(() -> {
                     log.info("Creating root category for type: {} (Lazy Create)", categoryType);
                     Category saved = categoryRepository.saveAndFlush(Category.builder()
@@ -499,7 +481,7 @@ public class ProductServiceImpl implements ProductService {
                             .categoryType(categoryType)
                             .sortOrder(0)
                             .build());
-                    return categoryRepository.findByCategoryTypeAndParentIsNull(categoryType).orElse(saved);
+                    return categoryRepository.findFirstByCategoryTypeAndParentIsNullOrderBySortOrderAsc(categoryType).orElse(saved);
                 });
     }
 

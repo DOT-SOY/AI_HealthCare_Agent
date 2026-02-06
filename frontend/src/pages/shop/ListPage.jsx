@@ -150,16 +150,12 @@ const ProductList = () => {
         <div className="relative z-10 container-token">
           <div className="flex flex-wrap items-start justify-between gap-token-6">
             <div>
-              <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl tracking-tighter text-text-main uppercase">
-                TRAIN.
+              <h1 className="section-title" style={{ fontSize: 'clamp(2.25rem, 6vw, 3.75rem)' }}>
+                <span className="text-text-main">TRAIN.</span><br />
+                <span className="text-primary-500">FUEL.</span><br />
+                <span className="text-text-main">PERFORM.</span>
               </h1>
-              <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl tracking-tighter text-primary-500 uppercase">
-                FUEL.
-              </h1>
-              <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl tracking-tighter text-text-main uppercase">
-                PERFORM.
-              </h1>
-              <p className="mt-2 text-text-sub text-base sm:text-lg max-w-md tracking-wide">
+              <p className="section-desc mt-2 max-w-md">
                 지금 필요한 보충제로 퍼포먼스를 올려보세요.
               </p>
               <Button

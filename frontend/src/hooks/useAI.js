@@ -64,7 +64,7 @@ export function useAI() {
         }));
       }
       dispatch(setLastResponse(response));
-      
+
       // 상품 추천 플로우: PAYMENT_READY 상태면 결제 페이지로 이동
       if (response.data && response.data.state === 'PAYMENT_READY' && response.data.payment_ready) {
         const orderNo = response.data.order_no;
@@ -78,6 +78,12 @@ export function useAI() {
             paymentReady: paymentReady
           }
         });
+      }
+
+
+      // 요일 맞바꾸기 등 루틴 변경 시 화면 자동 새로고침 (WebSocket 미수신 시 대비)
+      if (response.data?.routineUpdated === true) {
+        window.dispatchEvent(new CustomEvent('routine-updated'));
       }
 
       return response;

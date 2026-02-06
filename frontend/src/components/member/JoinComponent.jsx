@@ -11,6 +11,7 @@ const initState = {
   birthDate: "",
   height: "",
   weight: "",
+  exercisePurpose: "",
 };
 
 const TOTAL_STEPS = 3;
@@ -168,6 +169,7 @@ const JoinComponent = () => {
       ...joinParam,
       height: heightNum,
       weight: weightNum,
+      exercisePurpose: joinParam.exercisePurpose && joinParam.exercisePurpose.trim() ? joinParam.exercisePurpose.trim() : null,
     };
 
     joinPost(payload)
@@ -314,7 +316,7 @@ const JoinComponent = () => {
           </>
         )}
 
-        {/* Step 3: 키, 몸무게 */}
+        {/* Step 3: 키, 몸무게, 운동 목적 */}
         {step === 3 && (
           <>
             <div>
@@ -339,6 +341,20 @@ const JoinComponent = () => {
                 onChange={handleChange}
                 placeholder="예: 76"
               />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-text-sub mb-2">운동 목적</label>
+              <select
+                name="exercisePurpose"
+                value={joinParam.exercisePurpose || ""}
+                onChange={handleChange}
+                className="ui-select"
+              >
+                <option value="">선택해주세요</option>
+                <option value="DIET">다이어트</option>
+                <option value="MAINTAIN">유지</option>
+                <option value="BULK_UP">벌크업</option>
+              </select>
             </div>
           </>
         )}

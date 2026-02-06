@@ -1,8 +1,7 @@
 import { useEffect } from "react";
+import { Link, Outlet, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
 import BasicLayout from "../../components/layout/BasicLayout";
-import AdminComponent from "../../components/admin/AdminComponent";
 
 const AdminPage = () => {
   const loginState = useSelector((state) => state.loginSlice);
@@ -15,10 +14,19 @@ const AdminPage = () => {
     }
   }, [loginState, navigate]);
 
+  if (!loginState.roleNames?.includes("ADMIN")) {
+    return null;
+  }
+
   return (
     <BasicLayout>
-      <div className="min-h-[600px]">
-        <AdminComponent />
+      <div className="w-full max-w-5xl mx-auto py-6">
+        <nav className="flex gap-4 mb-6 border-b pb-4">
+          <Link to="/admin/orders" className="text-text-sub hover:text-text-main font-medium">
+            주문 관리
+          </Link>
+        </nav>
+        <Outlet />
       </div>
     </BasicLayout>
   );

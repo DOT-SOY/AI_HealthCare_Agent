@@ -65,6 +65,22 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             Pageable pageable);
 
     /**
+     * 관리자용 전체 주문 목록 경량 조회 (페이지네이션, 기간·상태 필터).
+     */
+    @Query("""
+            SELECT o.id as id, o.orderNo as orderNo, o.status as status, o.totalPayableAmount as totalPayableAmount, o.createdAt as createdAt
+            FROM Order o
+            WHERE (:fromDateStart is null OR o.createdAt >= :fromDateStart)
+              AND (:toDateEnd is null OR o.createdAt < :toDateEnd)
+              AND (:status is null OR o.status = :status)
+            """)
+    Page<OrderSummaryBaseProjection> findAllSummary(
+            @Param("fromDateStart") Instant fromDateStart,
+            @Param("toDateEnd") Instant toDateEnd,
+            @Param("status") OrderStatus status,
+            Pageable pageable);
+
+    /**
      * 주문 ID 목록에 대해 첫 상품명·상품 수를 한 번에 조회 (조인/집계 1회, 상관 서브쿼리 없음).
      */
     @Query(value = """

@@ -177,14 +177,12 @@ export default function ExerciseEditModal({ exercise, isOpen, onClose, onSave })
                 type="text"
                 value={formData.name}
                 onChange={(e) => handleNameChange(e.target.value)}
-                onFocus={(e) => {
+                onFocus={() => {
                   if (formData.name.trim() === '') {
                     setFilteredExercises(EXERCISE_LIST);
                   }
                   setShowDropdown(true);
-                  e.target.style.boxShadow = '0 0 0 2px #88ce02';
                 }}
-                onBlur={(e) => e.target.style.boxShadow = ''}
                 placeholder="운동명을 입력하거나 목록에서 선택하세요"
                 className="w-full bg-bg-surface text-text-main px-4 py-2 rounded-token border border-border-default focus:outline-none focus:ring-2 focus:ring-primary-500/50 pr-10"
                 required
@@ -246,8 +244,6 @@ export default function ExerciseEditModal({ exercise, isOpen, onClose, onSave })
                   value={formData.sets}
                   onChange={(e) => setFormData({ ...formData, sets: parseInt(e.target.value) || 0 })}
                   className="w-full bg-bg-surface text-text-main px-4 py-2 rounded-token border border-border-default focus:outline-none focus:ring-2 focus:ring-primary-500/50"
-                  onFocus={(e) => e.target.style.boxShadow = '0 0 0 2px #88ce02'}
-                  onBlur={(e) => e.target.style.boxShadow = ''}
                   min="0"
                   required
                 />
@@ -260,8 +256,6 @@ export default function ExerciseEditModal({ exercise, isOpen, onClose, onSave })
                   value={formData.reps}
                   onChange={(e) => setFormData({ ...formData, reps: parseInt(e.target.value) || 0 })}
                   className="w-full bg-bg-surface text-text-main px-4 py-2 rounded-token border border-border-default focus:outline-none focus:ring-2 focus:ring-primary-500/50"
-                  onFocus={(e) => e.target.style.boxShadow = '0 0 0 2px #88ce02'}
-                  onBlur={(e) => e.target.style.boxShadow = ''}
                   min="0"
                   required
                 />
@@ -279,8 +273,6 @@ export default function ExerciseEditModal({ exercise, isOpen, onClose, onSave })
                     setFormData({ ...formData, weight: value });
                   }}
                   className="w-full bg-bg-surface text-text-main px-4 py-2 rounded-token border border-border-default focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onFocus={(e) => e.target.style.boxShadow = '0 0 0 2px #88ce02'}
-                  onBlur={(e) => e.target.style.boxShadow = ''}
                   min="0"
                   step="0.5"
                   placeholder={needsWeight ? "0" : "무게 없음"}
