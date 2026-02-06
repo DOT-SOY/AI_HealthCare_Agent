@@ -5,6 +5,7 @@ import { useAI } from '../hooks/useAI';
 import { useSTT } from '../hooks/useSTT';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { mealApi } from '../api/mealApi';
+import { aiApi } from '../api/aiApi';
 import ExerciseRecognitionModal from '../components/exercise/ExerciseRecognitionModal';
 
 export default function AIChatOverlay() {
@@ -268,10 +269,11 @@ export default function AIChatOverlay() {
       // 자동으로 이미지 분석 시작
       dispatch(setLoading(true));
 
-      const base64 = dataUrl.split(',')[1] || '';
-      // 백엔드는 202 ACCEPTED만 반환하고, 실제 결과는 WebSocket(/topic/meal/vision/{userId})로 옴
+      // /api/ai/chat 엔드포인트로 이미지 전송 (이미지 분류 후 음식/인바디 라우팅)
+      // 백엔드는 이미지 분류 후 mealService.asyncVisionAnalysis를 호출하고,
+      // 실제 결과는 WebSocket(/topic/meal/vision/{userId})로 옴
       visionPendingRef.current = true;
-      await mealApi.analyzeVision(base64);
+      await aiApi.sendMessage(null, file, null);
 
       dispatch(addMessage({
         role: 'assistant',
