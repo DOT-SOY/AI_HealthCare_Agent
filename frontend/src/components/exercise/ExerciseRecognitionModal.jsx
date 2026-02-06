@@ -38,6 +38,7 @@ export default function ExerciseRecognitionModal({
   const lastCountTimeRef = useRef(null);
   const currentRepFeedbacksRef = useRef([]); // 현재 횟수 구간의 피드백 임시 저장
   const { toggleCompleted } = useExercises();
+  const [ttsEnabled, setTtsEnabled] = useState(true); // TTS 기본값: 활성화
 
   // 모달이 열릴 때 상태 초기화
   useEffect(() => {
@@ -211,8 +212,46 @@ export default function ExerciseRecognitionModal({
       if (feedbackTimeoutRef.current) {
         clearTimeout(feedbackTimeoutRef.current);
       }
+      // TTS 정리
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
     };
   }, [isOpen, exerciseName, isCompleted]);
+
+  // 실시간 피드백 TTS 재생
+  useEffect(() => {
+    if (!currentFeedback || !ttsEnabled || isCompleted) return;
+    
+    // TTS 재생
+    if ('speechSynthesis' in window) {
+      // 이전 음성이 있으면 취소
+      window.speechSynthesis.cancel();
+      
+      const utterance = new SpeechSynthesisUtterance(currentFeedback);
+      utterance.lang = 'ko-KR';
+      utterance.rate = 1.0; // 읽기 속도
+      utterance.pitch = 1.0; // 음성 높이
+      utterance.volume = 0.8; // 볼륨
+      
+      utterance.onend = () => {
+        // 재생 완료 후 정리
+      };
+      
+      utterance.onerror = (error) => {
+        console.error('TTS 재생 오류:', error);
+      };
+      
+      window.speechSynthesis.speak(utterance);
+    }
+    
+    // cleanup: 컴포넌트 언마운트 시 음성 중지
+    return () => {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, [currentFeedback, ttsEnabled, isCompleted]);
 
   // 운동 완료 처리
   const handleComplete = async () => {
@@ -310,14 +349,45 @@ export default function ExerciseRecognitionModal({
           <h2 className="text-2xl font-bold text-text-main">
             {exerciseName ? exerciseName : '운동명이 지정되지 않았습니다.'}
           </h2>
-          <button
-            onClick={onClose}
-            className="text-text-muted hover:text-text-main transition-colors"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-3">
+            {/* TTS 토글 버튼 */}
+            {exerciseName && !isCompleted && (
+              <button
+                onClick={() => {
+                  setTtsEnabled(prev => !prev);
+                  // TTS 비활성화 시 현재 재생 중인 음성 중지
+                  if (ttsEnabled && 'speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                  }
+                }}
+                className={`p-2 rounded-token transition-colors ${
+                  ttsEnabled 
+                    ? 'bg-primary-500 text-bg-root hover:bg-primary-400' 
+                    : 'bg-gray-200 text-text-muted hover:bg-gray-300'
+                }`}
+                title={ttsEnabled ? '음성 피드백 끄기' : '음성 피드백 켜기'}
+              >
+                {ttsEnabled ? (
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.617.793L4.383 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.383l4-4.707a1 1 0 011.617-.793zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clipRule="evenodd" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.617.793L4.383 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.383l4-4.707a1 1 0 011.617-.793zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clipRule="evenodd" />
+                    <path d="M3.28 2.22a.75.75 0 00-1.06 1.06l14.5 14.5a.75.75 0 101.06-1.06L3.28 2.22z" />
+                  </svg>
+                )}
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="text-text-muted hover:text-text-main transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
 
@@ -379,14 +449,14 @@ export default function ExerciseRecognitionModal({
                 <div>
                   <button
                     onClick={handleComplete}
-                    className="w-full py-3 rounded-token font-medium bg-primary-500 text-text-inverse transition-colors hover:bg-primary-400"
+                    className="w-full py-3 rounded-token font-medium bg-primary-500 text-bg-root transition-colors hover:bg-primary-400"
                   >
                     운동 완료
                   </button>
                 </div>
               </div>
             </div>
-          </div>
+          </div>    
         )}
 
         {isCompleted && !finalFeedback && (
@@ -418,13 +488,13 @@ export default function ExerciseRecognitionModal({
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleCompletionResponse(true)}
-                    className="flex-1 py-2 rounded-token font-medium bg-primary-500 text-text-inverse transition-colors hover:bg-primary-400"
+                    className="flex-1 py-2 rounded-token font-medium bg-primary-500 text-bg-root transition-colors hover:bg-primary-400"
                   >
                     네
                   </button>
                   <button
                     onClick={() => handleCompletionResponse(false)}
-                    className="flex-1 py-2 rounded-token font-medium bg-bg-surface text-text-sub border border-border-default transition-colors hover:bg-bg-card"
+                    className="flex-1 py-2 rounded-token font-medium bg-bg-surface text-text-main border border-border-default transition-colors hover:bg-bg-card"
                   >
                     아니오
                   </button>
