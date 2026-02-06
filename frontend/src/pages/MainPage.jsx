@@ -26,6 +26,9 @@ function Main() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [todayRoutine]);
   useEffect(() => {
+    // 메인 페이지 진입 시 항상 스크롤 최상단으로 이동
+    window.scrollTo(0, 0);
+
     // 데스크톱(1550px 이상)에서만 스크롤 막기
     const handleResize = () => {
       if (window.innerWidth >= 1550) {
