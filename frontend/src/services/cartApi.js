@@ -1,23 +1,10 @@
-/**
- * 카트 API 호출 함수 (jwtAxios 통일)
- */
-
 import jwtAxios from '../util/jwtUtil';
 
-/**
- * 장바구니 조회
- */
 export const getCart = async () => {
   const res = await jwtAxios.get('/cart');
   return res.data;
 };
 
-/**
- * 장바구니에 아이템 추가
- * @param {number|null} variantId - 상품 변형 ID (옵션이 있는 경우)
- * @param {number|null} productId - 상품 ID (옵션이 없는 경우)
- * @param {number} qty - 수량
- */
 export const addCartItem = async (variantId, productId, qty) => {
   const body = { qty };
   if (variantId != null) {
@@ -29,20 +16,11 @@ export const addCartItem = async (variantId, productId, qty) => {
   return res.data;
 };
 
-/**
- * 장바구니 아이템 수량 변경
- * @param {number} itemId - 장바구니 아이템 ID
- * @param {number} qty - 수량
- */
 export const updateCartItemQty = async (itemId, qty) => {
   const res = await jwtAxios.patch(`/cart/items/${itemId}`, { qty });
   return res.data;
 };
 
-/**
- * 장바구니 아이템 제거
- * @param {number} itemId - 장바구니 아이템 ID
- */
 export const removeCartItem = async (itemId) => {
   const res = await jwtAxios.delete(`/cart/items/${itemId}`);
   return res.data;
@@ -56,9 +34,6 @@ export const clearCart = async () => {
   return res.data;
 };
 
-/**
- * 게스트 장바구니를 회원 장바구니로 병합
- */
 export const mergeCart = async () => {
   const res = await jwtAxios.post('/cart/merge');
   return res.data;

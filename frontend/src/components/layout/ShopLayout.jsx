@@ -80,7 +80,7 @@ const ShopLayout = ({ children }) => {
       }
       await refreshCart();
       setAnimateButton(true);
-      setTimeout(() => setAnimateButton(false), 600);
+      setTimeout(() => setAnimateButton(false), 1200);
     } catch (error) {
       console.error('Failed to add item to cart:', error);
       

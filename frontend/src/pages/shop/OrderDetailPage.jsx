@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import Button from '../../components/common/Button';
 import Card from '../../components/common/Card';
-import { getOrderDetail, updateOrderShipTo } from '../../services/orderApi';
+import { getOrderDetail, updateOrderShipTo, preparePayment } from '../../services/orderApi';
 
 const statusLabels = {
   CREATED: '주문 생성',
@@ -22,6 +22,7 @@ const OrderDetailPage = () => {
   const [editingShipTo, setEditingShipTo] = useState(false);
   const [shipToForm, setShipToForm] = useState(null);
   const [savingShipTo, setSavingShipTo] = useState(false);
+  const [paymentLoading, setPaymentLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -147,6 +148,33 @@ const OrderDetailPage = () => {
       setError(err?.message || '배송지 정보를 저장하는 데 실패했습니다.');
     } finally {
       setSavingShipTo(false);
+    }
+  };
+
+  /** 결제 대기 주문에서 결제 페이지로 이동 (결제 준비 정보 요청 후 체크아웃 페이지로) */
+  const handleProceedPayment = async () => {
+    if (order?.status !== 'PAYMENT_PENDING') return;
+    try {
+      setPaymentLoading(true);
+      setError('');
+      const paymentReady = await preparePayment(order.orderNo);
+      navigate('/shop/checkout', {
+        state: {
+          fromAI: true,
+          orderNo: order.orderNo,
+          paymentReady: {
+            orderId: paymentReady?.orderId ?? order.orderNo,
+            amount: paymentReady?.amount ?? order.totalPayableAmount,
+            orderName: paymentReady?.orderName ?? `주문 ${order.orderNo}`,
+            clientKey: paymentReady?.clientKey ?? '',
+            customerKey: paymentReady?.customerKey ?? '',
+          },
+        },
+      });
+    } catch (err) {
+      setError(err?.message || '결제 준비 정보를 불러오는데 실패했습니다.');
+    } finally {
+      setPaymentLoading(false);
     }
   };
 
@@ -400,7 +428,17 @@ const OrderDetailPage = () => {
         </Card>
       </section>
 
-      <div className="flex gap-3">
+      <div className="flex gap-3 flex-wrap">
+        {order.status === 'PAYMENT_PENDING' && (
+          <Button
+            type="button"
+            size="md"
+            onClick={handleProceedPayment}
+            disabled={paymentLoading}
+          >
+            {paymentLoading ? '결제 준비 중...' : '결제하기'}
+          </Button>
+        )}
         <Button
           type="button"
           variant="ghost"

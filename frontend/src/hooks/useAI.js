@@ -1,9 +1,11 @@
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { addMessage, upsertMealGenerateMessage, setLastResponse, setLoading } from '../store/aiSlice';
 import { aiApi } from '../api/aiApi';
 
 export function useAI() {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { messages, lastResponse, loading } = useSelector((state) => state.ai);
 
   const sendAIMessage = async (text, imageFile = null) => {
@@ -54,15 +56,36 @@ export function useAI() {
         dispatch(upsertMealGenerateMessage({ content: aiResponseText }));
       } else {
         // AI 응답 메시지에 data 정보도 함께 저장 (루틴 정보 등)
-        dispatch(addMessage({ 
-          role: 'assistant', 
+        dispatch(addMessage({
+          role: 'assistant',
           content: aiResponseText,
           data: response.data || null,
           intent: response.intent || null
         }));
       }
       dispatch(setLastResponse(response));
-      
+
+      // 상품 추천 플로우: PAYMENT_READY 상태면 결제 페이지로 이동
+      if (response.data && response.data.state === 'PAYMENT_READY' && response.data.payment_ready) {
+        const orderNo = response.data.order_no;
+        const paymentReady = response.data.payment_ready;
+
+        // 결제 페이지로 이동 (주문 번호와 결제 정보 전달)
+        navigate('/shop/checkout', {
+          state: {
+            fromAI: true,
+            orderNo: orderNo,
+            paymentReady: paymentReady
+          }
+        });
+      }
+
+
+      // 요일 맞바꾸기 등 루틴 변경 시 화면 자동 새로고침 (WebSocket 미수신 시 대비)
+      if (response.data?.routineUpdated === true) {
+        window.dispatchEvent(new CustomEvent('routine-updated'));
+      }
+
       return response;
     } catch (error) {
       console.error('AI 메시지 전송 실패:', error);

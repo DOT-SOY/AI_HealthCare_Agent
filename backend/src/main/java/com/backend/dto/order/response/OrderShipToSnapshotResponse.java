@@ -15,6 +15,9 @@ public class OrderShipToSnapshotResponse {
     private String address2;
 
     public static OrderShipToSnapshotResponse from(OrderShipToSnapshot snapshot) {
+        if (snapshot == null) {
+            return null;
+        }
         return OrderShipToSnapshotResponse.builder()
                 .recipientName(snapshot.getRecipientName())
                 .recipientPhone(snapshot.getRecipientPhone())

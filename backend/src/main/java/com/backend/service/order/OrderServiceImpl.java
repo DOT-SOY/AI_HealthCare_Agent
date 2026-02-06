@@ -249,49 +249,77 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public List<OrderSummaryResponse> getOrdersByFilters(Long memberId, LocalDate date, String productName, OrderStatus status) {
-        log.info("주문 필터링 조회 요청: memberId={}, date={}, productName={}, status={}", memberId, date, productName, status);
-        
+    public PageResponse<OrderSummaryResponse> getAdminOrders(OrderListRequest request) {
         ZoneId zone = ZoneId.systemDefault();
-        Instant dateStart = null;
-        Instant dateEnd = null;
-        
-        if (date != null) {
-            dateStart = date.atStartOfDay(zone).toInstant();
-            dateEnd = date.plusDays(1).atStartOfDay(zone).toInstant();
+        Instant fromDateStart = request.getFromDate() == null
+                ? null
+                : request.getFromDate().atStartOfDay(zone).toInstant();
+        Instant toDateEnd = request.getToDate() == null
+                ? null
+                : request.getToDate().plusDays(1).atStartOfDay(zone).toInstant();
+
+        Page<OrderSummaryBaseProjection> page = orderRepository.findAllSummary(
+                fromDateStart,
+                toDateEnd,
+                request.getStatus(),
+                request.toPageable());
+
+        List<OrderSummaryBaseProjection> content = page.getContent();
+        if (content.isEmpty()) {
+            return PageResponse.<OrderSummaryResponse>builder()
+                    .items(List.of())
+                    .page(request.getPage())
+                    .pageSize(page.getSize())
+                    .total(page.getTotalElements())
+                    .pages(page.getTotalPages())
+                    .hasNext(page.hasNext())
+                    .hasPrevious(page.hasPrevious())
+                    .build();
         }
-        
-        // productName에 LIKE 패턴 추가 (% 포함)
-        String productNamePattern = null;
-        if (productName != null && !productName.trim().isEmpty()) {
-            productNamePattern = "%" + productName.trim() + "%";
-        }
-        
-        List<Order> orders = orderRepository.findByFilters(memberId, dateStart, dateEnd, productNamePattern, status);
-        
-        // 모든 필터가 null이면 최신 1개만 반환
-        if (date == null && (productName == null || productName.trim().isEmpty()) && status == null) {
-            if (!orders.isEmpty()) {
-                orders = List.of(orders.get(0));
-            }
-        }
-        
-        // OrderSummaryResponse로 변환
-        return orders.stream()
-                .map(order -> {
-                    String firstProductName = order.getItems().isEmpty() 
-                        ? null 
-                        : order.getItems().get(0).getProductNameSnapshot();
-                    return OrderSummaryResponse.builder()
-                            .orderNo(order.getOrderNo())
-                            .status(order.getStatus())
-                            .totalPayableAmount(order.getTotalPayableAmount())
-                            .createdAt(order.getCreatedAt())
-                            .firstProductName(firstProductName)
-                            .itemCount(order.getItems().size())
-                            .build();
-                })
-                .collect(Collectors.toList());
+
+        List<Long> orderIds = content.stream().map(OrderSummaryBaseProjection::getId).toList();
+        List<OrderItemSummaryProjection> itemSummaries = orderRepository.findOrderItemSummaryByOrderIds(orderIds);
+        Map<Long, OrderItemSummaryProjection> itemSummaryByOrderId = itemSummaries.stream()
+                .collect(Collectors.toMap(OrderItemSummaryProjection::getOrderId, s -> s));
+
+        List<OrderSummaryResponse> items = content.stream()
+                .map(base -> OrderSummaryResponse.from(base, itemSummaryByOrderId.get(base.getId())))
+                .toList();
+
+        return PageResponse.<OrderSummaryResponse>builder()
+                .items(items)
+                .page(request.getPage())
+                .pageSize(page.getSize())
+                .total(page.getTotalElements())
+                .pages(page.getTotalPages())
+                .hasNext(page.hasNext())
+                .hasPrevious(page.hasPrevious())
+                .build();
+    }
+
+    @Override
+    public OrderDetailResponse getOrderDetailForAdmin(String orderNo) {
+        Order order = orderRepository.findDetailByOrderNo(orderNo)
+                .orElseThrow(() -> new BusinessException(ErrorCode.SHOP_ORDER_NOT_FOUND, orderNo));
+        return OrderDetailResponse.from(order);
+    }
+
+    @Override
+    @Transactional
+    public void updateOrderStatusForAdmin(String orderNo, OrderStatus status) {
+        Order order = orderRepository.findByOrderNo(orderNo)
+                .orElseThrow(() -> new BusinessException(ErrorCode.SHOP_ORDER_NOT_FOUND, orderNo));
+        order.updateStatusByAdmin(status);
+    }
+
+    @Override
+    public List<OrderSummaryResponse> getOrdersByFilters(Long memberId, LocalDate targetDate, String productName, OrderStatus status) {
+        ZoneId zone = ZoneId.systemDefault();
+        Instant dateStart = targetDate == null ? null : targetDate.atStartOfDay(zone).toInstant();
+        Instant dateEnd = targetDate == null ? null : targetDate.plusDays(1).atStartOfDay(zone).toInstant();
+        String productNameLike = (productName != null && !productName.isBlank()) ? "%" + productName + "%" : null;
+        List<Order> orders = orderRepository.findByFilters(memberId, dateStart, dateEnd, productNameLike, status);
+        return orders.stream().map(OrderSummaryResponse::from).toList();
     }
 }
 

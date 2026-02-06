@@ -1,10 +1,6 @@
 import { Link } from 'react-router-dom';
 import Card from '../common/Card';
 
-/**
- * 쇼핑몰 리스트용 상품 카드 — 클릭 시 상세 이동
- * 옵션·장바구니 담기는 상세 페이지에서만
- */
 const ProductCard = ({
   product,
   displayPrice,
@@ -41,7 +37,6 @@ const ProductCard = ({
         </span>
       </Link>
 
-      {/* 정보 영역 — 패딩·간격 축소 */}
       <div className="flex flex-col flex-1 px-3 py-3 min-h-0">
         <Link to={`/shop/detail/${product.id}`} className="block flex-1 min-h-0">
           <h3 className="font-semibold text-[23px] text-text-main line-clamp-2 leading-snug group-hover:text-primary-400 transition-colors duration-200">

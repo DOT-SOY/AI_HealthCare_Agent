@@ -20,7 +20,12 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Repository
 @RequiredArgsConstructor
@@ -31,16 +36,17 @@ public class ProductSearchImpl implements ProductSearch {
     @Override
     public Page<Product> search(ProductSearchCondition condition, Pageable pageable) {
         QProduct product = QProduct.product;
+
+        if (condition.getProductIds() != null && !condition.getProductIds().isEmpty()) {
+            return searchByProductIds(condition, pageable, product);
+        }
+
         QProductCategory productCategory = QProductCategory.productCategory;
         QCategory category = QCategory.category;
 
-        // 기본 쿼리 (2-쿼리 전략: images는 별도 조회)
-        // ManyToOne인 createdBy만 페치 조인 (OneToMany인 images는 제외)
         JPAQuery<Product> query = queryFactory
                 .selectFrom(product)
-                .leftJoin(product.createdBy).fetchJoin();  // Member 페치 조인 (ManyToOne만)
-        
-        // 카테고리 필터가 있을 때만 조인
+                .leftJoin(product.createdBy).fetchJoin();
         if (condition.getCategoryId() != null) {
             query.leftJoin(productCategory).on(product.id.eq(productCategory.product.id))
                  .leftJoin(category).on(productCategory.category.id.eq(category.id));
@@ -52,44 +58,70 @@ public class ProductSearchImpl implements ProductSearch {
                         categoryIdEq(condition.getCategoryId(), productCategory, category),
                         priceBetween(condition.getMinPrice(), condition.getMaxPrice()),
                         statusEq(condition.getStatus()),
-                        excludeOutOfStock(condition, product)
+                        excludeOutOfStock(condition, product),
+                        nameNotContainingAny(product, condition.getExcludeNameKeywords())
                 );
-        
-        // 카테고리 조인 시 중복 방지를 위해 distinct 사용
         if (condition.getCategoryId() != null) {
             query.distinct();
         }
-
-        // 정렬 적용
         query.orderBy(getOrderSpecifier(condition, product));
-
-        // 페이징 적용
         List<Product> content = query
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .fetch();
 
-        // 카운트 쿼리 (성능 최적화 - 카운트만 수행)
         JPAQuery<Long> countQuery = queryFactory
                 .select(product.countDistinct())
                 .from(product);
-        
-        // 카테고리 필터가 있을 때만 조인 (메인 쿼리와 동일하게)
         if (condition.getCategoryId() != null) {
             countQuery.leftJoin(productCategory).on(product.id.eq(productCategory.product.id))
                      .leftJoin(category).on(productCategory.category.id.eq(category.id));
         }
-        
         countQuery.where(
                         notDeleted(product),
                         keywordContains(condition.getKeyword(), condition.getSearchType()),
                         categoryIdEq(condition.getCategoryId(), productCategory, category),
                         priceBetween(condition.getMinPrice(), condition.getMaxPrice()),
                         statusEq(condition.getStatus()),
-                        excludeOutOfStock(condition, product)
+                        excludeOutOfStock(condition, product),
+                        nameNotContainingAny(product, condition.getExcludeNameKeywords())
                 );
 
         return PageableExecutionUtils.getPage(content, pageable, countQuery::fetchOne);
+    }
+
+    private Page<Product> searchByProductIds(ProductSearchCondition condition, Pageable pageable, QProduct product) {
+        List<Long> productIds = condition.getProductIds();
+        int fetchLimit = Math.min(productIds.size(), 300);
+
+        JPAQuery<Product> query = queryFactory
+                .selectFrom(product)
+                .leftJoin(product.createdBy).fetchJoin()
+                .where(
+                        notDeleted(product),
+                        product.id.in(productIds),
+                        keywordContains(condition.getKeyword(), condition.getSearchType()),
+                        priceBetween(condition.getMinPrice(), condition.getMaxPrice()),
+                        statusEq(condition.getStatus()),
+                        excludeOutOfStock(condition, product),
+                        nameNotContainingAny(product, condition.getExcludeNameKeywords())
+                );
+
+        List<Product> content = query.limit(fetchLimit).fetch();
+        Map<Long, Integer> idToIndex = new HashMap<>();
+        for (int i = 0; i < productIds.size(); i++) {
+            idToIndex.put(productIds.get(i), i);
+        }
+        List<Product> sorted = content.stream()
+                .sorted(Comparator.comparingInt(p -> idToIndex.getOrDefault(p.getId(), Integer.MAX_VALUE)))
+                .collect(Collectors.toList());
+
+        int total = sorted.size();
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), total);
+        List<Product> pageContent = start < total ? sorted.subList(start, end) : List.of();
+
+        return PageableExecutionUtils.getPage(pageContent, pageable, () -> (long) total);
     }
 
     // 삭제되지 않은 상품만 조회
@@ -97,8 +129,13 @@ public class ProductSearchImpl implements ProductSearch {
         return product.deletedAt.isNull();
     }
 
-    // 키워드 검색: searchType에 따라 상품명/상품내용/전체 검색 (QueryDSL)
-    // description은 @Lob(CLOB)이라 containsIgnoreCase(LOWER)가 MySQL에서 오류 나므로 like+escape 사용
+    /**
+     * 키워드 검색
+     * - 단어 1개: 상품명/설명 중 하나에만 포함되어도 매칭.
+     * - 단어 2개 이상: 각 단어 중 하나라도 상품명/설명에 포함되면 매칭(OR 조건).
+     *   예: "다이어트 보충제" → 이름이나 설명에 "다이어트" 또는 "보충제"가 포함되면 후보에 포함.
+     *   이후 정렬/스코어링은 상위 서비스(ProductRecommendationServiceImpl)에서 수행.
+     */
     private BooleanExpression keywordContains(String keyword, String searchType) {
         if (keyword == null || keyword.trim().isEmpty()) {
             return null;
@@ -106,17 +143,57 @@ public class ProductSearchImpl implements ProductSearch {
         String k = keyword.trim();
         QProduct product = QProduct.product;
         String type = (searchType != null && !searchType.isBlank()) ? searchType.trim().toLowerCase() : "all";
-        BooleanExpression descMatch = product.description.like(likePattern(k), '\\');
-        return switch (type) {
-            case "name" -> product.name.containsIgnoreCase(k);
-            case "description" -> descMatch;
-            default -> product.name.containsIgnoreCase(k).or(descMatch);
-        };
+
+        List<String> tokens = Arrays.stream(k.split("\\s+"))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toList());
+        if (tokens.isEmpty()) {
+            return null;
+        }
+
+        if (tokens.size() == 1) {
+            String single = tokens.get(0);
+            BooleanExpression descMatch = product.description.like(likePattern(single), '\\');
+            return switch (type) {
+                case "name" -> product.name.containsIgnoreCase(single);
+                case "description" -> descMatch;
+                default -> product.name.containsIgnoreCase(single).or(descMatch);
+            };
+        }
+
+        // 여러 단어인 경우: 모든 단어 AND가 아니라, 단어들 중 하나라도 매칭되면 포함(OR 조건).
+        // 너무 빡센 AND 조건 때문에 검색 0건이 되는 상황을 줄이기 위함.
+        BooleanExpression orExpr = null;
+        for (String token : tokens) {
+            BooleanExpression tokenMatch = switch (type) {
+                case "name" -> product.name.containsIgnoreCase(token);
+                case "description" -> product.description.like(likePattern(token), '\\');
+                default -> product.name.containsIgnoreCase(token).or(product.description.like(likePattern(token), '\\'));
+            };
+            orExpr = orExpr == null ? tokenMatch : orExpr.or(tokenMatch);
+        }
+        return orExpr;
     }
 
-    /** LIKE 패턴용 이스케이프 (%, _, \). MySQL collation(ci)으로 대소문자 구분 없음. */
     private static String likePattern(String keyword) {
         return "%" + keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
+    }
+
+    private BooleanExpression nameNotContainingAny(QProduct product, List<String> keywords) {
+        if (keywords == null || keywords.isEmpty()) {
+            return null;
+        }
+        BooleanExpression expression = null;
+        for (String kw : keywords) {
+            if (kw == null || kw.isBlank()) {
+                continue;
+            }
+            String pattern = likePattern(kw.trim().toLowerCase());
+            BooleanExpression notLike = product.name.lower().notLike(pattern);
+            expression = expression == null ? notLike : expression.and(notLike);
+        }
+        return expression;
     }
 
     // 카테고리 필터
@@ -131,7 +208,6 @@ public class ProductSearchImpl implements ProductSearch {
         return productCategory.category.id.eq(categoryId);
     }
 
-    // 가격 범위 필터
     private BooleanExpression priceBetween(BigDecimal minPrice, BigDecimal maxPrice) {
         QProduct product = QProduct.product;
         BooleanExpression expression = null;
@@ -149,7 +225,6 @@ public class ProductSearchImpl implements ProductSearch {
         return expression;
     }
 
-    // 상태 필터
     private BooleanExpression statusEq(ProductStatus status) {
         if (status == null) {
             return null;
@@ -157,13 +232,11 @@ public class ProductSearchImpl implements ProductSearch {
         return QProduct.product.status.eq(status);
     }
 
-    // 품절 제외: variant가 없거나, 재고가 1개 이상인 variant가 있는 상품만 포함
     private BooleanExpression excludeOutOfStock(ProductSearchCondition condition, QProduct product) {
         if (!condition.isExcludeOutOfStock()) {
             return null;
         }
         QProductVariant variant = QProductVariant.productVariant;
-        // 품절이 아닌 상품 = variant가 없음 OR (재고 > 0인 variant가 1개 이상 있음)
         BooleanExpression hasNoVariants = JPAExpressions.selectOne()
                 .from(variant)
                 .where(variant.product.id.eq(product.id))
@@ -176,7 +249,6 @@ public class ProductSearchImpl implements ProductSearch {
         return hasNoVariants.or(hasInStockVariant);
     }
 
-    // 정렬 조건
     private OrderSpecifier<?>[] getOrderSpecifier(ProductSearchCondition condition, QProduct product) {
         List<OrderSpecifier<?>> orders = new ArrayList<>();
 
@@ -191,8 +263,6 @@ public class ProductSearchImpl implements ProductSearch {
                 break;
             case "popularity":
             case "sales":
-                // TODO: 추후 판매량 통계 테이블 추가 시 구현
-                // 현재는 createdAt으로 대체
                 orders.add(new OrderSpecifier<>(order, product.createdAt));
                 break;
             case "createdat":
@@ -201,8 +271,6 @@ public class ProductSearchImpl implements ProductSearch {
                 orders.add(new OrderSpecifier<>(order, product.createdAt));
                 break;
         }
-
-        // 기본 정렬 추가 (동일한 값일 때 일관성 보장)
         orders.add(new OrderSpecifier<>(Order.DESC, product.id));
 
         return orders.toArray(new OrderSpecifier[0]);

@@ -14,48 +14,56 @@ import java.math.BigDecimal;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "product_variants")
 public class ProductVariant extends BaseEntity {
-
-    // PK
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // 상품
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
-    // 옵션 정보 (평문 텍스트, 예: "색상: 빨강, 사이즈: L")
+    @Column(name = "sku", nullable = false, unique = true, length = 100)
+    private String sku;
+
     @Lob
     @Column(name = "option_text", nullable = false)
     private String optionText;
+
+    // 옵션 정보 (JSON, 예: {"색상":"빨강","사이즈":"L"})
+    @Lob
+    @Column(name = "option_json")
+    private String optionJson;
 
     // 가격 (null이면 product.basePrice 사용)
     @Column(precision = 18, scale = 2)
     private BigDecimal price;
 
-    // 재고 수량
     @Column(name = "stock_qty", nullable = false)
     private Integer stockQty = 0;
 
-    // 활성화 여부
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
     @Builder
     public ProductVariant(Product product,
+                         String sku,
                          String optionText,
+                         String optionJson,
                          BigDecimal price,
                          Integer stockQty,
                          Boolean active) {
         this.product = product;
+        if (sku == null || sku.isBlank()) {
+            throw new IllegalArgumentException("sku는 필수입니다.");
+        }
+        this.sku = sku.trim();
         this.optionText = optionText;
+        this.optionJson = (optionJson != null && !optionJson.isBlank()) ? optionJson : "{}";
         this.price = price;
         this.stockQty = (stockQty != null) ? stockQty : 0;
         this.active = (active != null) ? active : true;
     }
 
-    /** 옵션 정보/가격/재고/활성 여부 일괄 수정 (주문·장바구니 참조된 옵션 수정용) */
     public void updateDetails(String optionText, BigDecimal price, Integer stockQty, Boolean active) {
         if (optionText != null && !optionText.trim().isEmpty()) {
             this.optionText = optionText.trim();
@@ -73,7 +81,6 @@ public class ProductVariant extends BaseEntity {
         this.stockQty = stockQty;
     }
 
-    // 재고 증가
     public void increaseStock(Integer quantity) {
         if (quantity == null || quantity < 0) {
             throw new IllegalArgumentException("증가 수량은 0 이상이어야 합니다.");
@@ -92,7 +99,6 @@ public class ProductVariant extends BaseEntity {
         this.stockQty -= quantity;
     }
 
-    // 실제 가격 조회 (variant 가격이 null이면 상품 기본 가격 반환)
     public BigDecimal resolvePrice() {
         return (this.price != null) ? this.price : this.product.getBasePrice();
     }

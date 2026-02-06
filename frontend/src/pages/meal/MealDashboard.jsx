@@ -549,7 +549,7 @@ const MealCard = ({ title, data, mealTime, busy, onMealComplete, onMealSkip, onI
                 })}
             </div>
             <div className="absolute bottom-4 left-2 right-2 h-8 rounded-token overflow-hidden flex text-[10px] text-center font-bold leading-8">
-                <div className="bg-amber-700/90 w-1/3 text-white border-r border-black/10">탄 {data.percentCarbs || 0}%</div>
+                <div className="bg-amber-700/90 w-1/3 text-bg-root border-r border-black/10">탄 {data.percentCarbs || 0}%</div>
                 <div className="bg-gray-400 w-1/3 text-bg-root border-r border-black/10">단 {data.percentProtein || 0}%</div>
                 <div className="bg-amber-500 w-1/3 text-bg-root">지 {data.percentFat || 0}%</div>
             </div>

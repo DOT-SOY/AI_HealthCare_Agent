@@ -5,7 +5,12 @@
     "body_part": "등",
     "title": "등 통증 일반 대처법",
     "content": "등 통증이 1~2회 수준으로 발생한 경우:\n1. 휴식: 통증이 심할 때는 누워서 휴식을 취하세요.\n2. 온찜질: 등 근육을 이완시키기 위해 온찜질을 하세요.\n3. 스트레칭: 등 근육과 어깨 근육 스트레칭을 실시하세요.\n4. 자세 개선: 앉은 자세와 서 있는 자세를 개선하세요.",
-    "tags": ["등", "찜질", "스트레칭", "자세"]
+    "tags": [
+      "등",
+      "찜질",
+      "스트레칭",
+      "자세"
+    ]
   },
   {
     "id": 11,
@@ -126,5 +131,808 @@
     "title": "종아리 통증 3회 이상 발생 시 권고사항",
     "content": "최근 1주일 내에 종아리 통증이 3회 이상 발생한 경우:\n1. 즉시 병원 방문: 정형외과 전문의의 진단을 받으세요.\n2. 운동 중단: 종아리를 사용하는 운동(카프레이즈, 런닝 등)을 중단하세요.\n3. 대체 운동: 상체 중심 루틴으로 전환하거나, 종아리에 부담이 없는 운동을 고려하세요.\n4. 재활: 종아리 근육 스트레칭과 재활 운동을 의사 지도 하에 실시하세요.",
     "tags": ["종아리", "정형외과", "병원권고", "대체운동"]
+  },
+
+  {
+    "id": 4000,
+    "category": "commerce_policy",
+    "domain": "commerce",
+    "doc_type": "response_policy",
+    "version": "v1",
+    "title": "커머스 응답 공통 규칙",
+    "content": "- 상품 효능/치료/완치/처방 등 의료적 단정 표현 금지\n- '개인차가 있을 수 있습니다' 고지 포함\n- 보충제(SUPPLEMENT) 추천 시: '의료 전문가와 상담 후 결정' 권고 포함\n- 특정 상품명/가격/재고를 RAG에서 단정하지 말고, DB 조회 결과를 근거로만 제시\n- 안전/통증 관련 발화가 주제인 경우: 커머스 추천보다 안전 안내를 우선할 수 있음(단, 운동/통증 RAG는 별도 도메인으로 간주)",
+    "tags": ["commerce", "policy", "response", "safety"]
+  },
+
+  {
+    "id": 3000,
+    "category": "commerce_policy",
+    "domain": "commerce",
+    "doc_type": "goal_policy",
+    "goal": "DIET",
+    "product_category": "ALL",
+    "version": "v2",
+    "title": "DIET 목표 추천 조건 규칙 요약",
+    "rules": {
+      "direction": "체중 감량/체지방 감소",
+      "must_have_candidates": ["단백질", "식이섬유"],
+      "priority_candidates": ["칼로리_낮음", "당_낮음", "식이섬유_높음"],
+      "avoid_candidates": ["게이너", "고칼로리", "당_높음"]
+    },
+    "per_category": {
+      "SUPPLEMENT": {
+        "must_have_candidates": ["단백질"],
+        "priority_candidates": ["칼로리_낮음", "당_낮음", "단백질_높음"],
+        "avoid_candidates": ["고칼로리_게이너", "과당", "고당"]
+      },
+      "FOOD": {
+        "must_have_candidates": ["단백질", "식이섬유"],
+        "priority_candidates": ["칼로리_낮음", "당_낮음", "식이섬유_높음"]
+      },
+      "HEALTH_GOODS": {
+        "priority_hint": ["체중계", "인바디", "홈트용품", "식단관리 보조"],
+        "constraint_note": "must_have/priority는 goal과 충돌하지 않는 범위에서만 강화"
+      }
+    },
+    "tags": ["goal_policy", "diet", "rule"]
+  },
+  {
+    "id": 3001,
+    "category": "commerce_policy",
+    "domain": "commerce",
+    "doc_type": "goal_policy",
+    "goal": "MAINTAIN",
+    "product_category": "ALL",
+    "version": "v2",
+    "title": "MAINTAIN 목표 추천 조건 규칙 요약",
+    "rules": {
+      "direction": "현재 체중/체형 유지 + 전반 건강/영양 균형",
+      "must_have_candidates": ["영양_균형", "비타민", "미네랄"],
+      "priority_candidates": ["지속가능", "가격_적당", "용량_적당"],
+      "avoid_candidates": ["과도한_고칼로리_게이너", "극단_다이어트_표현"]
+    },
+    "per_category": {
+      "SUPPLEMENT": {
+        "must_have_candidates": ["종합비타민", "미네랄", "오메가3"],
+        "priority_candidates": ["가격_적당", "용량_적당"]
+      },
+      "FOOD": {
+        "priority_candidates": ["영양_균형", "지속가능"]
+      },
+      "HEALTH_GOODS": {
+        "priority_hint": ["운동습관_유지", "건강모니터링", "회복용품"]
+      }
+    },
+    "tags": ["goal_policy", "maintain", "rule"]
+  },
+  {
+    "id": 3002,
+    "category": "commerce_policy",
+    "domain": "commerce",
+    "doc_type": "goal_policy",
+    "goal": "BULK_UP",
+    "product_category": "ALL",
+    "version": "v2",
+    "title": "BULK_UP 목표 추천 조건 규칙 요약",
+    "rules": {
+      "direction": "근육량/체중 증가",
+      "must_have_candidates": ["단백질", "탄수화물", "게이너"],
+      "priority_candidates": ["칼로리_높음", "단백질_높음", "탄수화물_높음"],
+      "avoid_candidates": ["저칼로리", "다이어트_전용"]
+    },
+    "per_category": {
+      "SUPPLEMENT": {
+        "must_have_candidates": ["단백질", "게이너"],
+        "priority_candidates": ["칼로리_높음", "단백질_높음"]
+      },
+      "FOOD": {
+        "must_have_candidates": ["복합탄수화물", "고칼로리"],
+        "priority_candidates": ["칼로리_높음", "영양_밀도"]
+      },
+      "HEALTH_GOODS": {
+        "priority_hint": ["저항운동_보조", "안전한_중량운동", "회복보조"]
+      }
+    },
+    "tags": ["goal_policy", "bulk_up", "rule"]
+  },
+
+  {
+    "id": 3003,
+    "category": "commerce_policy",
+    "domain": "commerce",
+    "doc_type": "category_policy",
+    "goal": "ALL",
+    "product_category": "SUPPLEMENT",
+    "version": "v2",
+    "title": "보충제(SUPPLEMENT) 카테고리 추천 조건 규칙 요약",
+    "rules": {
+      "common_must_have_candidates": ["단백질", "비타민", "미네랄", "식이섬유"],
+      "diet_hint": {
+        "must_have_candidates": ["단백질"],
+        "priority_candidates": ["칼로리_낮음", "당_낮음"],
+        "avoid_candidates": ["고칼로리_게이너", "고당"]
+      },
+      "maintain_hint": {
+        "must_have_candidates": ["종합비타민", "미네랄", "오메가3"],
+        "priority_candidates": ["가격_적당", "용량_적당"]
+      },
+      "bulkup_hint": {
+        "must_have_candidates": ["단백질", "게이너"],
+        "priority_candidates": ["칼로리_높음", "단백질_높음"]
+      }
+    },
+    "tags": ["category_policy", "supplement", "rule"]
+  },
+  {
+    "id": 3004,
+    "category": "commerce_policy",
+    "domain": "commerce",
+    "doc_type": "category_policy",
+    "goal": "ALL",
+    "product_category": "FOOD",
+    "version": "v2",
+    "title": "음식(FOOD) 카테고리 추천 조건 규칙 요약",
+    "rules": {
+      "common_priority_candidates": ["영양_밀도", "가공도_낮음", "섭취_편의"],
+      "diet_hint": {
+        "priority_candidates": ["칼로리_낮음", "당_낮음", "식이섬유_높음", "단백질_충분"],
+        "avoid_candidates": ["고당", "과자류_과다", "고칼로리_간식"]
+      },
+      "maintain_hint": {
+        "priority_candidates": ["영양_균형", "지속가능"]
+      },
+      "bulkup_hint": {
+        "priority_candidates": ["칼로리_충분", "복합탄수화물", "단백질_충분"]
+      }
+    },
+    "tags": ["category_policy", "food", "rule"]
+  },
+  {
+    "id": 3005,
+    "category": "commerce_policy",
+    "domain": "commerce",
+    "doc_type": "category_policy",
+    "goal": "ALL",
+    "product_category": "HEALTH_GOODS",
+    "version": "v2",
+    "title": "헬스용품(HEALTH_GOODS) 카테고리 추천 조건 규칙 요약",
+    "rules": {
+      "common_priority_hint": ["안전", "내구성", "사용_편의", "공간_적합"],
+      "diet_hint": ["체중관리", "홈트/유산소 보조", "측정/기록"],
+      "maintain_hint": ["운동습관 유지", "회복/컨디션 관리", "건강 모니터링"],
+      "bulkup_hint": ["중량운동 보조", "그립/보호/안정화", "회복 보조"]
+    },
+    "tags": ["category_policy", "health_goods", "rule"]
+  },
+  {
+    "id": 3006,
+    "category": "commerce_policy",
+    "domain": "commerce",
+    "doc_type": "category_policy",
+    "goal": "ALL",
+    "product_category": "CLOTHING",
+    "version": "v2",
+    "title": "의류(CLOTHING) 카테고리 추천 조건 규칙 요약",
+    "rules": {
+      "common_priority_candidates": ["착용감", "활동성", "통기성", "사이즈_정확"],
+      "diet_hint": ["운동 지속 동기", "땀배출"],
+      "maintain_hint": ["일상/운동 겸용", "지속 착용"],
+      "bulkup_hint": ["저항운동 수행", "내구성"]
+    },
+    "tags": ["category_policy", "clothing", "rule"]
+  },
+  {
+    "id": 3007,
+    "category": "commerce_policy",
+    "domain": "commerce",
+    "doc_type": "category_policy",
+    "goal": "ALL",
+    "product_category": "ETC",
+    "version": "v2",
+    "title": "기타(ETC) 카테고리 추천 조건 규칙 요약",
+    "rules": {
+      "common_note": "명확한 분류가 어려운 용품은 사용자 의도/키워드를 우선하며, 목적이 불명확하면 질문 1개로 정리",
+      "priority_candidates": ["목적_명확", "사용법_명확", "필요성_높음"]
+    },
+    "tags": ["category_policy", "etc", "rule"]
+  },
+
+  {
+    "id": 4100,
+    "category": "commerce_followup_rule",
+    "domain": "commerce",
+    "doc_type": "followup_rule",
+    "version": "v1",
+    "goal": "DIET",
+    "title": "DIET 추가 질문 1개",
+    "question": "현재 운동 빈도는 어떻게 되시나요? (주 3회 이하 / 주 4-5회 / 주 6회 이상)",
+    "use_when": ["goal_known_and_constraints_insufficient"],
+    "tags": ["diet", "followup"]
+  },
+  {
+    "id": 4101,
+    "category": "commerce_followup_rule",
+    "domain": "commerce",
+    "doc_type": "followup_rule",
+    "version": "v1",
+    "goal": "MAINTAIN",
+    "title": "MAINTAIN 추가 질문 1개",
+    "question": "현재 건강 관리의 주요 관심사는 무엇인가요? (영양 보충 / 운동 습관 / 전반적인 웰빙)",
+    "use_when": ["goal_known_and_constraints_insufficient"],
+    "tags": ["maintain", "followup"]
+  },
+  {
+    "id": 4102,
+    "category": "commerce_followup_rule",
+    "domain": "commerce",
+    "doc_type": "followup_rule",
+    "version": "v1",
+    "goal": "BULK_UP",
+    "title": "BULK_UP 추가 질문 1개",
+    "question": "현재 운동 강도는 어떻게 되시나요? (초보자 / 중급자 / 고급자)",
+    "use_when": ["goal_known_and_constraints_insufficient"],
+    "tags": ["bulk_up", "followup"]
+  },
+
+  {
+    "id": 2000,
+    "category": "commerce_intent_example",
+    "domain": "commerce",
+    "doc_type": "intent_example",
+    "goal": "ALL",
+    "product_category": "HEALTH_GOODS",
+    "title": "무릎 보호대 추천 intent 예시(축약)",
+    "utterance": "나 하체운동하는데 무릎이 너무 아파. 보호대 뭘 사야할까",
+    "intent_result": {
+      "intent": "PRODUCT_RECOMMEND",
+      "goal": "ALL",
+      "product_category": "HEALTH_GOODS",
+      "keyword": "무릎 보호대",
+      "needs_personalization": true,
+      "target_body_part": "KNEE",
+      "product_usage": "PROTECTOR",
+      "core_keywords": ["하체", "무릎", "보호대"],
+      "negative_keywords": ["손목", "손"]
+    },
+    "tags": ["intent_example", "무릎", "보호대", "하체"]
+  },
+  {
+    "id": 2001,
+    "category": "commerce_intent_example",
+    "domain": "commerce",
+    "doc_type": "intent_example",
+    "goal": "ALL",
+    "product_category": "HEALTH_GOODS",
+    "title": "손 통증 손목 보호대 추천 intent 예시(축약)",
+    "utterance": "나 등운동할때 손이 너무 아픈데 뭘 사야할까",
+    "intent_result": {
+      "intent": "PRODUCT_RECOMMEND",
+      "goal": "ALL",
+      "product_category": "HEALTH_GOODS",
+      "keyword": "손목 보호대",
+      "needs_personalization": true,
+      "target_body_part": "HAND",
+      "product_usage": "PROTECTOR",
+      "core_keywords": ["손", "손목", "보호대"],
+      "negative_keywords": ["무릎", "하체"]
+    },
+    "tags": ["intent_example", "손", "손목", "보호대"]
+  },
+  {
+    "id": 2002,
+    "category": "commerce_intent_example",
+    "domain": "commerce",
+    "doc_type": "intent_example",
+    "goal": "MAINTAIN",
+    "product_category": "SUPPLEMENT",
+    "title": "유지 목표 단백질 보충제 intent 예시(축약)",
+    "utterance": "유지어트용 단백질 보충제 추천해줘",
+    "intent_result": {
+      "intent": "PRODUCT_RECOMMEND",
+      "goal": "MAINTAIN",
+      "product_category": "SUPPLEMENT",
+      "keyword": "단백질 보충제",
+      "needs_personalization": true,
+      "product_usage": "SUPPLEMENT",
+      "core_keywords": ["유지", "단백질", "보충제"],
+      "negative_keywords": ["보호대", "기구"]
+    },
+    "tags": ["intent_example", "maintain", "supplement"]
+  },
+  {
+    "id": 2100,
+    "category": "commerce_intent_example",
+    "domain": "commerce",
+    "doc_type": "intent_example",
+    "goal": "ALL",
+    "product_category": "SUPPLEMENT",
+    "title": "단백질 보충제 추천(초보, 매우 단순)",
+    "utterance": "단백질 보충제 뭐 사면 돼요?",
+    "intent_result": {
+      "intent": "PRODUCT_RECOMMEND",
+      "goal": "ALL",
+      "product_category": "SUPPLEMENT",
+      "keyword": "단백질 보충제",
+      "needs_personalization": true,
+      "product_usage": "SUPPLEMENT",
+      "core_keywords": ["단백질", "보충제"],
+      "negative_keywords": ["보호대", "장비", "의류"]
+    },
+    "tags": ["intent_example", "protein", "beginner"]
+  },
+  {
+    "id": 2101,
+    "category": "commerce_intent_example",
+    "domain": "commerce",
+    "doc_type": "intent_example",
+    "goal": "DIET",
+    "product_category": "FOOD",
+    "title": "다이어트 간식 추천(초보)",
+    "utterance": "다이어트할 때 먹을만한 간식 추천해줘",
+    "intent_result": {
+      "intent": "PRODUCT_RECOMMEND",
+      "goal": "DIET",
+      "product_category": "FOOD",
+      "keyword": "저칼로리 간식",
+      "needs_personalization": true,
+      "product_usage": "FOOD",
+      "core_keywords": ["다이어트", "간식", "저칼로리"],
+      "negative_keywords": ["게이너", "고칼로리"]
+    },
+    "tags": ["intent_example", "diet", "snack"]
+  },
+  {
+    "id": 2102,
+    "category": "commerce_intent_example",
+    "domain": "commerce",
+    "doc_type": "intent_example",
+    "goal": "BULK_UP",
+    "product_category": "SUPPLEMENT",
+    "title": "벌크업 게이너 추천(중급)",
+    "utterance": "벌크업 게이너 추천해줘. 칼로리 높은 걸로",
+    "intent_result": {
+      "intent": "PRODUCT_RECOMMEND",
+      "goal": "BULK_UP",
+      "product_category": "SUPPLEMENT",
+      "keyword": "게이너",
+      "needs_personalization": true,
+      "product_usage": "SUPPLEMENT",
+      "core_keywords": ["벌크업", "게이너", "고칼로리"],
+      "negative_keywords": ["저칼로리", "다이어트"]
+    },
+    "tags": ["intent_example", "bulk_up", "gainer"]
+  },
+  {
+    "id": 2103,
+    "category": "commerce_intent_example",
+    "domain": "commerce",
+    "doc_type": "intent_example",
+    "goal": "MAINTAIN",
+    "product_category": "SUPPLEMENT",
+    "title": "종합비타민 추천(초보)",
+    "utterance": "종합비타민 하나만 추천해줘",
+    "intent_result": {
+      "intent": "PRODUCT_RECOMMEND",
+      "goal": "MAINTAIN",
+      "product_category": "SUPPLEMENT",
+      "keyword": "종합비타민",
+      "needs_personalization": true,
+      "product_usage": "SUPPLEMENT",
+      "core_keywords": ["종합비타민", "비타민", "미네랄"],
+      "negative_keywords": ["단백질", "게이너"]
+    },
+    "tags": ["intent_example", "maintain", "multivitamin"]
+  },
+  {
+    "id": 2104,
+    "category": "commerce_intent_example",
+    "domain": "commerce",
+    "doc_type": "intent_example",
+    "goal": "ALL",
+    "product_category": "HEALTH_GOODS",
+    "title": "손목 보호대 추천(초보, 통증 기반)",
+    "utterance": "운동할 때 손목이 아픈데 뭐 사야 돼요?",
+    "intent_result": {
+      "intent": "PRODUCT_RECOMMEND",
+      "goal": "ALL",
+      "product_category": "HEALTH_GOODS",
+      "keyword": "손목 보호대",
+      "needs_personalization": true,
+      "target_body_part": "WRIST",
+      "product_usage": "PROTECTOR",
+      "core_keywords": ["손목", "통증", "보호대"],
+      "negative_keywords": ["무릎", "허리"]
+    },
+    "tags": ["intent_example", "wrist", "protector"]
+  },
+  {
+    "id": 2105,
+    "category": "commerce_intent_example",
+    "domain": "commerce",
+    "doc_type": "intent_example",
+    "goal": "ALL",
+    "product_category": "HEALTH_GOODS",
+    "title": "무릎 보호대 추천(중급, 운동 종목 포함)",
+    "utterance": "스쿼트할 때 무릎이 불안한데 무릎 보호대 추천해줘",
+    "intent_result": {
+      "intent": "PRODUCT_RECOMMEND",
+      "goal": "ALL",
+      "product_category": "HEALTH_GOODS",
+      "keyword": "무릎 보호대",
+      "needs_personalization": true,
+      "target_body_part": "KNEE",
+      "product_usage": "PROTECTOR",
+      "core_keywords": ["스쿼트", "무릎", "보호대", "불안정"],
+      "negative_keywords": ["손목", "팔꿈치"]
+    },
+    "tags": ["intent_example", "knee", "squat"]
+  },
+  {
+    "id": 2106,
+    "category": "commerce_intent_example",
+    "domain": "commerce",
+    "doc_type": "intent_example",
+    "goal": "ALL",
+    "product_category": "HEALTH_GOODS",
+    "title": "리프팅 스트랩 추천(초보, 그립 약함)",
+    "utterance": "데드리프트 하는데 그립이 너무 약해요. 뭐 사면 좋아요?",
+    "intent_result": {
+      "intent": "PRODUCT_RECOMMEND",
+      "goal": "ALL",
+      "product_category": "HEALTH_GOODS",
+      "keyword": "리프팅 스트랩",
+      "needs_personalization": true,
+      "product_usage": "ACCESSORY",
+      "core_keywords": ["데드리프트", "그립", "스트랩"],
+      "negative_keywords": ["보호대", "벨트"]
+    },
+    "tags": ["intent_example", "lifting_strap", "deadlift"]
+  },
+  {
+    "id": 2107,
+    "category": "commerce_intent_example",
+    "domain": "commerce",
+    "doc_type": "intent_example",
+    "goal": "ALL",
+    "product_category": "HEALTH_GOODS",
+    "title": "리프팅 벨트 추천(중급)",
+    "utterance": "스쿼트랑 데드할 때 허리 보호용 벨트 추천해줘",
+    "intent_result": {
+      "intent": "PRODUCT_RECOMMEND",
+      "goal": "ALL",
+      "product_category": "HEALTH_GOODS",
+      "keyword": "리프팅 벨트",
+      "needs_personalization": true,
+      "target_body_part": "WAIST",
+      "product_usage": "SUPPORT",
+      "core_keywords": ["스쿼트", "데드리프트", "허리", "벨트", "보호"],
+      "negative_keywords": ["스트랩", "그립"]
+    },
+    "tags": ["intent_example", "belt", "support"]
+  },
+  {
+    "id": 2108,
+    "category": "commerce_intent_example",
+    "domain": "commerce",
+    "doc_type": "intent_example",
+    "goal": "DIET",
+    "product_category": "SUPPLEMENT",
+    "title": "다이어트 식이섬유 보충제(초보)",
+    "utterance": "다이어트 중인데 배고픔이 심해요. 포만감에 도움 되는 거 있어요?",
+    "intent_result": {
+      "intent": "PRODUCT_RECOMMEND",
+      "goal": "DIET",
+      "product_category": "SUPPLEMENT",
+      "keyword": "식이섬유 보충제",
+      "needs_personalization": true,
+      "product_usage": "SUPPLEMENT",
+      "core_keywords": ["다이어트", "포만감", "식이섬유"],
+      "negative_keywords": ["게이너", "고칼로리"]
+    },
+    "tags": ["intent_example", "diet", "fiber"]
+  },
+  {
+    "id": 2109,
+    "category": "commerce_intent_example",
+    "domain": "commerce",
+    "doc_type": "intent_example",
+    "goal": "MAINTAIN",
+    "product_category": "SUPPLEMENT",
+    "title": "오메가3 추천(초보)",
+    "utterance": "오메가3는 어떤 걸로 사면 돼요?",
+    "intent_result": {
+      "intent": "PRODUCT_RECOMMEND",
+      "goal": "MAINTAIN",
+      "product_category": "SUPPLEMENT",
+      "keyword": "오메가3",
+      "needs_personalization": true,
+      "product_usage": "SUPPLEMENT",
+      "core_keywords": ["오메가3", "영양", "유지"],
+      "negative_keywords": ["게이너", "단백질파우더"]
+    },
+    "tags": ["intent_example", "omega3", "maintain"]
+  },
+  {
+    "id": 2110,
+    "category": "commerce_intent_example",
+    "domain": "commerce",
+    "doc_type": "intent_example",
+    "goal": "MAINTAIN",
+    "product_category": "SUPPLEMENT",
+    "title": "프로바이오틱스 추천(중급)",
+    "utterance": "유산균(프로바이오틱스) 추천해줘. 꾸준히 먹기 좋은 걸로",
+    "intent_result": {
+      "intent": "PRODUCT_RECOMMEND",
+      "goal": "MAINTAIN",
+      "product_category": "SUPPLEMENT",
+      "keyword": "프로바이오틱스",
+      "needs_personalization": true,
+      "product_usage": "SUPPLEMENT",
+      "core_keywords": ["유산균", "프로바이오틱스", "지속"],
+      "negative_keywords": ["단백질", "게이너"]
+    },
+    "tags": ["intent_example", "probiotics", "maintain"]
+  },
+  {
+    "id": 2111,
+    "category": "commerce_intent_example",
+    "domain": "commerce",
+    "doc_type": "intent_example",
+    "goal": "DIET",
+    "product_category": "FOOD",
+    "title": "고단백 식품 추천(중급, 구체적 요구)",
+    "utterance": "다이어트 중인데 고단백 식품으로 간편하게 먹을 수 있는 거 추천해줘",
+    "intent_result": {
+      "intent": "PRODUCT_RECOMMEND",
+      "goal": "DIET",
+      "product_category": "FOOD",
+      "keyword": "고단백 간편식",
+      "needs_personalization": true,
+      "product_usage": "FOOD",
+      "core_keywords": ["다이어트", "고단백", "간편"],
+      "negative_keywords": ["고칼로리", "고당"]
+    },
+    "tags": ["intent_example", "diet", "high_protein_food"]
+  },
+  {
+    "id": 2112,
+    "category": "commerce_intent_example",
+    "domain": "commerce",
+    "doc_type": "intent_example",
+    "goal": "BULK_UP",
+    "product_category": "FOOD",
+    "title": "벌크업 식품 추천(초보)",
+    "utterance": "벌크업할 때 먹기 좋은 음식 추천해줘",
+    "intent_result": {
+      "intent": "PRODUCT_RECOMMEND",
+      "goal": "BULK_UP",
+      "product_category": "FOOD",
+      "keyword": "벌크업 식품",
+      "needs_personalization": true,
+      "product_usage": "FOOD",
+      "core_keywords": ["벌크업", "식품", "칼로리"],
+      "negative_keywords": ["저칼로리", "다이어트"]
+    },
+    "tags": ["intent_example", "bulk_up", "food"]
+  },
+  {
+    "id": 2113,
+    "category": "commerce_intent_example",
+    "domain": "commerce",
+    "doc_type": "intent_example",
+    "goal": "ALL",
+    "product_category": "HEALTH_GOODS",
+    "title": "폼롤러 추천(초보, 회복 목적)",
+    "utterance": "운동 후 근육 풀어주는 거 뭐가 좋아요? 폼롤러 같은 거",
+    "intent_result": {
+      "intent": "PRODUCT_RECOMMEND",
+      "goal": "ALL",
+      "product_category": "HEALTH_GOODS",
+      "keyword": "폼롤러",
+      "needs_personalization": true,
+      "product_usage": "RECOVERY",
+      "core_keywords": ["운동후", "근육", "회복", "폼롤러"],
+      "negative_keywords": ["보충제", "의류"]
+    },
+    "tags": ["intent_example", "recovery", "foam_roller"]
+  },
+  {
+    "id": 2114,
+    "category": "commerce_intent_example",
+    "domain": "commerce",
+    "doc_type": "intent_example",
+    "goal": "ALL",
+    "product_category": "HEALTH_GOODS",
+    "title": "스트레칭 밴드 추천(초보, 홈트)",
+    "utterance": "집에서 스트레칭할 때 쓰는 밴드 같은 거 추천해줘",
+    "intent_result": {
+      "intent": "PRODUCT_RECOMMEND",
+      "goal": "ALL",
+      "product_category": "HEALTH_GOODS",
+      "keyword": "스트레칭 밴드",
+      "needs_personalization": true,
+      "product_usage": "HOME_TRAINING",
+      "core_keywords": ["홈트", "스트레칭", "밴드"],
+      "negative_keywords": ["보충제", "게이너"]
+    },
+    "tags": ["intent_example", "home_training", "band"]
+  },
+  {
+    "id": 2115,
+    "category": "commerce_intent_example",
+    "domain": "commerce",
+    "doc_type": "intent_example",
+    "goal": "DIET",
+    "product_category": "HEALTH_GOODS",
+    "title": "체중계/인바디 기기 추천(초보)",
+    "utterance": "다이어트 하려고 하는데 체중계 말고 체지방도 재는 거 있어요?",
+    "intent_result": {
+      "intent": "PRODUCT_RECOMMEND",
+      "goal": "DIET",
+      "product_category": "HEALTH_GOODS",
+      "keyword": "체지방 측정 체중계",
+      "needs_personalization": true,
+      "product_usage": "MONITORING",
+      "core_keywords": ["다이어트", "체중계", "체지방", "측정"],
+      "negative_keywords": ["보충제", "의류"]
+    },
+    "tags": ["intent_example", "diet", "monitoring"]
+  },
+  {
+    "id": 2116,
+    "category": "commerce_intent_example",
+    "domain": "commerce",
+    "doc_type": "intent_example",
+    "goal": "ALL",
+    "product_category": "CLOTHING",
+    "title": "운동복 추천(초보, 막연한 요청)",
+    "utterance": "운동 시작하려는데 옷은 뭐가 좋아요?",
+    "intent_result": {
+      "intent": "PRODUCT_RECOMMEND",
+      "goal": "ALL",
+      "product_category": "CLOTHING",
+      "keyword": "운동복",
+      "needs_personalization": true,
+      "product_usage": "CLOTHING",
+      "core_keywords": ["운동", "운동복", "편한옷"],
+      "negative_keywords": ["보충제", "보호대"]
+    },
+    "tags": ["intent_example", "clothing", "beginner"]
+  },
+  {
+    "id": 2117,
+    "category": "commerce_intent_example",
+    "domain": "commerce",
+    "doc_type": "intent_example",
+    "goal": "ALL",
+    "product_category": "CLOTHING",
+    "title": "기능성 티셔츠 추천(중급, 구체적)",
+    "utterance": "땀 잘 마르는 기능성 반팔 추천해줘. 헬스장용으로",
+    "intent_result": {
+      "intent": "PRODUCT_RECOMMEND",
+      "goal": "ALL",
+      "product_category": "CLOTHING",
+      "keyword": "기능성 티셔츠",
+      "needs_personalization": true,
+      "product_usage": "CLOTHING",
+      "core_keywords": ["기능성", "반팔", "땀", "헬스장"],
+      "negative_keywords": ["보충제", "기구"]
+    },
+    "tags": ["intent_example", "clothing", "functional"]
+  },
+  {
+    "id": 2118,
+    "category": "commerce_intent_example",
+    "domain": "commerce",
+    "doc_type": "intent_example",
+    "goal": "BULK_UP",
+    "product_category": "SUPPLEMENT",
+    "title": "크레아틴 추천(상급, 키워드 명확)",
+    "utterance": "크레아틴 모노하이드레이트로 추천해줘. 불필요한 첨가물 적은 걸로",
+    "intent_result": {
+      "intent": "PRODUCT_RECOMMEND",
+      "goal": "BULK_UP",
+      "product_category": "SUPPLEMENT",
+      "keyword": "크레아틴",
+      "needs_personalization": true,
+      "product_usage": "SUPPLEMENT",
+      "core_keywords": ["크레아틴", "모노하이드레이트", "첨가물적음"],
+      "negative_keywords": ["다이어트", "저칼로리"]
+    },
+    "tags": ["intent_example", "bulk_up", "creatine"]
+  },
+  {
+    "id": 2119,
+    "category": "commerce_intent_example",
+    "domain": "commerce",
+    "doc_type": "intent_example",
+    "goal": "DIET",
+    "product_category": "SUPPLEMENT",
+    "title": "저당/저칼로리 단백질 파우더(상급, 제약 포함)",
+    "utterance": "다이어트 중이라 저당/저칼로리 단백질 파우더로 추천해줘. 단백질 함량 높은 걸로",
+    "intent_result": {
+      "intent": "PRODUCT_RECOMMEND",
+      "goal": "DIET",
+      "product_category": "SUPPLEMENT",
+      "keyword": "저칼로리 단백질 파우더",
+      "needs_personalization": true,
+      "product_usage": "SUPPLEMENT",
+      "core_keywords": ["다이어트", "저당", "저칼로리", "단백질함량높음"],
+      "negative_keywords": ["게이너", "고칼로리"]
+    },
+    "tags": ["intent_example", "diet", "protein_powder"]
   }
+  ,
+  {"id": 26, "category": "exercise_routine", "body_part": "가슴", "exercise_name": "벤치프레스", "title": "벤치프레스 Upper Day", "content": "벤치프레스 Upper Day. 타겟: 가슴 팔 어깨.", "tags": ["Upper Day", "벤치프레스", "가슴", "팔", "어깨"], "risk_factors": ["어깨", "손목", "팔꿈치"]},
+  {"id": 27, "category": "exercise_routine", "body_part": "어깨", "exercise_name": "오버헤드프레스", "title": "오버헤드프레스 Upper Day", "content": "오버헤드프레스 Upper Day. 타겟: 어깨 팔 코어.", "tags": ["Upper Day", "오버헤드프레스", "어깨", "팔", "코어"], "risk_factors": ["어깨", "허리", "등", "목"]},
+  {"id": 28, "category": "exercise_routine", "body_part": "팔", "exercise_name": "바벨 컬", "title": "바벨 컬 Upper Day", "content": "바벨 컬 Upper Day. 타겟: 팔.", "tags": ["Upper Day", "바벨 컬", "팔"], "risk_factors": ["손목", "팔꿈치", "허리", "등"]},
+  {"id": 29, "category": "exercise_routine", "body_part": "복근", "exercise_name": "행잉레그레이즈", "title": "행잉레그레이즈 Upper Day", "content": "행잉레그레이즈 Upper Day. 타겟: 복근 코어.", "tags": ["Upper Day", "행잉레그레이즈", "복근", "코어"], "risk_factors": ["허리", "등", "어깨"]},
+  {"id": 30, "category": "exercise_routine", "body_part": "코어", "exercise_name": "플랭크", "title": "플랭크 Upper Day", "content": "플랭크 Upper Day. 타겟: 코어 복근.", "tags": ["Upper Day", "플랭크", "코어", "복근"], "risk_factors": ["허리", "등", "어깨"]},
+  {"id": 31, "category": "exercise_routine", "body_part": "허벅지", "exercise_name": "스쿼트", "title": "스쿼트 Leg Day", "content": "스쿼트 Leg Day. 타겟: 허벅지 둔근 코어.", "tags": ["Leg Day", "스쿼트", "허벅지", "둔근", "코어"], "risk_factors": ["무릎", "허리", "등"]},
+  {"id": 32, "category": "exercise_routine", "body_part": "등", "exercise_name": "데드리프트", "title": "데드리프트 Leg Day", "content": "데드리프트 Leg Day. 타겟: 등 허벅지 둔근.", "tags": ["Leg Day", "데드리프트", "등", "허벅지", "둔근"], "risk_factors": ["허리", "등", "햄스트링"]},
+  {"id": 33, "category": "exercise_routine", "body_part": "둔근", "exercise_name": "힙쓰러스트", "title": "힙쓰러스트 Leg Day", "content": "힙쓰러스트 Leg Day. 타겟: 둔근 허벅지.", "tags": ["Leg Day", "힙쓰러스트", "둔근", "허벅지"], "risk_factors": ["허리", "등", "목"]},
+  {"id": 34, "category": "exercise_routine", "body_part": "종아리", "exercise_name": "카프레이즈", "title": "카프레이즈 Leg Day", "content": "카프레이즈 Leg Day. 타겟: 종아리.", "tags": ["Leg Day", "카프레이즈", "종아리"], "risk_factors": ["아킬레스건", "발목"]},
+  {"id": 35, "category": "exercise_routine", "body_part": "허벅지", "exercise_name": "시티드 레그 컬", "title": "시티드 레그 컬 Leg Day", "content": "시티드 레그 컬 Leg Day. 타겟: 허벅지.", "tags": ["Leg Day", "시티드 레그 컬", "허벅지"], "risk_factors": ["무릎", "햄스트링"]},
+  {"id": 36, "category": "exercise_routine", "body_part": "허벅지", "exercise_name": "레그 익스텐션", "title": "레그 익스텐션 Leg Day", "content": "레그 익스텐션 Leg Day. 타겟: 허벅지.", "tags": ["Leg Day", "레그 익스텐션", "허벅지"], "risk_factors": ["무릎", "슬개건"]},
+  {"id": 37, "category": "exercise_routine", "body_part": "가슴", "exercise_name": "머신 체스트 프레스", "title": "머신 체스트 프레스 Upper Day", "content": "머신 체스트 프레스 Upper Day. 타겟: 가슴 팔.", "tags": ["Upper Day", "머신 체스트 프레스", "가슴", "팔"], "risk_factors": ["어깨", "손목"]},
+  {"id": 38, "category": "exercise_routine", "body_part": "팔", "exercise_name": "케이블 푸쉬다운", "title": "케이블 푸쉬다운 Upper Day", "content": "케이블 푸쉬다운 Upper Day. 타겟: 팔.", "tags": ["Upper Day", "케이블 푸쉬다운", "팔"], "risk_factors": []},
+  {"id": 39, "category": "exercise_routine", "body_part": "코어", "exercise_name": "데드버그", "title": "데드버그 Upper Day", "content": "데드버그 Upper Day. 타겟: 코어 복근.", "tags": ["Upper Day", "데드버그", "코어", "복근"], "risk_factors": ["허리", "등"]},
+  {"id": 40, "category": "exercise_routine", "body_part": "둔근", "exercise_name": "글루트 브리지", "title": "글루트 브리지 Leg Day", "content": "글루트 브리지 Leg Day. 타겟: 둔근 코어.", "tags": ["Leg Day", "글루트 브리지", "둔근", "코어"], "risk_factors": ["무릎", "발목", "허리"]},
+  {"id": 41, "category": "exercise_routine", "body_part": "등", "exercise_name": "시티드 케이블 로우", "title": "시티드 케이블 로우 Upper Day", "content": "시티드 케이블 로우 Upper Day. 타겟: 등.", "tags": ["Upper Day", "시티드 케이블 로우", "등"], "risk_factors": ["등", "허리", "어깨"]},
+  {"id": 42, "category": "exercise_routine", "body_part": "종아리", "exercise_name": "머신 카프레이즈", "title": "머신 카프레이즈 Leg Day", "content": "머신 카프레이즈 Leg Day. 타겟: 종아리.", "tags": ["Leg Day", "머신 카프레이즈", "종아리"], "risk_factors": ["아킬레스건", "발목"]},
+  {"id": 43, "category": "exercise_routine", "body_part": "등", "exercise_name": "랫풀다운", "title": "랫풀다운 Upper Day", "content": "랫풀다운 Upper Day. 타겟: 등 상부.", "tags": ["Upper Day", "랫풀다운", "등"], "risk_factors": ["어깨", "등", "허리"]},
+  {"id": 44, "category": "exercise_routine", "body_part": "등", "exercise_name": "인버티드 로우", "title": "인버티드 로우 Upper Day", "content": "인버티드 로우 Upper Day. 타겟: 등.", "tags": ["Upper Day", "인버티드 로우", "등"], "risk_factors": ["어깨", "등", "허리"]},
+  {"id": 45, "category": "exercise_routine", "body_part": "어깨", "exercise_name": "레터럴 레이즈", "title": "레터럴 레이즈 Upper Day", "content": "레터럴 레이즈 Upper Day. 타겟: 어깨.", "tags": ["Upper Day", "레터럴 레이즈", "어깨"], "risk_factors": ["어깨"]},
+  {"id": 46, "category": "exercise_routine", "body_part": "어깨", "exercise_name": "페이스 풀", "title": "페이스 풀 Upper Day", "content": "페이스 풀 Upper Day. 타겟: 어깨 후면.", "tags": ["Upper Day", "페이스 풀", "어깨"], "risk_factors": ["어깨"]},
+  {"id": 47, "category": "exercise_routine", "body_part": "가슴", "exercise_name": "덤벨 플라이", "title": "덤벨 플라이 Upper Day", "content": "덤벨 플라이 Upper Day. 타겟: 가슴.", "tags": ["Upper Day", "덤벨 플라이", "가슴"], "risk_factors": ["어깨", "가슴"]},
+  {"id": 48, "category": "exercise_routine", "body_part": "종아리", "exercise_name": "시티드 카프레이즈", "title": "시티드 카프레이즈 Leg Day", "content": "시티드 카프레이즈 Leg Day. 타겟: 종아리.", "tags": ["Leg Day", "시티드 카프레이즈", "종아리"], "risk_factors": ["아킬레스건", "발목"]},
+  {"id": 49, "category": "exercise_routine", "body_part": "가슴", "exercise_name": "푸시업", "title": "푸시업 Upper Day", "content": "푸시업 Upper Day. 타겟: 가슴 팔.", "tags": ["Upper Day", "푸시업", "가슴", "팔"], "risk_factors": ["어깨", "손목", "팔꿈치"]},
+  {"id": 50, "category": "exercise_routine", "body_part": "어깨", "exercise_name": "프론트 레이즈", "title": "프론트 레이즈 Upper Day", "content": "프론트 레이즈 Upper Day. 타겟: 어깨.", "tags": ["Upper Day", "프론트 레이즈", "어깨"], "risk_factors": ["어깨", "허리"]},
+  {"id": 51, "category": "exercise_routine", "body_part": "팔", "exercise_name": "덤벨 컬", "title": "덤벨 컬 Upper Day", "content": "덤벨 컬 Upper Day. 타겟: 팔.", "tags": ["Upper Day", "덤벨 컬", "팔"], "risk_factors": ["손목", "팔꿈치", "허리"]},
+  {"id": 52, "category": "exercise_routine", "body_part": "팔", "exercise_name": "트라이셉스 익스텐션", "title": "트라이셉스 익스텐션 Upper Day", "content": "트라이셉스 익스텐션 Upper Day. 타겟: 팔.", "tags": ["Upper Day", "트라이셉스 익스텐션", "팔"], "risk_factors": ["팔꿈치", "어깨"]},
+  {"id": 53, "category": "exercise_routine", "body_part": "코어", "exercise_name": "버드독", "title": "버드독 Upper Day", "content": "버드독 Upper Day. 타겟: 코어.", "tags": ["Upper Day", "버드독", "코어"], "risk_factors": ["허리", "등"]},
+  {"id": 54, "category": "exercise_routine", "body_part": "코어", "exercise_name": "크런치", "title": "크런치 Upper Day", "content": "크런치 Upper Day. 타겟: 코어 복근.", "tags": ["Upper Day", "크런치", "코어", "복근"], "risk_factors": ["허리", "등", "목"]},
+  {"id": 55, "category": "exercise_routine", "body_part": "복근", "exercise_name": "레그 레이즈", "title": "레그 레이즈 Upper Day", "content": "레그 레이즈 Upper Day. 타겟: 복근.", "tags": ["Upper Day", "레그 레이즈", "복근"], "risk_factors": ["허리", "등"]},
+  {"id": 56, "category": "exercise_routine", "body_part": "복근", "exercise_name": "바이시클 크런치", "title": "바이시클 크런치 Upper Day", "content": "바이시클 크런치 Upper Day. 타겟: 복근.", "tags": ["Upper Day", "바이시클 크런치", "복근"], "risk_factors": ["허리", "등", "목"]},
+  {"id": 57, "category": "exercise_routine", "body_part": "복근", "exercise_name": "마운틴 클라이머", "title": "마운틴 클라이머 Upper Day", "content": "마운틴 클라이머 Upper Day. 타겟: 복근 코어.", "tags": ["Upper Day", "마운틴 클라이머", "복근", "코어"], "risk_factors": ["허리", "등", "무릎"]},
+  {"id": 58, "category": "exercise_routine", "body_part": "둔근", "exercise_name": "힙 어덕션", "title": "힙 어덕션 Leg Day", "content": "힙 어덕션 Leg Day. 타겟: 둔근.", "tags": ["Leg Day", "힙 어덕션", "둔근"], "risk_factors": ["둔근", "허벅지"]},
+  {"id": 59, "category": "exercise_routine", "body_part": "둔근", "exercise_name": "굿모닝", "title": "굿모닝 Leg Day", "content": "굿모닝 Leg Day. 타겟: 둔근 등.", "tags": ["Leg Day", "굿모닝", "둔근", "등"], "risk_factors": ["허리", "등", "햄스트링"]},
+  {"id": 60, "category": "exercise_routine", "body_part": "허벅지", "exercise_name": "레그 프레스", "title": "레그 프레스 Leg Day", "content": "레그 프레스 Leg Day. 타겟: 허벅지 둔근.", "tags": ["Leg Day", "레그 프레스", "허벅지", "둔근"], "risk_factors": ["무릎", "허리", "등"]},
+  {"id": 61, "category": "exercise_routine", "body_part": "종아리", "exercise_name": "스탠딩 카프레이즈", "title": "스탠딩 카프레이즈 Leg Day", "content": "스탠딩 카프레이즈 Leg Day. 타겟: 종아리.", "tags": ["Leg Day", "스탠딩 카프레이즈", "종아리"], "risk_factors": ["아킬레스건", "발목"]},
+  {"id": 62, "category": "exercise_injury", "exercise_name": "벤치프레스", "injury_risks": ["어깨", "손목", "팔꿈치"], "alternatives": ["머신 체스트 프레스", "덤벨 플라이", "푸시업"], "title": "벤치프레스 부상 위험 대체", "content": "벤치프레스는 어깨 손목에 부담을 줄 수 있음. 같은 부위 대체: 머신 체스트 프레스, 덤벨 플라이, 푸시업."},
+  {"id": 63, "category": "exercise_injury", "exercise_name": "오버헤드프레스", "injury_risks": ["어깨", "허리", "등", "목"], "alternatives": ["레터럴 레이즈", "페이스 풀", "프론트 레이즈"], "title": "오버헤드프레스 부상 위험 대체", "content": "오버헤드프레스는 어깨 허리 등에 부담을 줄 수 있음. 같은 부위 대체: 레터럴 레이즈, 페이스 풀, 프론트 레이즈."},
+  {"id": 64, "category": "exercise_injury", "exercise_name": "바벨 컬", "injury_risks": ["손목", "팔꿈치", "허리", "등"], "alternatives": ["케이블 푸쉬다운", "덤벨 컬", "트라이셉스 익스텐션"], "title": "바벨 컬 부상 위험 대체", "content": "바벨 컬은 손목 팔꿈치 허리에 부담을 줄 수 있음. 같은 부위 대체: 케이블 푸쉬다운, 덤벨 컬."},
+  {"id": 65, "category": "exercise_injury", "exercise_name": "행잉레그레이즈", "injury_risks": ["허리", "등", "어깨"], "alternatives": ["데드버그", "크런치", "레그 레이즈", "바이시클 크런치"], "title": "행잉레그레이즈 부상 위험 대체", "content": "행잉레그레이즈는 허리 등 어깨에 부담을 줄 수 있음. 같은 부위 대체: 데드버그, 크런치, 레그 레이즈."},
+  {"id": 66, "category": "exercise_injury", "exercise_name": "플랭크", "injury_risks": ["허리", "등", "어깨"], "alternatives": ["데드버그", "버드독", "크런치"], "title": "플랭크 부상 위험 대체", "content": "플랭크는 허리 등 어깨에 부담을 줄 수 있음. 같은 부위 대체: 데드버그, 버드독, 크런치."},
+  {"id": 67, "category": "exercise_injury", "exercise_name": "스쿼트", "injury_risks": ["무릎", "허리", "등"], "alternatives": ["시티드 레그 컬", "레그 익스텐션", "레그 프레스"], "title": "스쿼트 부상 위험 대체", "content": "스쿼트는 무릎 허리 등에 부담을 줄 수 있음. 같은 부위 대체: 시티드 레그 컬, 레그 익스텐션, 레그 프레스."},
+  {"id": 68, "category": "exercise_injury", "exercise_name": "데드리프트", "injury_risks": ["허리", "등", "햄스트링"], "alternatives": ["랫풀다운", "인버티드 로우", "시티드 케이블 로우"], "title": "데드리프트 부상 위험 대체", "content": "데드리프트는 허리 등에 부담을 많이 줄 수 있음. 같은 부위 대체: 랫풀다운, 인버티드 로우, 시티드 케이블 로우."},
+  {"id": 69, "category": "exercise_injury", "exercise_name": "힙쓰러스트", "injury_risks": ["허리", "등", "목"], "alternatives": ["글루트 브리지", "힙 어덕션", "굿모닝"], "title": "힙쓰러스트 부상 위험 대체", "content": "힙쓰러스트는 허리 목에 부담을 줄 수 있음. 같은 부위 대체: 글루트 브리지, 힙 어덕션, 굿모닝."},
+  {"id": 70, "category": "exercise_injury", "exercise_name": "카프레이즈", "injury_risks": ["아킬레스건", "발목"], "alternatives": ["머신 카프레이즈", "시티드 카프레이즈", "스탠딩 카프레이즈"], "title": "카프레이즈 부상 위험 대체", "content": "카프레이즈는 아킬레스건 발목에 부담을 줄 수 있음. 같은 부위 대체: 머신 카프레이즈, 시티드 카프레이즈, 스탠딩 카프레이즈."},
+  {"id": 71, "category": "exercise_injury", "exercise_name": "시티드 레그 컬", "injury_risks": ["무릎", "햄스트링"], "alternatives": ["레그 익스텐션", "글루트 브리지", "레그 프레스"], "title": "시티드 레그 컬 부상 위험 대체", "content": "시티드 레그 컬은 무릎 햄스트링에 부담을 줄 수 있음. 대체: 레그 익스텐션, 글루트 브리지, 레그 프레스."},
+  {"id": 72, "category": "exercise_injury", "exercise_name": "레그 익스텐션", "injury_risks": ["무릎", "슬개건"], "alternatives": ["시티드 레그 컬", "글루트 브리지", "레그 프레스"], "title": "레그 익스텐션 부상 위험 대체", "content": "레그 익스텐션은 무릎 슬개건에 부담을 줄 수 있음. 대체: 시티드 레그 컬, 글루트 브리지, 레그 프레스."},
+  {"id": 73, "category": "exercise_injury", "exercise_name": "글루트 브리지", "injury_risks": ["무릎", "발목", "허리"], "alternatives": ["데드버그", "힙 어덕션", "굿모닝"], "title": "글루트 브리지 부상 위험 대체", "content": "글루트 브리지는 무릎 발목에 부담을 줄 수 있음. 대체: 데드버그, 힙 어덕션, 굿모닝."},
+  {"id": 74, "category": "exercise_injury", "exercise_name": "머신 체스트 프레스", "injury_risks": ["어깨", "손목"], "alternatives": ["덤벨 플라이", "푸시업", "케이블 푸쉬다운"], "title": "머신 체스트 프레스 부상 위험 대체", "content": "머신 체스트 프레스는 어깨에 부담을 줄 수 있음. 같은 부위 대체: 덤벨 플라이, 푸시업, 케이블 푸쉬다운."},
+  {"id": 75, "category": "exercise_injury", "exercise_name": "시티드 케이블 로우", "injury_risks": ["등", "허리", "어깨"], "alternatives": ["랫풀다운", "인버티드 로우"], "title": "시티드 케이블 로우 부상 위험 대체", "content": "시티드 케이블 로우는 등 허리에 부담을 줄 수 있음. 같은 부위 대체: 랫풀다운, 인버티드 로우."},
+  {"id": 76, "category": "exercise_injury", "exercise_name": "머신 카프레이즈", "injury_risks": ["아킬레스건", "발목"], "alternatives": ["시티드 카프레이즈", "스탠딩 카프레이즈", "카프레이즈"], "title": "머신 카프레이즈 부상 위험 대체", "content": "머신 카프레이즈는 아킬레스건 발목에 부담을 줄 수 있음. 대체: 시티드 카프레이즈, 스탠딩 카프레이즈."},
+  {"id": 77, "category": "exercise_injury", "exercise_name": "랫풀다운", "injury_risks": ["어깨", "등", "허리"], "alternatives": ["인버티드 로우", "시티드 케이블 로우"], "title": "랫풀다운 부상 위험 대체", "content": "랫풀다운은 어깨 등에 부담을 줄 수 있음. 같은 부위 대체: 인버티드 로우, 시티드 케이블 로우."},
+  {"id": 78, "category": "exercise_injury", "exercise_name": "인버티드 로우", "injury_risks": ["어깨", "등", "허리"], "alternatives": ["랫풀다운", "시티드 케이블 로우"], "title": "인버티드 로우 부상 위험 대체", "content": "인버티드 로우는 어깨 등 허리에 부담을 줄 수 있음. 같은 부위 대체: 랫풀다운, 시티드 케이블 로우."},
+  {"id": 79, "category": "exercise_injury", "exercise_name": "레터럴 레이즈", "injury_risks": ["어깨"], "alternatives": ["페이스 풀", "프론트 레이즈", "오버헤드프레스"], "title": "레터럴 레이즈 부상 위험 대체", "content": "레터럴 레이즈는 어깨에 부담을 줄 수 있음. 대체: 페이스 풀, 프론트 레이즈."},
+  {"id": 80, "category": "exercise_injury", "exercise_name": "페이스 풀", "injury_risks": ["어깨"], "alternatives": ["레터럴 레이즈", "프론트 레이즈", "인버티드 로우"], "title": "페이스 풀 부상 위험 대체", "content": "페이스 풀은 어깨에 부담을 줄 수 있음. 대체: 레터럴 레이즈, 프론트 레이즈."},
+  {"id": 81, "category": "exercise_injury", "exercise_name": "덤벨 플라이", "injury_risks": ["어깨", "가슴"], "alternatives": ["머신 체스트 프레스", "푸시업", "케이블 푸쉬다운"], "title": "덤벨 플라이 부상 위험 대체", "content": "덤벨 플라이는 어깨 가슴에 부담을 줄 수 있음. 같은 부위 대체: 머신 체스트 프레스, 푸시업."},
+  {"id": 82, "category": "exercise_injury", "exercise_name": "시티드 카프레이즈", "injury_risks": ["아킬레스건", "발목"], "alternatives": ["머신 카프레이즈", "스탠딩 카프레이즈", "카프레이즈"], "title": "시티드 카프레이즈 부상 위험 대체", "content": "시티드 카프레이즈는 아킬레스건 발목에 부담을 줄 수 있음. 대체: 머신 카프레이즈, 스탠딩 카프레이즈."},
+  {"id": 83, "category": "exercise_injury", "exercise_name": "푸시업", "injury_risks": ["어깨", "손목", "팔꿈치"], "alternatives": ["머신 체스트 프레스", "덤벨 플라이", "벤치프레스"], "title": "푸시업 부상 위험 대체", "content": "푸시업은 어깨 손목에 부담을 줄 수 있음. 같은 부위 대체: 머신 체스트 프레스, 덤벨 플라이."},
+  {"id": 84, "category": "exercise_injury", "exercise_name": "프론트 레이즈", "injury_risks": ["어깨", "허리"], "alternatives": ["레터럴 레이즈", "페이스 풀", "오버헤드프레스"], "title": "프론트 레이즈 부상 위험 대체", "content": "프론트 레이즈는 어깨에 부담을 줄 수 있음. 대체: 레터럴 레이즈, 페이스 풀."},
+  {"id": 85, "category": "exercise_injury", "exercise_name": "덤벨 컬", "injury_risks": ["손목", "팔꿈치", "허리"], "alternatives": ["케이블 푸쉬다운", "바벨 컬", "트라이셉스 익스텐션"], "title": "덤벨 컬 부상 위험 대체", "content": "덤벨 컬은 손목 팔꿈치에 부담을 줄 수 있음. 대체: 케이블 푸쉬다운, 바벨 컬."},
+  {"id": 86, "category": "exercise_injury", "exercise_name": "트라이셉스 익스텐션", "injury_risks": ["팔꿈치", "어깨"], "alternatives": ["케이블 푸쉬다운", "바벨 컬", "덤벨 컬"], "title": "트라이셉스 익스텐션 부상 위험 대체", "content": "트라이셉스 익스텐션은 팔꿈치에 부담을 줄 수 있음. 대체: 케이블 푸쉬다운, 바벨 컬, 덤벨 컬."},
+  {"id": 87, "category": "exercise_injury", "exercise_name": "버드독", "injury_risks": ["허리", "등"], "alternatives": ["데드버그", "크런치", "플랭크"], "title": "버드독 부상 위험 대체", "content": "버드독은 허리 등에 부담을 줄 수 있음. 대체: 데드버그, 크런치, 플랭크."},
+  {"id": 88, "category": "exercise_injury", "exercise_name": "크런치", "injury_risks": ["허리", "등", "목"], "alternatives": ["데드버그", "버드독", "레그 레이즈"], "title": "크런치 부상 위험 대체", "content": "크런치는 허리 목에 부담을 줄 수 있음. 대체: 데드버그, 버드독, 레그 레이즈."},
+  {"id": 89, "category": "exercise_injury", "exercise_name": "데드버그", "injury_risks": ["허리", "등"], "alternatives": ["버드독", "크런치", "플랭크"], "title": "데드버그 부상 위험 대체", "content": "데드버그는 허리 등에 부담을 줄 수 있음. 대체: 버드독, 크런치, 플랭크."},
+  {"id": 90, "category": "exercise_injury", "exercise_name": "레그 레이즈", "injury_risks": ["허리", "등"], "alternatives": ["행잉레그레이즈", "바이시클 크런치", "데드버그"], "title": "레그 레이즈 부상 위험 대체", "content": "레그 레이즈는 허리 등에 부담을 줄 수 있음. 대체: 행잉레그레이즈, 바이시클 크런치, 데드버그."},
+  {"id": 91, "category": "exercise_injury", "exercise_name": "바이시클 크런치", "injury_risks": ["허리", "등", "목"], "alternatives": ["레그 레이즈", "크런치", "마운틴 클라이머"], "title": "바이시클 크런치 부상 위험 대체", "content": "바이시클 크런치는 허리 목에 부담을 줄 수 있음. 대체: 레그 레이즈, 크런치, 마운틴 클라이머."},
+  {"id": 92, "category": "exercise_injury", "exercise_name": "마운틴 클라이머", "injury_risks": ["허리", "등", "무릎"], "alternatives": ["레그 레이즈", "데드버그", "바이시클 크런치"], "title": "마운틴 클라이머 부상 위험 대체", "content": "마운틴 클라이머는 허리 무릎에 부담을 줄 수 있음. 대체: 레그 레이즈, 데드버그, 바이시클 크런치."},
+  {"id": 93, "category": "exercise_injury", "exercise_name": "힙 어덕션", "injury_risks": ["둔근", "허벅지"], "alternatives": ["글루트 브리지", "굿모닝", "힙쓰러스트"], "title": "힙 어덕션 부상 위험 대체", "content": "힙 어덕션은 둔근에 부담을 줄 수 있음. 대체: 글루트 브리지, 굿모닝, 힙쓰러스트."},
+  {"id": 94, "category": "exercise_injury", "exercise_name": "굿모닝", "injury_risks": ["허리", "등", "햄스트링"], "alternatives": ["글루트 브리지", "힙 어덕션", "힙쓰러스트"], "title": "굿모닝 부상 위험 대체", "content": "굿모닝은 허리 등에 부담을 줄 수 있음. 대체: 글루트 브리지, 힙 어덕션, 힙쓰러스트."},
+  {"id": 95, "category": "exercise_injury", "exercise_name": "레그 프레스", "injury_risks": ["무릎", "허리", "등"], "alternatives": ["시티드 레그 컬", "레그 익스텐션", "스쿼트"], "title": "레그 프레스 부상 위험 대체", "content": "레그 프레스는 무릎 허리 등에 부담을 줄 수 있음. 대체: 시티드 레그 컬, 레그 익스텐션, 스쿼트."},
+  {"id": 96, "category": "exercise_injury", "exercise_name": "스탠딩 카프레이즈", "injury_risks": ["아킬레스건", "발목"], "alternatives": ["머신 카프레이즈", "시티드 카프레이즈", "카프레이즈"], "title": "스탠딩 카프레이즈 부상 위험 대체", "content": "스탠딩 카프레이즈는 아킬레스건 발목에 부담을 줄 수 있음. 대체: 머신 카프레이즈, 시티드 카프레이즈."},
+  {"id": 100, "category": "split_definitions", "title": "운동 분할 정의", "content": "2분할: Upper(상체)/Leg(하체). 4분할: 가슴삼두/등이두/어깨/하체. 5분할: 가슴/등/어깨/팔/하체.", "split_2": [{"name": "Upper", "body_parts": ["가슴", "등", "어깨", "팔", "코어", "복근"]}, {"name": "Leg", "body_parts": ["허벅지", "둔근", "종아리"]}], "split_4": [{"name": "Chest & Triceps", "body_parts": ["가슴", "팔"]}, {"name": "Back & Biceps", "body_parts": ["등", "팔"]}, {"name": "Shoulder", "body_parts": ["어깨"]}, {"name": "Leg", "body_parts": ["허벅지", "둔근", "종아리", "코어", "복근"]}], "split_5": [{"name": "Chest", "body_parts": ["가슴"]}, {"name": "Back", "body_parts": ["등"]}, {"name": "Shoulder", "body_parts": ["어깨"]}, {"name": "Arm", "body_parts": ["팔"]}, {"name": "Leg", "body_parts": ["허벅지", "둔근", "종아리", "코어", "복근"]}]}
 ]
