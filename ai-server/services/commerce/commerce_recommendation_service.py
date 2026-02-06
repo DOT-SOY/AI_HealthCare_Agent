@@ -215,10 +215,14 @@ def generate_recommendation_condition(
             if core_keywords:
                 classified = _classify_keywords(core_keywords)
                 
-                # 상품 유형 키워드 → must_have
+                # 상품 유형 키워드 + 부위 키워드 → must_have (백엔드에서 부위/유형 분리해 점수·필터에 사용)
                 base_must = list(condition.must_have or [])
                 base_lower = {m.lower() for m in base_must}
                 for term in classified["type_must"]:
+                    if term.lower() not in base_lower:
+                        base_must.append(term)
+                        base_lower.add(term.lower())
+                for term in classified["body_parts"]:
                     if term.lower() not in base_lower:
                         base_must.append(term)
                         base_lower.add(term.lower())
@@ -299,16 +303,7 @@ def generate_recommendation_condition(
                         new_must.append(m)
                 condition.must_have = new_must
                 
-            # 부위 키워드가 must_have에 남아있으면 제거 (derived_constraints로 이미 이동됨)
-            body_tokens = _BODY_PART_TOKENS
-            filtered_must = [
-                m for m in (condition.must_have or [])
-                if not any(bp in m.lower() for bp in body_tokens) or 
-                   any(tp in m.lower() for tp in _PRODUCT_TYPE_TOKENS)  # 부위+유형 조합은 유지 (예: "무릎 보호대")
-            ]
-            if len(filtered_must) != len(condition.must_have or []):
-                print(f"[commerce] 부위 키워드 must_have에서 제거: {condition.must_have} → {filtered_must}")
-            condition.must_have = filtered_must
+            # 부위 키워드는 must_have에 유지 (백엔드 splitMustHaveIntoBodyAndType에서 부위/유형 분리 후 점수·필터에 사용)
 
         except Exception as e:
             # 보정 중 예외가 나더라도 전체 플로우를 막지는 않는다.
@@ -452,7 +447,22 @@ def generate_slots_and_condition_combined(
                 if term.lower() not in base_lower:
                     base_must.append(term)
                     base_lower.add(term.lower())
+            for term in classified["body_parts"]:
+                if term.lower() not in base_lower:
+                    base_must.append(term)
+                    base_lower.add(term.lower())
             condition.must_have = base_must
+
+            if classified["body_parts"]:
+                if not condition.derived_constraints:
+                    condition.derived_constraints = {}
+                existing_body = condition.derived_constraints.get("body_parts") or []
+                existing_lower = {b.lower() for b in existing_body}
+                for bp in classified["body_parts"]:
+                    if bp.lower() not in existing_lower:
+                        existing_body.append(bp)
+                        existing_lower.add(bp.lower())
+                condition.derived_constraints["body_parts"] = existing_body
 
             base_priority = list(condition.priority or [])
             base_lower = {p.lower() for p in base_priority}

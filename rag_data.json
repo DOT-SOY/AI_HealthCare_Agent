@@ -382,7 +382,7 @@
     "goal": "ALL",
     "product_category": "HEALTH_GOODS",
     "title": "무릎 보호대 추천 intent 예시(축약)",
-    "utterance": "나 하체운동하는데 무릎이 너무 아파서 보호대를 사야하는데 뭘 사야할까",
+    "utterance": "나 하체운동하는데 무릎이 너무 아파. 보호대 뭘 사야할까",
     "intent_result": {
       "intent": "PRODUCT_RECOMMEND",
       "goal": "ALL",

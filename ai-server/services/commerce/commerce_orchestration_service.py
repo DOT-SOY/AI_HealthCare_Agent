@@ -32,6 +32,7 @@ from typing import Dict, Any, Optional, List
 import httpx
 
 from services.backend_client import get_user_profile
+from services.intent_service import classify_intent
 from schemas.commerce.recommendation_schema import RecommendationCondition
 
 from .commerce_intent_service import extract_commerce_intent_and_slots
@@ -78,18 +79,18 @@ def _get_http_client() -> httpx.Client:
 
 VARIANT_MATCH_MIN_LEN = 2
 PRIORITY_LABELS = {
-    "칼로리_낮음": "칼로리 낮은",
-    "칼로리_높음": "칼로리 높은",
-    "단백질_높음": "단백질 많은",
-    "단백질_낮음": "단백질 낮은",
-    "당_낮음": "당 낮은",
-    "당_높음": "당 높은",
-    "식이섬유_높음": "식이섬유 많은",
-    "식이섬유_낮음": "식이섬유 낮은",
-    "가격_낮음": "가격 부담 적은",
-    "가격_높음": "고급",
-    "용량_많음": "용량 많은",
-    "용량_적음": "용량 적은",
+    "칼로리_낮음": "낮은 칼로리",
+    "칼로리_높음": "높은 칼로리",
+    "단백질_높음": "높은 단백질",
+    "단백질_낮음": "낮은 단백질",
+    "당_낮음": "낮은 당",
+    "당_높음": "높은 당",
+    "식이섬유_높음": "높은 식이섬유",
+    "식이섬유_낮음": "낮은 식이섬유",
+    "가격_낮음": "부담 없는 가격",
+    "가격_높음": "프리미엄 가격",
+    "용량_많음": "넉넉한 용량",
+    "용량_적음": "적당한 용량",
 }
 
 
@@ -149,6 +150,30 @@ def _is_sentence_like_for_confirm(text: str) -> bool:
         return False
     t = text.strip()
     return len(t) >= _CONFIRM_STATE_SENTENCE_MIN_LEN
+
+
+def classify_intent_top_level(text: str) -> Dict[str, Any]:
+    """상위 의도 분류 래퍼 (테스트에서 monkeypatch 가능)."""
+    return classify_intent(text)
+
+
+def _maybe_handoff_off_topic(text: str, session_id: str) -> Optional[Dict[str, Any]]:
+    """문장형 발화가 비커머스면 세션 종료 후 OFF_TOPIC 반환."""
+    if not _is_sentence_like_for_confirm(text):
+        return None
+    intent_result = classify_intent_top_level(text) or {}
+    intent_raw = intent_result.get("intent")
+    intent_norm = str(intent_raw).strip().upper() if intent_raw else ""
+    if intent_norm != _COMMERCE_DOMAIN_INTENT:
+        state_machine.delete_session(session_id)
+        return {
+            "state": CommerceState.RECOMMEND.value,
+            "message": "지금 말씀하신 내용은 상품 추천과는 다른 주제 같아요. 이어서 도와드릴게요.",
+            "error": "OFF_TOPIC",
+            "intent": intent_result.get("intent"),
+            "entities": intent_result.get("entities") or {},
+        }
+    return None
 
 
 def _is_new_recommendation_request(text: str, extracted_slots: Dict[str, Any]) -> bool:
@@ -335,7 +360,7 @@ def build_order_draft(
 
 def _build_reason_text(condition: RecommendationCondition) -> str:
     """사용자에게 보여줄 추천 문구. '~걸로 골라봤어요.'에서 끝나도록 한다."""
-    goal_labels = {"DIET": "다이어트", "BULK_UP": "벌크업", "MAINTAIN": "체중 유지", "ALL": "선택하신"}
+    goal_labels = {"DIET": "다이어트", "BULK_UP": "벌크업", "MAINTAIN": "체중 유지", "ALL": "선택하신 목적"}
     goal_label = goal_labels.get(condition.goal, "선택하신")
     reason = f"{goal_label}에 맞는 걸로 골라봤어요."
     if condition.priority:
@@ -343,8 +368,25 @@ def _build_reason_text(condition: RecommendationCondition) -> str:
         for p in condition.priority[:3]:
             labels.append(PRIORITY_LABELS.get(p, p.replace("_", " ")))
         if labels:
-            reason = f"{goal_label}에 맞춰 {', '.join(labels)} 걸로 골라봤어요."
+            labels_text = _format_priority_labels(labels)
+            reason = f"{goal_label}에 맞춰 {labels_text} 위주로 골라봤어요."
     return reason
+
+
+def _format_priority_labels(labels: List[str]) -> str:
+    """라벨 리스트를 자연스러운 구어체로 연결."""
+    if not labels:
+        return ""
+    if len(labels) == 1:
+        return labels[0]
+    if len(labels) == 2:
+        first = labels[0]
+        second = labels[1]
+        return f"{first}{_josa(first, '과', '와')} {second}"
+    first = labels[0]
+    second = labels[1]
+    rest = labels[2:]
+    return f"{first}{_josa(first, '과', '와')} {second}, {', '.join(rest)}"
 
 
 def _generate_handoff_to_general_message(user_text: str, keyword: Optional[str] = None) -> str:
@@ -598,7 +640,11 @@ def handle_commerce_recommend(
         elapsed = (datetime.now() - session.awaiting_since).total_seconds()
         if elapsed > 180:
             state_machine.delete_session(session_id)
-            session = state_machine.create_session(session_id)
+            return {
+                "state": CommerceState.RECOMMEND.value,
+                "message": get_user_message_for_error("SESSION_EXPIRED"),
+                "error": "SESSION_EXPIRED",
+            }
 
     current_state = session.state
     if current_state == CommerceState.RECOMMEND:
@@ -630,6 +676,10 @@ def handle_recommend_state(
         session = state_machine.get_session(session_id)
         text_stripped = (text or "").strip()
         combined_condition: Optional[RecommendationCondition] = None
+
+        off_topic = _maybe_handoff_off_topic(text_stripped, session_id)
+        if off_topic:
+            return off_topic
 
         if pre_extracted_slots is not None:
             extracted_slots = pre_extracted_slots
@@ -1068,6 +1118,10 @@ def handle_confirm_product_state(
         except Exception as e:
             print(f"[commerce] CONFIRM_PRODUCT extract_commerce_intent_and_slots failed: {e}")
 
+        off_topic = _maybe_handoff_off_topic(text_stripped, session_id)
+        if off_topic:
+            return off_topic
+
     state_machine.update_session(session_id, awaiting_since=datetime.now())
     return {
         "state": CommerceState.CONFIRM_PRODUCT.value,
@@ -1311,6 +1365,10 @@ def handle_confirm_address_state(
                         return handle_recommend_state(text_stripped, session_id, auth_token, pre_extracted_slots=extracted_slots)
                 except Exception as e:
                     print(f"[commerce] CONFIRM_ADDRESS extract_commerce_intent_and_slots failed: {e}")
+
+                off_topic = _maybe_handoff_off_topic(text_stripped, session_id)
+                if off_topic:
+                    return off_topic
 
             positive_responses = ["응", "예", "어", "좋아", "맞아", "그래", "네"]
             negative_responses = ["아니", "아니요", "싫어", "다른 데", "다른데", "다른 주소", "거긴 말고"]
