@@ -147,7 +147,7 @@ const ProductList = () => {
         />
         <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-bg-root to-transparent" aria-hidden />
 
-        <div className="relative z-10 container-token">
+        <div className="relative z-10">
           <div className="flex flex-wrap items-start justify-between gap-token-6">
             <div>
               <h1 className="section-title" style={{ fontSize: 'clamp(2.25rem, 6vw, 3.75rem)' }}>
@@ -187,7 +187,7 @@ const ProductList = () => {
         </div>
       </section>
 
-      <section className="relative z-10 container-token -mt-2 mb-token-4">
+      <section className="relative z-10 -mt-2 mb-token-4">
         <div className="flex flex-wrap items-center gap-2">
           {SEGMENT_CARDS.map(({ id, label, Icon }) => {
             const isSelected = selectedCategoryId === id;
@@ -206,7 +206,7 @@ const ProductList = () => {
         </div>
       </section>
 
-      <section className="container-token mb-token-8">
+      <section className="mb-token-8">
         <form onSubmit={handleSearch} className="max-w-2xl flex flex-wrap items-stretch gap-2">
           <select
             value={searchType}
@@ -254,7 +254,7 @@ const ProductList = () => {
         </form>
       </section>
 
-      <section ref={productsRef} className="container-token pb-14">
+      <section ref={productsRef} className="pb-14">
         {products.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 gap-token-4 text-center">
             <p className="text-text-muted text-lg">등록된 상품이 없습니다.</p>

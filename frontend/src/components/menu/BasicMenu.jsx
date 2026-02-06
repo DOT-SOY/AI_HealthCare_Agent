@@ -81,7 +81,7 @@ const AdminIcon = ({ className }) => (
   </svg>
 );
 
-const BasicMenu = () => {
+const BasicMenu = ({ isSidebarOpen = true }) => {
   const location = useLocation();
   const { theme, setTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -143,14 +143,12 @@ const BasicMenu = () => {
   return (
     <>
       {/* 데스크톱 사이드바 — 쇼핑몰 리스트와 동일한 다크·네온 그린 스타일 */}
-      <aside className="hidden lg:flex fixed left-0 top-0 h-full w-64 bg-bg-card border-r border-border-default flex-col z-50">
+      <aside className={`hidden lg:flex fixed left-0 top-0 h-full w-64 bg-bg-card border-r border-border-default flex-col z-50 transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="p-5 border-b border-border-default">
           <Link to="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary-500 rounded-token flex items-center justify-center flex-shrink-0">
-              <span className="text-bg-root font-display font-bold text-xl">H</span>
-            </div>
+            <img src="/logo.png" alt="ALGORHYGYM" className="w-10 h-10 flex-shrink-0 object-contain" />
             <span className="font-display text-xl tracking-tight text-text-main uppercase">
-              Healthcare
+              ALGORHYGYM
             </span>
           </Link>
         </div>
@@ -212,38 +210,20 @@ const BasicMenu = () => {
               className={getMenuClass("/member/login")}
               onClick={closeMobileMenu}
             >
-              <LockClosedIcon className="w-6 h-6 shrink-0" />
-              <span className="text-xs whitespace-nowrap">로그인</span>
+              <LockClosedIcon className="w-5 h-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-110" />
+              <span>로그인</span>
             </Link>
           )}
 
           {isLogin && isAdmin && (
             <Link to="/admin" className={getMenuClass("/admin")} onClick={closeMobileMenu}>
-              <AdminIcon className="w-6 h-6 shrink-0" />
-              <span className="text-xs whitespace-nowrap">관리자</span>
+              <AdminIcon className="w-5 h-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-110" />
+              <span>관리자</span>
             </Link>
           )}
         </nav>
 
-        {isLogin && (
-          <div className="p-4">
-            <Link
-              to="/profile"
-              onClick={closeMobileMenu}
-              className="block rounded-token p-3 text-center border border-transparent hover:bg-primary-500/10 hover:border-primary-500/40 transition-all duration-200 group"
-              aria-label="마이페이지"
-            >
-              <div className="text-sm font-medium text-text-sub group-hover:text-primary-500">Welcome</div>
-              <div className="text-base font-bold text-primary-400 mt-0.5 group-hover:text-primary-500">
-                {(loginState?.name || loginState?.email)
-                  ? `${loginState?.name || loginState?.email}님`
-                  : ""}
-              </div>
-            </Link>
-          </div>
-        )}
-
-        {/* 테마 토글 — Welcome 밑 (데스크톱 사이드바) */}
+        {/* 테마 토글 (데스크톱 사이드바) — 아이콘만 표시 */}
         <div className="p-3 border-t border-border-default">
           <div
             className="relative flex w-full rounded-full border border-border-default bg-bg-surface p-0.5"
@@ -258,7 +238,7 @@ const BasicMenu = () => {
             <button
               type="button"
               onClick={() => setTheme("dark")}
-              className="relative z-10 flex flex-1 items-center justify-center gap-2 py-2.5 rounded-full text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+              className="relative z-10 flex flex-1 items-center justify-center py-2.5 rounded-full text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
               aria-pressed={theme === "dark"}
               aria-label="다크 모드"
             >
@@ -267,12 +247,11 @@ const BasicMenu = () => {
                   theme === "dark" ? "text-primary-500 scale-110" : "text-text-sub"
                 }`}
               />
-              <span className={theme === "dark" ? "text-primary-500" : "text-text-sub"}>다크</span>
             </button>
             <button
               type="button"
               onClick={() => setTheme("light")}
-              className="relative z-10 flex flex-1 items-center justify-center gap-2 py-2.5 rounded-full text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+              className="relative z-10 flex flex-1 items-center justify-center py-2.5 rounded-full text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
               aria-pressed={theme === "light"}
               aria-label="라이트 모드"
             >
@@ -281,7 +260,6 @@ const BasicMenu = () => {
                   theme === "light" ? "text-primary-500 scale-110" : "text-text-sub"
                 }`}
               />
-              <span className={theme === "light" ? "text-primary-500" : "text-text-sub"}>라이트</span>
             </button>
           </div>
         </div>
@@ -320,11 +298,9 @@ const BasicMenu = () => {
       >
         <div className="p-5 border-b border-border-default">
           <Link to="/" className="flex items-center gap-3" onClick={closeMobileMenu}>
-            <div className="w-10 h-10 bg-primary-500 rounded-token flex items-center justify-center flex-shrink-0">
-              <span className="text-bg-root font-display font-bold text-xl">H</span>
-            </div>
+            <img src="/logo.png" alt="ALGORHYGYM" className="w-10 h-10 flex-shrink-0 object-contain" />
             <span className="font-display text-xl tracking-tight text-text-main uppercase">
-              Healthcare
+              ALGORHYGYM
             </span>
           </Link>
         </div>
@@ -380,25 +356,7 @@ const BasicMenu = () => {
           })}
         </nav>
 
-        {isLogin && (
-          <div className="p-4">
-            <Link
-              to="/profile"
-              onClick={closeMobileMenu}
-              className="block rounded-token p-3 text-center border border-transparent hover:bg-primary-500/10 hover:border-primary-500/40 transition-all duration-200 group"
-              aria-label="마이페이지"
-            >
-              <div className="text-sm font-medium text-text-sub group-hover:text-primary-500">Welcome</div>
-              <div className="text-base font-bold text-primary-400 mt-0.5 group-hover:text-primary-500">
-                {(loginState?.name || loginState?.email)
-                  ? `${loginState?.name || loginState?.email}님`
-                  : ""}
-              </div>
-            </Link>
-          </div>
-        )}
-
-        {/* 테마 토글 — Welcome 밑 (모바일 사이드바) */}
+        {/* 테마 토글 (모바일 사이드바) — 아이콘만 표시 */}
         <div className="p-3 border-t border-border-default">
           <div
             className="relative flex w-full rounded-full border border-border-default bg-bg-surface p-0.5"
@@ -413,7 +371,7 @@ const BasicMenu = () => {
             <button
               type="button"
               onClick={() => setTheme("dark")}
-              className="relative z-10 flex flex-1 items-center justify-center gap-2 py-2.5 rounded-full text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+              className="relative z-10 flex flex-1 items-center justify-center py-2.5 rounded-full text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
               aria-pressed={theme === "dark"}
               aria-label="다크 모드"
             >
@@ -422,12 +380,11 @@ const BasicMenu = () => {
                   theme === "dark" ? "text-primary-500 scale-110" : "text-text-sub"
                 }`}
               />
-              <span className={theme === "dark" ? "text-primary-500" : "text-text-sub"}>다크</span>
             </button>
             <button
               type="button"
               onClick={() => setTheme("light")}
-              className="relative z-10 flex flex-1 items-center justify-center gap-2 py-2.5 rounded-full text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+              className="relative z-10 flex flex-1 items-center justify-center py-2.5 rounded-full text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
               aria-pressed={theme === "light"}
               aria-label="라이트 모드"
             >
@@ -436,7 +393,6 @@ const BasicMenu = () => {
                   theme === "light" ? "text-primary-500 scale-110" : "text-text-sub"
                 }`}
               />
-              <span className={theme === "light" ? "text-primary-500" : "text-text-sub"}>라이트</span>
             </button>
           </div>
         </div>

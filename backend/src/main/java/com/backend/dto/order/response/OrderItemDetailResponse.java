@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 public class OrderItemDetailResponse {
 
     private Long id;
+    private Long productId;
     private OrderItemStatus status;
     private String productName;
     private String variantOption;
@@ -22,6 +23,7 @@ public class OrderItemDetailResponse {
     public static OrderItemDetailResponse from(OrderItem item) {
         return OrderItemDetailResponse.builder()
                 .id(item.getId())
+                .productId(item.getProduct().getId())
                 .status(item.getStatus())
                 .productName(item.getProductNameSnapshot())
                 .variantOption(item.getVariantSnapshot())

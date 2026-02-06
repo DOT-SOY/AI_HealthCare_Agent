@@ -433,13 +433,13 @@ export default function AIChatOverlay() {
             <svg className="w-8 h-8 relative z-[2] text-neutral-950" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
             </svg>
-
-            {notificationCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-accent-secondary text-white text-xs font-bold rounded-full min-w-[22px] h-[22px] px-2 flex items-center justify-center border-2 border-bg-root z-[3] shadow-sm leading-none">
-                {notificationCount > 9 ? '9+' : notificationCount}
-              </span>
-            )}
           </button>
+
+          {notificationCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-accent-secondary text-white text-xs font-bold rounded-full min-w-[22px] h-[22px] px-2 flex items-center justify-center border-2 border-bg-root z-[3] shadow-sm leading-none pointer-events-none">
+              {notificationCount > 9 ? '9+' : notificationCount}
+            </span>
+          )}
         </div>
       )}
       </div>
