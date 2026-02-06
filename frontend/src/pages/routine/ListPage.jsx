@@ -225,17 +225,26 @@ export default function TodayRoutinePage() {
           {/* 운동 목록 */}
           <div className="space-y-4 mt-6">
             {displayRoutine.exercises && Array.isArray(displayRoutine.exercises) && displayRoutine.exercises.length > 0 ? (
-              displayRoutine.exercises.map((exercise, index) => (
-                <ExerciseCard
-                  key={exercise.id || index}
-                  exercise={exercise}
-                  routineId={displayRoutine.id}
-                  isActive={activeExerciseId === exercise.id}
-                  onStart={() => handleExerciseStart(exercise.id)}
-                  onComplete={handleExerciseComplete}
-                  onUpdate={handleRoutineUpdate}
-                />
-              ))
+              (() => {
+                // 완료된 운동과 미완료 운동 분리
+                const incompleteExercises = displayRoutine.exercises.filter(ex => !ex.completed);
+                const completedExercises = displayRoutine.exercises.filter(ex => ex.completed);
+                
+                // 미완료 항목을 위로, 완료 항목을 아래로 배치
+                const sortedExercises = [...incompleteExercises, ...completedExercises];
+                
+                return sortedExercises.map((exercise, index) => (
+                  <ExerciseCard
+                    key={exercise.id || index}
+                    exercise={exercise}
+                    routineId={displayRoutine.id}
+                    isActive={activeExerciseId === exercise.id}
+                    onStart={() => handleExerciseStart(exercise.id)}
+                    onComplete={handleExerciseComplete}
+                    onUpdate={handleRoutineUpdate}
+                  />
+                ));
+              })()
             ) : (
               <div className="text-center text-text-muted py-8">
                 <p>이 루틴에 운동이 없습니다.</p>
