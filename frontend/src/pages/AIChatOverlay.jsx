@@ -16,6 +16,7 @@ import { useWebSocket } from '../hooks/useWebSocket';
 import RoutineRecommendModal from '../components/ai/RoutineRecommendModal';
 import PainModifyModal from '../components/ai/PainModifyModal';
 import { mealApi } from '../api/mealApi';
+import { aiApi } from '../api/aiApi';
 import ExerciseRecognitionModal from '../components/exercise/ExerciseRecognitionModal';
 
 export default function AIChatOverlay() {
@@ -355,7 +356,7 @@ export default function AIChatOverlay() {
       dispatch(
         addMessage({
           role: 'user',
-          content: '[음식 이미지 업로드]',
+          content: '',
           imageUrl: dataUrl,
           meta: { kind: 'MEAL_IMAGE' },
         }),
@@ -367,11 +368,11 @@ export default function AIChatOverlay() {
 
       dispatch(setLoading(true));
 
-      const base64 = dataUrl.split(',')[1] || '';
+      // /api/ai/chat 엔드포인트로 이미지 전송 (이미지 분류 후 음식/인바디 라우팅)
+      // 백엔드는 이미지 분류 후 mealService.asyncVisionAnalysis를 호출하고,
+      // 실제 결과는 WebSocket(/topic/meal/vision/{userId})로 옴
       visionPendingRef.current = true;
-
-      // 서버는 즉시 응답, 결과는 WS로 수신
-      await mealApi.analyzeVision(base64);
+      await aiApi.sendMessage(null, file, null);
 
       dispatch(addMessage({ role: 'assistant', content: '이미지 분석을 시작했어요. 잠시만 기다려주세요...' }));
     } catch (err) {

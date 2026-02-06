@@ -46,19 +46,22 @@ public class MemberInfoBodyServiceImpl implements MemberInfoBodyService {
 
         MemberInfoBody existingEntity = memberInfoBodyRepository.findByIdAndNotDeleted(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, id));
-
+        
         Long memberId = existingEntity.getMemberId();
 
+        // 기존 레코드는 그대로 두고, 새로운 레코드 생성 (히스토리 보존)
+        // DTO의 id를 null로 설정하여 새 레코드로 생성되도록 함
         dto.setId(null);
+        // 새 레코드 생성 시 measuredTime을 현재 시간으로 명시적으로 설정 (최신 정보 보장)
         dto.setMeasuredTime(Instant.now());
         MemberInfoBody newEntity = dto.toEntity(memberId);
-
+        
         MemberInfoBody saved = memberInfoBodyRepository.save(newEntity);
         log.info("신체 정보 새 레코드 생성 완료: id={}, memberId={}", saved.getId(), memberId);
 
         // Member 정보 조회
         Member member = memberRepository.findById(memberId).orElse(null);
-
+        
         return MemberInfoBodyResponseDTO.fromEntityWithMember(saved, member);
     }
 
@@ -96,15 +99,13 @@ public class MemberInfoBodyServiceImpl implements MemberInfoBodyService {
     public MemberInfoBodyResponseDTO getLatest(Long memberId) {
         log.info("최신 신체 정보 조회 요청: memberId={}", memberId);
 
-        List<MemberInfoBody> bodyList = memberInfoBodyRepository
-                .findByMemberIdAndNotDeletedOrderByMeasuredTimeDesc(memberId);
-        MemberInfoBody entity = bodyList.isEmpty() ? null : bodyList.get(0);
+        MemberInfoBody entity = memberInfoBodyRepository
+                .findTop1ByMemberIdAndDeletedAtIsNullOrderByMeasuredTimeDescCreatedAtDesc(memberId)
+                .orElse(null);
 
+        // Member 정보 조회
         Member member = memberRepository.findById(memberId).orElse(null);
 
-        if (entity == null) {
-            log.debug("최신 신체 정보 없음: memberId={} (삭제되지 않은 건수=0)", memberId);
-        }
         return MemberInfoBodyResponseDTO.fromEntityWithMember(entity, member);
     }
 

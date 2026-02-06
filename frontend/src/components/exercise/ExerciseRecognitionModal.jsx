@@ -3,8 +3,10 @@ import { Pose } from '@mediapipe/pose';
 import { Camera } from '@mediapipe/camera_utils';
 import { 
   countRep, 
-  generateFeedback
+  generateFeedback,
+  validateKeyJoints
 } from '../../services/exerciseRecognition';
+import { PoseStabilizer } from '../../services/poseStabilizer';
 import { exerciseApi } from '../../api/exerciseApi';
 import { useExercises } from '../../hooks/useExercises';
 
@@ -37,7 +39,10 @@ export default function ExerciseRecognitionModal({
   const repStateRef = useRef('down');
   const lastCountTimeRef = useRef(null);
   const currentRepFeedbacksRef = useRef([]); // 현재 횟수 구간의 피드백 임시 저장
+  const poseStabilizerRef = useRef(null); // 트래킹 안정화 인스턴스
+  const consecutiveMissingFramesRef = useRef(0); // 연속 누락 프레임 카운터
   const { toggleCompleted } = useExercises();
+  const [ttsEnabled, setTtsEnabled] = useState(true); // TTS 기본값: 활성화
 
   // 모달이 열릴 때 상태 초기화
   useEffect(() => {
@@ -65,6 +70,14 @@ export default function ExerciseRecognitionModal({
       setIsCompleted(false);
       setFinalFeedback(null);
       setIsWaitingCompletion(false);
+      
+      // 트래킹 안정화 인스턴스 초기화
+      if (!poseStabilizerRef.current) {
+        poseStabilizerRef.current = new PoseStabilizer();
+      } else {
+        poseStabilizerRef.current.reset();
+      }
+      consecutiveMissingFramesRef.current = 0;
     }
   }, [isOpen, initialExerciseName, onClose, onExerciseNotFound]);
 
@@ -83,8 +96,8 @@ export default function ExerciseRecognitionModal({
       smoothLandmarks: true,
       enableSegmentation: false,
       smoothSegmentation: false,
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5
+      minDetectionConfidence: 0.6,
+      minTrackingConfidence: 0.6
     });
 
     pose.onResults((results) => {
@@ -95,95 +108,143 @@ export default function ExerciseRecognitionModal({
       canvasCtx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
       canvasCtx.drawImage(results.image, 0, 0, canvasRef.current.width, canvasRef.current.height);
 
-      if (results.poseLandmarks) {
-        // 운동 진행 중
-        if (exerciseName && !isCompleted) {
-          // 매 프레임마다 피드백 생성 (화면에는 표시하지 않고 임시 저장)
-          const frameFeedback = generateFeedback(results.poseLandmarks, exerciseName);
-          
-          // 현재 횟수 구간의 피드백 수집 (부정 피드백만 저장)
-          if (frameFeedback) {
-            currentRepFeedbacksRef.current.push(frameFeedback);
-          }
-          
-          // 카운팅
-          const countResult = countRep(results.poseLandmarks, exerciseName, repStateRef.current);
-          if (countResult.count > 0) {
-            const now = Date.now();
-            
-            // 세트 구분 체크: 마지막 카운팅 시간이 있고, 10초 이상 경과했으면 새 세트
-            if (lastCountTimeRef.current !== null) {
-              const timeSinceLastCount = now - lastCountTimeRef.current;
-              if (timeSinceLastCount >= 10000) {
-                setCurrentSet(prev => prev + 1);
-                setSetReps(prev => [...prev, 0]);
-              }
-            }
-            
-            setTotalReps(prev => prev + countResult.count);
-            setSetReps(prev => {
-              const newReps = [...prev];
-              newReps[newReps.length - 1] += countResult.count;
-              return newReps;
-            });
-            lastCountTimeRef.current = now;
-            setLastCountTime(now);
-            
-            // 카운팅 완료 - 해당 구간의 피드백 분석
-            const feedbackCounts = {};
-            currentRepFeedbacksRef.current.forEach(f => {
-              feedbackCounts[f] = (feedbackCounts[f] || 0) + 1;
-            });
-            
-            // 가장 많이 발생한 피드백 선택
-            let mainFeedback = null;
-            let maxCount = 0;
-            Object.entries(feedbackCounts).forEach(([feedback, count]) => {
-              if (count > maxCount) {
-                maxCount = count;
-                mainFeedback = feedback;
-              }
-            });
-            
-            // 피드백이 없으면 기본 긍정 메시지 표시
-            const displayFeedback = mainFeedback || "좋습니다! 계속하세요.";
-            
-            // 화면에 표시
-            setCurrentFeedback(displayFeedback);
-            
-            // 히스토리에 저장
-            const newRepNumber = totalReps + countResult.count;
-            
-            // 긍정 피드백 판단: "좋습니다"가 포함된 메시지는 긍정으로 처리
-            const isPositiveFeedback = !mainFeedback || 
-                                      displayFeedback.includes("좋습니다") || 
-                                      displayFeedback.includes("정확합니다") ||
-                                      displayFeedback.includes("완전히");
-            
-            setFeedbackHistory(prev => [...prev, {
-              feedback: displayFeedback,
-              isPositive: isPositiveFeedback,
-              repNumber: newRepNumber
-            }]);
-            
-            // 다음 구간을 위해 초기화
-            currentRepFeedbacksRef.current = [];
-            
-            // 3초 후 피드백 제거
-            if (feedbackTimeoutRef.current) {
-              clearTimeout(feedbackTimeoutRef.current);
-            }
-            feedbackTimeoutRef.current = setTimeout(() => {
-              setCurrentFeedback(null);
-            }, 3000);
-          }
-          repStateRef.current = countResult.state;
-          setRepState(countResult.state);
-        }
+      // 트래킹 안정화: null 프레임 발생 시 마지막 유효 랜드마크 유지
+      let stabilizedLandmarks = null;
+      if (poseStabilizerRef.current) {
+        stabilizedLandmarks = poseStabilizerRef.current.stabilizeLandmarks(results.poseLandmarks);
+      } else {
+        stabilizedLandmarks = results.poseLandmarks;
+      }
 
-        // 랜드마크 그리기
-        drawConnections(canvasCtx, results.poseLandmarks, results.poseConnections);
-        drawLandmarks(canvasCtx, results.poseLandmarks);
+      // 랜드마크가 없거나 안정화 실패한 경우
+      if (!stabilizedLandmarks) {
+        consecutiveMissingFramesRef.current++;
+        
+        // 30프레임 이상 연속 누락 시 가이드 음성 출력
+        if (consecutiveMissingFramesRef.current >= 30 && exerciseName && !isCompleted && ttsEnabled) {
+          if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance('자세를 화면 중앙에 맞춰주세요');
+            utterance.lang = 'ko-KR';
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            utterance.volume = 0.8;
+            window.speechSynthesis.speak(utterance);
+          }
+          // 음성 출력 후 카운터 리셋 (중복 방지)
+          consecutiveMissingFramesRef.current = 0;
+        }
+        
+        canvasCtx.restore();
+        return;
+      }
+
+      // 연속 누락 프레임 카운터 리셋 (유효한 랜드마크가 있으면)
+      consecutiveMissingFramesRef.current = 0;
+
+      // 운동별 핵심 관절 검증 (원본 랜드마크로 검증)
+      // 필터링은 하지 않고 원본 랜드마크를 사용하되, 핵심 관절만 검증
+      if (exerciseName && !validateKeyJoints(stabilizedLandmarks, exerciseName)) {
+        // 핵심 관절이 유효하지 않으면 분석 스킵
+        // 하지만 랜드마크는 그리기
+        if (stabilizedLandmarks) {
+          drawConnections(canvasCtx, stabilizedLandmarks, results.poseConnections);
+          drawLandmarks(canvasCtx, stabilizedLandmarks);
+        }
+        canvasCtx.restore();
+        return;
+      }
+
+      // 랜드마크 그리기 (원본 랜드마크 사용)
+      if (stabilizedLandmarks) {
+        drawConnections(canvasCtx, stabilizedLandmarks, results.poseConnections);
+        drawLandmarks(canvasCtx, stabilizedLandmarks);
+      }
+
+      // 운동 진행 중
+      if (exerciseName && !isCompleted) {
+        // 매 프레임마다 피드백 생성 (화면에는 표시하지 않고 임시 저장)
+        // 원본 랜드마크 사용 (필터링 제거)
+        const frameFeedback = generateFeedback(stabilizedLandmarks, exerciseName);
+        
+        // 현재 횟수 구간의 피드백 수집 (부정 피드백만 저장)
+        if (frameFeedback) {
+          currentRepFeedbacksRef.current.push(frameFeedback);
+        }
+        
+        // 카운팅 (원본 랜드마크 사용 - 필터링 제거)
+        const countResult = countRep(stabilizedLandmarks, exerciseName, repStateRef.current);
+        if (countResult.count > 0) {
+          const now = Date.now();
+          
+          // 세트 구분 체크: 마지막 카운팅 시간이 있고, 10초 이상 경과했으면 새 세트
+          if (lastCountTimeRef.current !== null) {
+            const timeSinceLastCount = now - lastCountTimeRef.current;
+            if (timeSinceLastCount >= 10000) {
+              setCurrentSet(prev => prev + 1);
+              setSetReps(prev => [...prev, 0]);
+            }
+          }
+          
+          setTotalReps(prev => prev + countResult.count);
+          setSetReps(prev => {
+            const newReps = [...prev];
+            newReps[newReps.length - 1] += countResult.count;
+            return newReps;
+          });
+          lastCountTimeRef.current = now;
+          setLastCountTime(now);
+          
+          // 카운팅 완료 - 해당 구간의 피드백 분석
+          const feedbackCounts = {};
+          currentRepFeedbacksRef.current.forEach(f => {
+            feedbackCounts[f] = (feedbackCounts[f] || 0) + 1;
+          });
+          
+          // 가장 많이 발생한 피드백 선택
+          let mainFeedback = null;
+          let maxCount = 0;
+          Object.entries(feedbackCounts).forEach(([feedback, count]) => {
+            if (count > maxCount) {
+              maxCount = count;
+              mainFeedback = feedback;
+            }
+          });
+          
+          // 피드백이 없으면 기본 긍정 메시지 표시
+          const displayFeedback = mainFeedback || "좋습니다! 계속하세요.";
+          
+          // 화면에 표시
+          setCurrentFeedback(displayFeedback);
+          
+          // 히스토리에 저장
+          const newRepNumber = totalReps + countResult.count;
+          
+          // 긍정 피드백 판단: "좋습니다"가 포함된 메시지는 긍정으로 처리
+          const isPositiveFeedback = !mainFeedback || 
+                                    displayFeedback.includes("좋습니다") || 
+                                    displayFeedback.includes("정확합니다") ||
+                                    displayFeedback.includes("완전히");
+          
+          setFeedbackHistory(prev => [...prev, {
+            feedback: displayFeedback,
+            isPositive: isPositiveFeedback,
+            repNumber: newRepNumber
+          }]);
+          
+          // 다음 구간을 위해 초기화
+          currentRepFeedbacksRef.current = [];
+          
+          // 3초 후 피드백 제거
+          if (feedbackTimeoutRef.current) {
+            clearTimeout(feedbackTimeoutRef.current);
+          }
+          feedbackTimeoutRef.current = setTimeout(() => {
+            setCurrentFeedback(null);
+          }, 3000);
+        }
+        repStateRef.current = countResult.state;
+        setRepState(countResult.state);
       }
 
       canvasCtx.restore();
@@ -211,8 +272,46 @@ export default function ExerciseRecognitionModal({
       if (feedbackTimeoutRef.current) {
         clearTimeout(feedbackTimeoutRef.current);
       }
+      // TTS 정리
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
     };
   }, [isOpen, exerciseName, isCompleted]);
+
+  // 실시간 피드백 TTS 재생
+  useEffect(() => {
+    if (!currentFeedback || !ttsEnabled || isCompleted) return;
+    
+    // TTS 재생
+    if ('speechSynthesis' in window) {
+      // 이전 음성이 있으면 취소
+      window.speechSynthesis.cancel();
+      
+      const utterance = new SpeechSynthesisUtterance(currentFeedback);
+      utterance.lang = 'ko-KR';
+      utterance.rate = 1.0; // 읽기 속도
+      utterance.pitch = 1.0; // 음성 높이
+      utterance.volume = 0.8; // 볼륨
+      
+      utterance.onend = () => {
+        // 재생 완료 후 정리
+      };
+      
+      utterance.onerror = (error) => {
+        console.error('TTS 재생 오류:', error);
+      };
+      
+      window.speechSynthesis.speak(utterance);
+    }
+    
+    // cleanup: 컴포넌트 언마운트 시 음성 중지
+    return () => {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, [currentFeedback, ttsEnabled, isCompleted]);
 
   // 운동 완료 처리
   const handleComplete = async () => {
@@ -310,14 +409,45 @@ export default function ExerciseRecognitionModal({
           <h2 className="text-2xl font-bold text-text-main">
             {exerciseName ? exerciseName : '운동명이 지정되지 않았습니다.'}
           </h2>
-          <button
-            onClick={onClose}
-            className="text-text-muted hover:text-text-main transition-colors"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-3">
+            {/* TTS 토글 버튼 */}
+            {exerciseName && !isCompleted && (
+              <button
+                onClick={() => {
+                  setTtsEnabled(prev => !prev);
+                  // TTS 비활성화 시 현재 재생 중인 음성 중지
+                  if (ttsEnabled && 'speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                  }
+                }}
+                className={`p-2 rounded-token transition-colors ${
+                  ttsEnabled 
+                    ? 'bg-primary-500 text-bg-root hover:bg-primary-400' 
+                    : 'bg-gray-200 text-text-muted hover:bg-gray-300'
+                }`}
+                title={ttsEnabled ? '음성 피드백 끄기' : '음성 피드백 켜기'}
+              >
+                {ttsEnabled ? (
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.617.793L4.383 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.383l4-4.707a1 1 0 011.617-.793zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clipRule="evenodd" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.617.793L4.383 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.383l4-4.707a1 1 0 011.617-.793zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clipRule="evenodd" />
+                    <path d="M3.28 2.22a.75.75 0 00-1.06 1.06l14.5 14.5a.75.75 0 101.06-1.06L3.28 2.22z" />
+                  </svg>
+                )}
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="text-text-muted hover:text-text-main transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
 
@@ -379,14 +509,14 @@ export default function ExerciseRecognitionModal({
                 <div>
                   <button
                     onClick={handleComplete}
-                    className="w-full py-3 rounded-token font-medium bg-primary-500 text-text-inverse transition-colors hover:bg-primary-400"
+                    className="w-full py-3 rounded-token font-medium bg-primary-500 text-bg-root transition-colors hover:bg-primary-400"
                   >
                     운동 완료
                   </button>
                 </div>
               </div>
             </div>
-          </div>
+          </div>    
         )}
 
         {isCompleted && !finalFeedback && (
@@ -418,13 +548,13 @@ export default function ExerciseRecognitionModal({
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleCompletionResponse(true)}
-                    className="flex-1 py-2 rounded-token font-medium bg-primary-500 text-text-inverse transition-colors hover:bg-primary-400"
+                    className="flex-1 py-2 rounded-token font-medium bg-primary-500 text-bg-root transition-colors hover:bg-primary-400"
                   >
                     네
                   </button>
                   <button
                     onClick={() => handleCompletionResponse(false)}
-                    className="flex-1 py-2 rounded-token font-medium bg-bg-surface text-text-sub border border-border-default transition-colors hover:bg-bg-card"
+                    className="flex-1 py-2 rounded-token font-medium bg-bg-surface text-text-main border border-border-default transition-colors hover:bg-bg-card"
                   >
                     아니오
                   </button>
