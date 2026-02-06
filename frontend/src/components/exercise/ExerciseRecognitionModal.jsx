@@ -3,8 +3,10 @@ import { Pose } from '@mediapipe/pose';
 import { Camera } from '@mediapipe/camera_utils';
 import { 
   countRep, 
-  generateFeedback
+  generateFeedback,
+  validateKeyJoints
 } from '../../services/exerciseRecognition';
+import { PoseStabilizer } from '../../services/poseStabilizer';
 import { exerciseApi } from '../../api/exerciseApi';
 import { useExercises } from '../../hooks/useExercises';
 
@@ -37,6 +39,8 @@ export default function ExerciseRecognitionModal({
   const repStateRef = useRef('down');
   const lastCountTimeRef = useRef(null);
   const currentRepFeedbacksRef = useRef([]); // 현재 횟수 구간의 피드백 임시 저장
+  const poseStabilizerRef = useRef(null); // 트래킹 안정화 인스턴스
+  const consecutiveMissingFramesRef = useRef(0); // 연속 누락 프레임 카운터
   const { toggleCompleted } = useExercises();
   const [ttsEnabled, setTtsEnabled] = useState(true); // TTS 기본값: 활성화
 
@@ -66,6 +70,14 @@ export default function ExerciseRecognitionModal({
       setIsCompleted(false);
       setFinalFeedback(null);
       setIsWaitingCompletion(false);
+      
+      // 트래킹 안정화 인스턴스 초기화
+      if (!poseStabilizerRef.current) {
+        poseStabilizerRef.current = new PoseStabilizer();
+      } else {
+        poseStabilizerRef.current.reset();
+      }
+      consecutiveMissingFramesRef.current = 0;
     }
   }, [isOpen, initialExerciseName, onClose, onExerciseNotFound]);
 
@@ -84,8 +96,8 @@ export default function ExerciseRecognitionModal({
       smoothLandmarks: true,
       enableSegmentation: false,
       smoothSegmentation: false,
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5
+      minDetectionConfidence: 0.6,
+      minTrackingConfidence: 0.6
     });
 
     pose.onResults((results) => {
@@ -96,95 +108,143 @@ export default function ExerciseRecognitionModal({
       canvasCtx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
       canvasCtx.drawImage(results.image, 0, 0, canvasRef.current.width, canvasRef.current.height);
 
-      if (results.poseLandmarks) {
-        // 운동 진행 중
-        if (exerciseName && !isCompleted) {
-          // 매 프레임마다 피드백 생성 (화면에는 표시하지 않고 임시 저장)
-          const frameFeedback = generateFeedback(results.poseLandmarks, exerciseName);
-          
-          // 현재 횟수 구간의 피드백 수집 (부정 피드백만 저장)
-          if (frameFeedback) {
-            currentRepFeedbacksRef.current.push(frameFeedback);
-          }
-          
-          // 카운팅
-          const countResult = countRep(results.poseLandmarks, exerciseName, repStateRef.current);
-          if (countResult.count > 0) {
-            const now = Date.now();
-            
-            // 세트 구분 체크: 마지막 카운팅 시간이 있고, 10초 이상 경과했으면 새 세트
-            if (lastCountTimeRef.current !== null) {
-              const timeSinceLastCount = now - lastCountTimeRef.current;
-              if (timeSinceLastCount >= 10000) {
-                setCurrentSet(prev => prev + 1);
-                setSetReps(prev => [...prev, 0]);
-              }
-            }
-            
-            setTotalReps(prev => prev + countResult.count);
-            setSetReps(prev => {
-              const newReps = [...prev];
-              newReps[newReps.length - 1] += countResult.count;
-              return newReps;
-            });
-            lastCountTimeRef.current = now;
-            setLastCountTime(now);
-            
-            // 카운팅 완료 - 해당 구간의 피드백 분석
-            const feedbackCounts = {};
-            currentRepFeedbacksRef.current.forEach(f => {
-              feedbackCounts[f] = (feedbackCounts[f] || 0) + 1;
-            });
-            
-            // 가장 많이 발생한 피드백 선택
-            let mainFeedback = null;
-            let maxCount = 0;
-            Object.entries(feedbackCounts).forEach(([feedback, count]) => {
-              if (count > maxCount) {
-                maxCount = count;
-                mainFeedback = feedback;
-              }
-            });
-            
-            // 피드백이 없으면 기본 긍정 메시지 표시
-            const displayFeedback = mainFeedback || "좋습니다! 계속하세요.";
-            
-            // 화면에 표시
-            setCurrentFeedback(displayFeedback);
-            
-            // 히스토리에 저장
-            const newRepNumber = totalReps + countResult.count;
-            
-            // 긍정 피드백 판단: "좋습니다"가 포함된 메시지는 긍정으로 처리
-            const isPositiveFeedback = !mainFeedback || 
-                                      displayFeedback.includes("좋습니다") || 
-                                      displayFeedback.includes("정확합니다") ||
-                                      displayFeedback.includes("완전히");
-            
-            setFeedbackHistory(prev => [...prev, {
-              feedback: displayFeedback,
-              isPositive: isPositiveFeedback,
-              repNumber: newRepNumber
-            }]);
-            
-            // 다음 구간을 위해 초기화
-            currentRepFeedbacksRef.current = [];
-            
-            // 3초 후 피드백 제거
-            if (feedbackTimeoutRef.current) {
-              clearTimeout(feedbackTimeoutRef.current);
-            }
-            feedbackTimeoutRef.current = setTimeout(() => {
-              setCurrentFeedback(null);
-            }, 3000);
-          }
-          repStateRef.current = countResult.state;
-          setRepState(countResult.state);
-        }
+      // 트래킹 안정화: null 프레임 발생 시 마지막 유효 랜드마크 유지
+      let stabilizedLandmarks = null;
+      if (poseStabilizerRef.current) {
+        stabilizedLandmarks = poseStabilizerRef.current.stabilizeLandmarks(results.poseLandmarks);
+      } else {
+        stabilizedLandmarks = results.poseLandmarks;
+      }
 
-        // 랜드마크 그리기
-        drawConnections(canvasCtx, results.poseLandmarks, results.poseConnections);
-        drawLandmarks(canvasCtx, results.poseLandmarks);
+      // 랜드마크가 없거나 안정화 실패한 경우
+      if (!stabilizedLandmarks) {
+        consecutiveMissingFramesRef.current++;
+        
+        // 30프레임 이상 연속 누락 시 가이드 음성 출력
+        if (consecutiveMissingFramesRef.current >= 30 && exerciseName && !isCompleted && ttsEnabled) {
+          if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance('자세를 화면 중앙에 맞춰주세요');
+            utterance.lang = 'ko-KR';
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            utterance.volume = 0.8;
+            window.speechSynthesis.speak(utterance);
+          }
+          // 음성 출력 후 카운터 리셋 (중복 방지)
+          consecutiveMissingFramesRef.current = 0;
+        }
+        
+        canvasCtx.restore();
+        return;
+      }
+
+      // 연속 누락 프레임 카운터 리셋 (유효한 랜드마크가 있으면)
+      consecutiveMissingFramesRef.current = 0;
+
+      // 운동별 핵심 관절 검증 (원본 랜드마크로 검증)
+      // 필터링은 하지 않고 원본 랜드마크를 사용하되, 핵심 관절만 검증
+      if (exerciseName && !validateKeyJoints(stabilizedLandmarks, exerciseName)) {
+        // 핵심 관절이 유효하지 않으면 분석 스킵
+        // 하지만 랜드마크는 그리기
+        if (stabilizedLandmarks) {
+          drawConnections(canvasCtx, stabilizedLandmarks, results.poseConnections);
+          drawLandmarks(canvasCtx, stabilizedLandmarks);
+        }
+        canvasCtx.restore();
+        return;
+      }
+
+      // 랜드마크 그리기 (원본 랜드마크 사용)
+      if (stabilizedLandmarks) {
+        drawConnections(canvasCtx, stabilizedLandmarks, results.poseConnections);
+        drawLandmarks(canvasCtx, stabilizedLandmarks);
+      }
+
+      // 운동 진행 중
+      if (exerciseName && !isCompleted) {
+        // 매 프레임마다 피드백 생성 (화면에는 표시하지 않고 임시 저장)
+        // 원본 랜드마크 사용 (필터링 제거)
+        const frameFeedback = generateFeedback(stabilizedLandmarks, exerciseName);
+        
+        // 현재 횟수 구간의 피드백 수집 (부정 피드백만 저장)
+        if (frameFeedback) {
+          currentRepFeedbacksRef.current.push(frameFeedback);
+        }
+        
+        // 카운팅 (원본 랜드마크 사용 - 필터링 제거)
+        const countResult = countRep(stabilizedLandmarks, exerciseName, repStateRef.current);
+        if (countResult.count > 0) {
+          const now = Date.now();
+          
+          // 세트 구분 체크: 마지막 카운팅 시간이 있고, 10초 이상 경과했으면 새 세트
+          if (lastCountTimeRef.current !== null) {
+            const timeSinceLastCount = now - lastCountTimeRef.current;
+            if (timeSinceLastCount >= 10000) {
+              setCurrentSet(prev => prev + 1);
+              setSetReps(prev => [...prev, 0]);
+            }
+          }
+          
+          setTotalReps(prev => prev + countResult.count);
+          setSetReps(prev => {
+            const newReps = [...prev];
+            newReps[newReps.length - 1] += countResult.count;
+            return newReps;
+          });
+          lastCountTimeRef.current = now;
+          setLastCountTime(now);
+          
+          // 카운팅 완료 - 해당 구간의 피드백 분석
+          const feedbackCounts = {};
+          currentRepFeedbacksRef.current.forEach(f => {
+            feedbackCounts[f] = (feedbackCounts[f] || 0) + 1;
+          });
+          
+          // 가장 많이 발생한 피드백 선택
+          let mainFeedback = null;
+          let maxCount = 0;
+          Object.entries(feedbackCounts).forEach(([feedback, count]) => {
+            if (count > maxCount) {
+              maxCount = count;
+              mainFeedback = feedback;
+            }
+          });
+          
+          // 피드백이 없으면 기본 긍정 메시지 표시
+          const displayFeedback = mainFeedback || "좋습니다! 계속하세요.";
+          
+          // 화면에 표시
+          setCurrentFeedback(displayFeedback);
+          
+          // 히스토리에 저장
+          const newRepNumber = totalReps + countResult.count;
+          
+          // 긍정 피드백 판단: "좋습니다"가 포함된 메시지는 긍정으로 처리
+          const isPositiveFeedback = !mainFeedback || 
+                                    displayFeedback.includes("좋습니다") || 
+                                    displayFeedback.includes("정확합니다") ||
+                                    displayFeedback.includes("완전히");
+          
+          setFeedbackHistory(prev => [...prev, {
+            feedback: displayFeedback,
+            isPositive: isPositiveFeedback,
+            repNumber: newRepNumber
+          }]);
+          
+          // 다음 구간을 위해 초기화
+          currentRepFeedbacksRef.current = [];
+          
+          // 3초 후 피드백 제거
+          if (feedbackTimeoutRef.current) {
+            clearTimeout(feedbackTimeoutRef.current);
+          }
+          feedbackTimeoutRef.current = setTimeout(() => {
+            setCurrentFeedback(null);
+          }, 3000);
+        }
+        repStateRef.current = countResult.state;
+        setRepState(countResult.state);
       }
 
       canvasCtx.restore();
