@@ -70,7 +70,6 @@ public class AIChatOrchestrationServiceImpl implements AIChatOrchestrationServic
     private final InbodyAnalysisClient inbodyAnalysisClient;
     private final FoodAnalysisClient foodAnalysisClient;
     private final MealAiContextService mealAiContextService;
-    private final CurrentMemberService currentMemberService;
     private final com.backend.service.meal.MealService mealService;
 
     @Override
