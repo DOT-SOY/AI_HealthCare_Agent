@@ -7,22 +7,22 @@ import { Link } from "react-router-dom";
  */
 const AdminComponent = () => {
   return (
-    <div className="w-full rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-      <h2 className="text-xl font-bold text-gray-900 mb-2">관리자</h2>
-      <p className="text-sm text-gray-600 mb-5">
+    <div className="w-full rounded-token border border-border-default bg-bg-card p-6 shadow-card">
+      <h2 className="text-xl font-bold text-text-main mb-2">관리자</h2>
+      <p className="text-sm text-text-sub mb-5">
         관리자 기능 페이지로 이동하세요.
       </p>
 
       <div className="flex flex-col gap-2">
         <Link
           to="/shop/admin/create"
-          className="inline-flex items-center justify-center rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white hover:bg-gray-900"
+          className="inline-flex items-center justify-center rounded-lg bg-primary-500 px-4 py-2 text-sm font-semibold text-bg-root hover:shadow-glow-sm transition-all"
         >
           상품 등록
         </Link>
         <Link
           to="/shop/admin/edit"
-          className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50"
+          className="inline-flex items-center justify-center rounded-lg border border-border-default bg-bg-surface px-4 py-2 text-sm font-semibold text-text-main hover:border-primary-500 transition-colors"
         >
           상품 수정
         </Link>
@@ -32,6 +32,3 @@ const AdminComponent = () => {
 };
 
 export default AdminComponent;
-
-
-

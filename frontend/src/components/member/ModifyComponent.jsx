@@ -228,7 +228,7 @@ const ModifyComponent = () => {
       </form>
 
       {/* 회원 탈퇴 섹션 */}
-      <div className="mt-8 pt-6 border-t border-gray-700">
+      <div className="mt-8 pt-6 border-t border-border-default">
         <button
           type="button"
           onClick={handleClickWithdraw}

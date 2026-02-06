@@ -95,6 +95,10 @@
 
 /* Tailwind v4: @theme로 유틸리티 클래스 노출 */
 @theme {
+  /* Font Family */
+  --font-sans: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-display: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+
   /* Background */
   --color-bg-root: var(--bg-root);
   --color-bg-surface: var(--bg-surface);
@@ -139,4 +143,86 @@
   --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.35), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
   --shadow-card-hover: 0 8px 16px -4px rgba(0, 0, 0, 0.4), 0 0 14px rgba(182, 255, 0, 0.7), 0 0 20px rgba(182, 255, 0, 0.35);
   --shadow-glow: 0 0 32px var(--primary-glow);
+  --shadow-glow-sm: 0 0 16px var(--primary-glow);
+
+  /* Animation — 장바구니 피드백 */
+  --animate-cart-jiggle: cart-jiggle 0.6s ease-out;
+  --animate-badge-pop: badge-pop 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-toast-up: toast-up 1.2s ease-out forwards;
+  --animate-ping-ring: ping-ring 0.6s ease-out forwards;
+  --animate-float-up-fade: float-up-fade 0.8s ease-out forwards;
+  --animate-particle-burst: particle-burst 0.6s ease-out forwards;
+
+  /* Animation — 공통 */
+  --animate-stagger-in: stagger-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-energy-bar: energy-bar 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-pulse-glow: pulse-glow 1.5s ease-in-out infinite;
+}
+
+/* ================================================================
+   @keyframes — 장바구니 피드백 애니메이션
+   ================================================================ */
+
+/* 1계층: 아이콘 흔들림 + 확대 */
+@keyframes cart-jiggle {
+  0%   { transform: scale(1) rotate(0deg); }
+  15%  { transform: scale(1.2) rotate(-12deg); }
+  30%  { transform: scale(1.15) rotate(8deg); }
+  45%  { transform: scale(1.1) rotate(-5deg); }
+  60%  { transform: scale(1.05) rotate(2deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+/* 2계층: 뱃지 팝 스프링 */
+@keyframes badge-pop {
+  0%   { transform: scale(0.5); opacity: 0; }
+  50%  { transform: scale(1.4); opacity: 1; }
+  70%  { transform: scale(0.9); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* 3계층: 토스트 알림 (fade-in → 유지 → slide-up fade-out) */
+@keyframes toast-up {
+  0%   { opacity: 0; transform: translateY(8px); }
+  20%  { opacity: 1; transform: translateY(0); }
+  80%  { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-12px); }
+}
+
+/* 소나 핑 링: 바깥으로 확장되며 사라짐 */
+@keyframes ping-ring {
+  0%   { transform: scale(1); opacity: 0.7; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+/* +N 플로팅: 위로 떠올라 사라짐 */
+@keyframes float-up-fade {
+  0%   { opacity: 1; transform: translateY(0) scale(1); }
+  50%  { opacity: 1; transform: translateY(-18px) scale(1.1); }
+  100% { opacity: 0; transform: translateY(-36px) scale(0.8); }
+}
+
+/* 파티클 버스트: 중심에서 바깥으로 흩어짐 (CSS variable로 방향 지정) */
+@keyframes particle-burst {
+  0%   { opacity: 1; transform: translate(0, 0) scale(1); }
+  100% { opacity: 0; transform: translate(var(--px), var(--py)) scale(0); }
+}
+
+/* ================================================================
+   @keyframes — 공통 애니메이션
+   ================================================================ */
+
+@keyframes stagger-in {
+  0%   { opacity: 0; transform: translateY(16px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes energy-bar {
+  0%   { transform: scaleX(0); opacity: 1; }
+  100% { transform: scaleX(1); opacity: 1; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px var(--primary-glow); }
+  50%      { box-shadow: 0 0 28px var(--primary-glow); }
 }

@@ -202,33 +202,34 @@ export default function CalendarWidget() {
 
   return (
     <div className="w-full">
-      {/* Tag Selection */}
-      <div className="flex gap-2 mb-4">
-        <button
-          onClick={() => setSelectedTag('MEAL')}
-          className={`px-4 py-2 rounded-token text-sm font-medium transition-colors ${
-            selectedTag === 'MEAL'
-              ? 'bg-primary-500 text-bg-root'
-              : 'bg-gray-100 text-text-main hover:bg-gray-200'
-          }`}
-        >
-          MEAL
-        </button>
-        <button
-          onClick={() => setSelectedTag('ROUTINE')}
-          className={`px-4 py-2 rounded-token text-sm font-medium transition-colors ${
-            selectedTag === 'ROUTINE'
-              ? 'bg-primary-500 text-bg-root'
-              : 'bg-gray-100 text-text-main hover:bg-gray-200'
-          }`}
-        >
-          ROUTINE
-        </button>
-      </div>
-
-      {/* Calendar Header */}
+      {/* Tag Selection + Calendar Header */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
+        {/* 왼쪽: MEAL / ROUTINE 버튼 */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setSelectedTag('MEAL')}
+            className={`px-4 py-1 rounded-token text-sm font-medium transition-colors ${
+              selectedTag === 'MEAL'
+                ? 'bg-primary-500 text-bg-root'
+                : 'bg-gray-100 text-text-main hover:bg-gray-200'
+            }`}
+          >
+            MEAL
+          </button>
+          <button
+            onClick={() => setSelectedTag('ROUTINE')}
+            className={`px-4 py-1 rounded-token text-sm font-medium transition-colors ${
+              selectedTag === 'ROUTINE'
+                ? 'bg-primary-500 text-bg-root'
+                : 'bg-gray-100 text-text-main hover:bg-gray-200'
+            }`}
+          >
+            ROUTINE
+          </button>
+        </div>
+
+        {/* 오른쪽: 날짜 네비게이션 */}
+        <div className="flex items-center gap-1">
           <button
             onClick={handlePrevYear}
             className="p-1 text-text-sub hover:text-text-main transition-colors"
@@ -245,14 +246,8 @@ export default function CalendarWidget() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span className="text-text-main font-medium">{months[month]}</span>
-          <span className="text-text-sub">{year}</span>
-        </div>
-
-        <div className="flex items-center gap-2">
+          <span className="text-text-main font-medium text-sm mx-1">{months[month]}</span>
+          <span className="text-text-sub text-sm">{year}</span>
           <button
             onClick={handleNextMonth}
             className="p-1 text-text-sub hover:text-text-main transition-colors"

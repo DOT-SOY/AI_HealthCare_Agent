@@ -23,7 +23,6 @@ export default function WeeklyCalendar({ routines = [], selectedDate, onDateChan
     const dateStr = date.toISOString().split('T')[0];
     return routines.find(r => {
       if (!r.date) return false;
-      // date가 문자열이면 그대로 비교, Date 객체면 변환
       const routineDateStr = typeof r.date === 'string' 
         ? r.date 
         : new Date(r.date).toISOString().split('T')[0];
@@ -46,33 +45,24 @@ export default function WeeklyCalendar({ routines = [], selectedDate, onDateChan
             onClick={() => onDateChange && onDateChange(date)}
             className={`px-4 py-3 rounded-lg text-sm font-medium transition-colors whitespace-nowrap flex flex-col items-center gap-1 min-w-[70px] ${
               selected
-                ? 'text-neutral-950'
+                ? 'bg-primary-500 text-bg-root'
                 : todayFlag
-                ? 'bg-neutral-700 border'
-                : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
+                ? 'bg-bg-surface border border-primary-500 text-primary-500'
+                : 'bg-bg-card text-text-muted hover:bg-bg-surface'
             }`}
-            style={selected 
-              ? { backgroundColor: '#88ce02' }
-              : todayFlag
-              ? { color: '#88ce02', borderColor: '#88ce02' }
-              : {}}
           >
-            <span className={`text-xs ${selected ? 'text-neutral-950' : 'text-neutral-500'}`}>
+            <span className={`text-xs ${selected ? 'text-bg-root' : 'text-text-muted'}`}>
               {dayName}
             </span>
             <span className={`text-lg font-bold ${
-              selected ? 'text-neutral-950' : 'text-neutral-50'
-            }`}
-            style={!selected && todayFlag ? { color: '#88ce02' } : {}}
-            >
+              selected ? 'text-bg-root' : todayFlag ? 'text-primary-500' : 'text-text-main'
+            }`}>
               {dayNumber}
             </span>
             {routine && (
               <span className={`w-1.5 h-1.5 rounded-full mt-1 ${
-                selected ? 'bg-neutral-950' : ''
-              }`}
-              style={!selected ? { backgroundColor: '#88ce02' } : {}}
-              />
+                selected ? 'bg-bg-root' : 'bg-primary-500'
+              }`} />
             )}
           </button>
         );
@@ -80,4 +70,3 @@ export default function WeeklyCalendar({ routines = [], selectedDate, onDateChan
     </div>
   );
 }
-
