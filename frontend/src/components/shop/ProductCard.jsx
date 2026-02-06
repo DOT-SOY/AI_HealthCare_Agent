@@ -26,15 +26,17 @@ const ProductCard = ({
             e.target.src = 'https://via.placeholder.com/300x300?text=No+Image';
           }}
         />
-        <span
-          className={`absolute top-2 right-2 px-2 py-0.5 rounded-token-sm text-xs font-semibold uppercase ${
-            product.status === 'ACTIVE'
-              ? 'bg-primary-500/90 text-bg-root border border-primary-400'
-              : 'bg-accent-secondary/90 text-white border border-accent-secondary'
-          }`}
-        >
-          {product.status === 'ACTIVE' ? '판매중' : '품절'}
-        </span>
+        {product.status !== 'ACTIVE' && (
+          <span
+            className={`absolute top-2 right-2 px-2 py-0.5 rounded-token-sm text-xs font-semibold uppercase ${
+              product.status === 'SOLD_OUT'
+                ? 'bg-accent-secondary/90 text-white border border-accent-secondary'
+                : 'bg-gray-500/90 text-white border border-gray-400'
+            }`}
+          >
+            {product.status === 'SOLD_OUT' ? '품절' : '임시저장'}
+          </span>
+        )}
       </Link>
 
       <div className="flex flex-col flex-1 px-3 py-3 min-h-0">

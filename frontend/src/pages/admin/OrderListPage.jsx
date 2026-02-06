@@ -8,7 +8,7 @@ import { getAdminOrders } from '../../services/orderApi';
 const statusLabels = {
   CREATED: '주문 생성',
   PAYMENT_PENDING: '결제 대기',
-  PAID: '결제 완료',
+  PAID: '배송 대기',
   SHIPPED: '배송중',
   DELIVERED: '배송완료',
   CANCELED: '취소',
@@ -16,7 +16,7 @@ const statusLabels = {
 
 const statusOptions = [
   { value: '', label: '전체' },
-  { value: 'PAID', label: '결제 완료' },
+  { value: 'PAID', label: '배송 대기' },
   { value: 'SHIPPED', label: '배송중' },
   { value: 'DELIVERED', label: '배송완료' },
   { value: 'CANCELED', label: '취소' },
