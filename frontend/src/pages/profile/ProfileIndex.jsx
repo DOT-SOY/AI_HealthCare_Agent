@@ -3,7 +3,6 @@ import { useDispatch } from "react-redux";
 import BasicLayout from "../../components/layout/BasicLayout";
 import { Home, User, Moon, Sun, X, Plus, Edit, Trash2 } from "lucide-react";
 import { logout } from "../../slices/loginSlice";
-import { User, Moon, Sun, X, Plus, Edit, Trash2 } from "lucide-react";
 import AddressSearchModal from "../../components/common/AddressSearchModal";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip,

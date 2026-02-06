@@ -18,6 +18,7 @@ import com.backend.dto.shop.response.ProductVariantResponse;
 import com.backend.dto.shop.response.ReviewSummaryResponse;
 import com.backend.domain.order.OrderItemStatus;
 import com.backend.domain.order.OrderStatus;
+import com.backend.repository.cart.CartItemRepository;
 import com.backend.repository.member.MemberRepository;
 import com.backend.repository.order.OrderItemRepository;
 import com.backend.repository.shop.*;
@@ -53,6 +54,7 @@ public class ProductServiceImpl implements ProductService {
     private final ProductCategoryRepository productCategoryRepository;
     private final ProductReviewRepository productReviewRepository;
     private final OrderItemRepository orderItemRepository;
+    private final CartItemRepository cartItemRepository;
 
     @Override
     @Transactional
@@ -355,8 +357,12 @@ public class ProductServiceImpl implements ProductService {
 
         // 수정: 요청에 id가 있고 해당 variant가 있으면 updateDetails
         for (ProductVariantRequest req : requests) {
+            String sku = (req.getSku() != null && !req.getSku().isBlank())
+                    ? req.getSku().trim()
+                    : "PROD-" + product.getId() + "-" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8);
             product.getVariants().add(ProductVariant.builder()
                     .product(product)
+                    .sku(sku)
                     .optionText(req.getOptionText())
                     .price(req.getPrice())
                     .stockQty(req.getStockQty() != null ? req.getStockQty() : 0)
@@ -467,7 +473,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Transactional
     private Category getOrCreateRootCategory(CategoryType categoryType) {
-        return categoryRepository.findByCategoryTypeAndParentIsNull(categoryType)
+        return categoryRepository.findFirstByCategoryTypeAndParentIsNullOrderBySortOrderAsc(categoryType)
                 .orElseGet(() -> {
                     log.info("Creating root category for type: {} (Lazy Create)", categoryType);
                     Category saved = categoryRepository.saveAndFlush(Category.builder()
@@ -475,7 +481,7 @@ public class ProductServiceImpl implements ProductService {
                             .categoryType(categoryType)
                             .sortOrder(0)
                             .build());
-                    return categoryRepository.findByCategoryTypeAndParentIsNull(categoryType).orElse(saved);
+                    return categoryRepository.findFirstByCategoryTypeAndParentIsNullOrderBySortOrderAsc(categoryType).orElse(saved);
                 });
     }
 

@@ -114,9 +114,14 @@ public enum ErrorCode {
         this.status = status;
     }
 
+    /** 에러 코드 문자열 반환 (API 응답용) */
+    public String getCode() {
+        return code;
+    }
+
     /**
      * 메시지를 포맷팅하여 반환
-     * 
+     *
      * @param args 포맷팅에 사용할 인자들
      * @return 포맷팅된 메시지
      */

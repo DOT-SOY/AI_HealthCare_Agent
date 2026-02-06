@@ -156,6 +156,7 @@ public class CartServiceImpl implements CartService {
         if (variant == null) {
             variant = ProductVariant.builder()
                     .product(product)
+                    .sku("PROD-" + productId + "-DEFAULT")
                     .optionText("기본 옵션")
                     .price(null)  // null이면 product.basePrice 사용
                     .stockQty(999)  // 기본 재고

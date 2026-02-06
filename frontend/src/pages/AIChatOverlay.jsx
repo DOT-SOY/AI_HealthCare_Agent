@@ -10,8 +10,6 @@ import {
   clearNotification,
   setLastResponse,
 } from '../store/aiSlice';
-
-import { toggleChat, addMessage, setLoading, incrementNotification, clearNotification } from '../store/aiSlice';
 import { useAI } from '../hooks/useAI';
 import { useSTT } from '../hooks/useSTT';
 import { useWebSocket } from '../hooks/useWebSocket';
@@ -23,11 +21,9 @@ import ExerciseRecognitionModal from '../components/exercise/ExerciseRecognition
 export default function AIChatOverlay() {
   const dispatch = useDispatch();
 
-  const { isChatOpen, messages, loading, notificationCount } = useSelector((state) => state.ai);
+  const { isChatOpen, messages, loading, notificationCount, lastResponse } = useSelector((state) => state.ai);
   const { sendAIMessage } = useAI();
   const { isListening, transcript, startListening, stopListening } = useSTT();
-  const { subscribeToReview, connectWebSocket, disconnect } = useWebSocket();
-
   const {
     subscribeToReview,
     subscribeToMealGenerate,
@@ -108,11 +104,6 @@ export default function AIChatOverlay() {
     connectWebSocket();
 
     // 구독은 한 번만 초기화 (중복 구독 방지)
-    if (subscriptionInitializedRef.current) {
-      return;
-    }
-
-
     if (subscriptionInitializedRef.current) return;
     subscriptionInitializedRef.current = true;
 
@@ -191,27 +182,6 @@ export default function AIChatOverlay() {
 
       dispatch(addMessage({ role: 'assistant', content: messageContent }));
       if (!isChatOpen) dispatch(incrementNotification());
-      // 중복 메시지 방지: 같은 메시지가 짧은 시간 내에 여러 번 오는 경우 필터링
-      const messageContent = data.message || '오늘 운동은 어땠나요? 피드백을 주시면 다음 루틴에 반영하겠습니다.';
-      const now = Date.now();
-
-      // 같은 메시지가 1초 이내에 다시 오면 무시
-      if (lastMessageRef.current === messageContent && (now - lastMessageTimeRef.current) < 1000) {
-        return; // 중복 메시지 무시
-      }
-
-      lastMessageRef.current = messageContent;
-      lastMessageTimeRef.current = now;
-
-      dispatch(addMessage({
-        role: 'assistant',
-        content: messageContent,
-      }));
-
-      // 채팅창이 닫혀있으면 알림 카운트 증가 (자동으로 열지 않음)
-      if (!isChatOpen) {
-        dispatch(incrementNotification());
-      }
     });
 
     return () => {
@@ -241,9 +211,11 @@ export default function AIChatOverlay() {
     // 메시지가 추가될 때 스크롤
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
     if (!isListening && transcript && transcript.trim() && !loading) {
       const text = transcript.trim();
-      if (lastSentTranscriptRef.current === text) return;
+      if (lastSentTranscriptRef.current === text) return undefined;
 
       const timer = setTimeout(async () => {
         lastSentTranscriptRef.current = text;
@@ -253,6 +225,7 @@ export default function AIChatOverlay() {
 
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [isListening, transcript, loading, sendAIMessage]);
 
   const handleStartListening = () => {
@@ -273,11 +246,8 @@ export default function AIChatOverlay() {
 
   // 채팅창이 열릴 때 알림 카운트 초기화
   useEffect(() => {
-    if (isChatOpen && notificationCount > 0) {
-      dispatch(clearNotification());
-    }
-    wasChatOpenRef.current = isChatOpen;
     if (isChatOpen && notificationCount > 0) dispatch(clearNotification());
+    wasChatOpenRef.current = isChatOpen;
   }, [isChatOpen, notificationCount, dispatch]);
 
   // 마지막 assistant 메시지에 루틴 추천 / 통증 수정 모달 데이터가 있으면 모달 열기 (같은 메시지에 대해 한 번만)
@@ -305,6 +275,7 @@ export default function AIChatOverlay() {
     if (messages.length === 0) return;
     if (initialMessageCountRef.current === null) {
       initialMessageCountRef.current = messages.length;
+    }
     if (lastResponse?.data?.openExerciseModal === true) {
       setExerciseName(lastResponse.data.exerciseName || null);
       if (lastResponse.data.exercise) setExerciseData(lastResponse.data.exercise);
@@ -323,19 +294,6 @@ export default function AIChatOverlay() {
     const data = last.data;
     const isNewMessageThisSession = messages.length > initialMessageCountRef.current;
     if (!isNewMessageThisSession) return;
-  }, [lastResponse, dispatch]);
-
-  // ---------- image handling (unified to vision pipeline) ----------
-  const handleImageInputChange = (e) => {
-    const file = e.target.files?.[0] || null;
-    if (file) handleImageFile(file, { showComposerPreview: false });
-  };
-
-  const handleImageDrop = (e) => {
-    if (!isFileDropEvent(e)) return;
-    const file = e.dataTransfer?.files?.[0] || null;
-    if (file) handleImageFile(file, { showComposerPreview: false });
-  };
 
     if (data.openRoutineRecommendModal && Array.isArray(data.days) && data.days.length > 0 && lastOpenedModalForIndexRef.current !== idx) {
       lastOpenedModalForIndexRef.current = idx;
@@ -355,7 +313,20 @@ export default function AIChatOverlay() {
       });
       setPainModifyModalOpen(true);
     }
-  }, [messages]);
+  }, [lastResponse, dispatch, messages]);
+
+  // ---------- image handling (unified to vision pipeline) ----------
+  const handleImageInputChange = (e) => {
+    const file = e.target.files?.[0] || null;
+    if (file) handleImageFile(file, { showComposerPreview: false });
+  };
+
+  const handleImageDrop = (e) => {
+    if (!isFileDropEvent(e)) return;
+    const file = e.dataTransfer?.files?.[0] || null;
+    if (file) handleImageFile(file, { showComposerPreview: false });
+  };
+
   const handleImageFile = async (file, options = { showComposerPreview: true }) => {
     if (!file || !file.type.startsWith('image/')) return;
 
@@ -414,10 +385,7 @@ export default function AIChatOverlay() {
 
   const handleSend = async () => {
     if (!inputText.trim()) return;
-
-    if (!inputText.trim()) return;
     const text = inputText.trim();
-    const image = selectedImage;
     setInputText('');
     await sendAIMessage(text);
   };
@@ -456,15 +424,12 @@ export default function AIChatOverlay() {
             onClick={handleOpen}
             className="ai-fab-btn w-16 h-16 rounded-full flex items-center justify-center relative focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
             aria-label="AI 코치 채팅 열기"
-            onClick={() => dispatch(toggleChat())}
-            className="w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-colors relative"
             style={{ backgroundColor: '#88ce02' }}
-            onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(136, 206, 2, 0.8)'}
-            onMouseLeave={(e) => e.target.style.backgroundColor = '#88ce02'}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(136, 206, 2, 0.8)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#88ce02'; }}
           >
             <span className="ai-fab-mask" aria-hidden />
             <svg className="w-8 h-8 relative z-[2] text-neutral-950" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-            <svg className="w-8 h-8 text-neutral-950" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
             </svg>
 
@@ -474,14 +439,9 @@ export default function AIChatOverlay() {
               </span>
             )}
           </button>
-            {/* 알림 배지 */}
-            {notificationCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-neutral-950">
-                {notificationCount > 9 ? '9+' : notificationCount}
-              </span>
-            )}
-          </button>
         </div>
+      )}
+      </div>
       )}
 
       {/* 채팅 패널 (열림 or leave 애니메이션 중) */}

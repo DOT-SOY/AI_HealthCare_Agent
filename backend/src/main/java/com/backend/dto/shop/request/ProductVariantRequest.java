@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 @Setter
 public class ProductVariantRequest {
     private Long id;
+    private String sku;  // 미입력 시 서비스에서 자동 생성
     private String optionText;
     @DecimalMin(value = "0.0", message = "가격은 0 이상이어야 합니다")
     private BigDecimal price;

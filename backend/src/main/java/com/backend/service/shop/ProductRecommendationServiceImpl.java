@@ -45,7 +45,7 @@ public class ProductRecommendationServiceImpl implements ProductRecommendationSe
         // 1. 카테고리 ID 조회
         Long categoryId = null;
         if (request.getProductCategory() != null && request.getProductCategory() != CategoryType.ETC) {
-            categoryId = categoryRepository.findByCategoryTypeAndParentIsNull(request.getProductCategory())
+            categoryId = categoryRepository.findFirstByCategoryTypeAndParentIsNullOrderBySortOrderAsc(request.getProductCategory())
                     .map(Category::getId)
                     .orElse(null);
         }

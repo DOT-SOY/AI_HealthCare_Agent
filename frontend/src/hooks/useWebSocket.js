@@ -250,11 +250,6 @@ export function useWebSocket() {
       }
     );
   }, []);
-    subscriptionRef.current = clientRef.current.subscribe(
-      '/topic/workout/review',
-      handleMessage
-    );
-  }, [handleMessage]);
 
   // 루틴 생성/수정 알림 구독 (요일 맞바꾸기 등 후 자동 새로고침용)
   const doSubscribeRoutine = useCallback(() => {
