@@ -10,7 +10,20 @@ export const getMyBodyInfoHistory = async () => {
     const res = await jwtAxios.get(`${BASE_URL}/history/me`);
     return res.data ?? [];
   } catch (error) {
-    console.error('내 신체 정보 조회 실패:', error);
+
+    console.error("내 신체 정보 조회 실패:", error);
+    throw error;
+  }
+};
+/**
+ * OCR 결과 저장 후 직전 1 row와 비교하여 규칙 기반 피드백 반환 (7일 식단/운동 없음)
+ */
+export const saveAndCompare = async (data) => {
+  try {
+    const res = await jwtAxios.post(`${BASE_URL}/save-and-compare`, data);
+    return res.data;
+  } catch (error) {
+    console.error("저장 및 비교 실패:", error);
     throw error;
   }
 };

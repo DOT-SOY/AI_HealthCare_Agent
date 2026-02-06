@@ -4,6 +4,7 @@ import com.backend.common.exception.BusinessException;
 import com.backend.common.exception.ErrorCode;
 import com.backend.domain.member.Member;
 import com.backend.domain.memberinfo.MemberInfoBody;
+import com.backend.dto.memberinfo.BodyCompareFeedbackDTO;
 import com.backend.dto.memberinfo.MemberInfoBodyDTO;
 import com.backend.dto.memberinfo.MemberInfoBodyResponseDTO;
 import com.backend.repository.member.MemberRepository;
@@ -16,6 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -28,6 +31,21 @@ public class MemberInfoBodyServiceImpl implements MemberInfoBodyService {
 
     private final MemberInfoBodyRepository memberInfoBodyRepository;
     private final MemberRepository memberRepository;
+
+    @Override
+    public BodyCompareFeedbackDTO saveAndCompare(Long memberId, MemberInfoBodyDTO dto) {
+        log.info("OCR 저장 및 비교 요청: memberId={}", memberId);
+        dto.setId(null);
+        MemberInfoBody entity = dto.toEntity(memberId);
+        memberInfoBodyRepository.save(entity);
+
+        List<MemberInfoBody> history = memberInfoBodyRepository
+                .findByMemberIdAndNotDeletedOrderByMeasuredTimeDesc(memberId);
+        MemberInfoBody current = history.isEmpty() ? null : history.get(0);
+        MemberInfoBody previous = history.size() < 2 ? null : history.get(1);
+
+        return buildCompareFeedback(current, previous);
+    }
 
     @Override
     public Long create(Long memberId, MemberInfoBodyDTO dto) {
@@ -166,6 +184,65 @@ public class MemberInfoBodyServiceImpl implements MemberInfoBodyService {
         
         // 모든 항목 반환
         return dto;
+    }
+
+    private BodyCompareFeedbackDTO buildCompareFeedback(MemberInfoBody current, MemberInfoBody previous) {
+        if (current == null) {
+            return BodyCompareFeedbackDTO.builder()
+                    .summary("저장되었습니다.")
+                    .bodyChanges(List.of())
+                    .recommendations(List.of())
+                    .build();
+        }
+        if (previous == null) {
+            return BodyCompareFeedbackDTO.builder()
+                    .summary("인바디 결과가 저장되었습니다. 다음 측정부터 직전 기록과 비교 분석을 제공합니다.")
+                    .bodyChanges(List.of())
+                    .recommendations(List.of())
+                    .build();
+        }
+
+        List<BodyCompareFeedbackDTO.BodyChangeItem> bodyChanges = new ArrayList<>();
+        List<String> recommendations = new ArrayList<>();
+
+        compareDouble(bodyChanges, "체중", current.getWeight(), previous.getWeight(), "kg");
+        compareDouble(bodyChanges, "골격근량", current.getSkeletalMuscleMass(), previous.getSkeletalMuscleMass(), "kg");
+        compareDouble(bodyChanges, "체지방률", current.getBodyFatPercent(), previous.getBodyFatPercent(), "%");
+
+        String prevDateStr = formatMeasuredDate(previous.getMeasuredTime());
+        String currDateStr = formatMeasuredDate(current.getMeasuredTime());
+        String summary = bodyChanges.isEmpty()
+                ? (prevDateStr + " 측정 대비 " + currDateStr + " 측정에서 유의한 변화가 없습니다.")
+                : (prevDateStr + " 측정 대비 " + currDateStr + " 측정에서 " + bodyChanges.size() + "개 항목이 변경되었습니다.");
+
+        if (current.getWeight() != null && previous.getWeight() != null) {
+            double diff = current.getWeight() - previous.getWeight();
+            if (diff > 0.5) recommendations.add("체중이 소폭 증가했습니다. 일주일 식단·운동을 유지해 보세요.");
+            else if (diff < -0.5) recommendations.add("체중이 감소했습니다. 균형 잡힌 식사로 영양을 챙기세요.");
+        }
+
+        return BodyCompareFeedbackDTO.builder()
+                .summary(summary)
+                .bodyChanges(bodyChanges)
+                .mealFeedback(null)
+                .exerciseFeedback(null)
+                .recommendations(recommendations)
+                .build();
+    }
+
+    private String formatMeasuredDate(Instant measuredTime) {
+        if (measuredTime == null) return "?";
+        return measuredTime.atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("M/d"));
+    }
+
+    private void compareDouble(List<BodyCompareFeedbackDTO.BodyChangeItem> out, String label,
+                               Double currentVal, Double previousVal, String unit) {
+        if (currentVal == null || previousVal == null) return;
+        double diff = currentVal - previousVal;
+        if (Math.abs(diff) < 0.1) return;
+        String change = diff > 0 ? "증가" : "감소";
+        String message = String.format("%s %.1f%s → %.1f%s (%+.1f%s %s)", label, previousVal, unit, currentVal, unit, diff, unit, change);
+        out.add(BodyCompareFeedbackDTO.BodyChangeItem.builder().message(message).change(change).build());
     }
 }
 

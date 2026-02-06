@@ -12,3 +12,6 @@ pillow==10.4.0
 sentence-transformers==2.7.0
 redis>=5.0.0
 google-genai==1.61.0
+# Paddle OCR (최신)
+paddlepaddle>=3.0.0
+paddleocr>=3.4.0

@@ -1,5 +1,6 @@
 package com.backend.service.memberinfo;
 
+import com.backend.dto.memberinfo.BodyCompareFeedbackDTO;
 import com.backend.dto.memberinfo.MemberInfoBodyDTO;
 import com.backend.dto.memberinfo.MemberInfoBodyResponseDTO;
 
@@ -7,6 +8,11 @@ import java.time.LocalDate;
 import java.util.List;
 
 public interface MemberInfoBodyService {
+
+    /**
+     * OCR 결과 저장 후 직전 기록과 비교하여 피드백 반환
+     */
+    BodyCompareFeedbackDTO saveAndCompare(Long memberId, MemberInfoBodyDTO dto);
 
     // 신체 정보 생성
     Long create(Long memberId, MemberInfoBodyDTO dto);
