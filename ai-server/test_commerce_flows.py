@@ -5,6 +5,7 @@
 - `python test_commerce_flows.py` 로 실행하면 각 시나리오 결과를 콘솔에 출력.
 """
 import os
+from datetime import datetime, timedelta
 from typing import Dict, Any
 
 
@@ -67,8 +68,8 @@ co.state_machine.delete_session = _sm_delete_session
 def _fake_classify_intent(text: str) -> Dict[str, Any]:
     """글로벌 인텐트: '루틴'이 포함되면 OFF_TOPIC 유도, 그 외에는 PRODUCT_RECOMMEND."""
     if "루틴" in text:
-        return {"intent": "ROUTINE_QUERY"}
-    return {"intent": "PRODUCT_RECOMMEND"}
+        return {"intent": "ROUTINE_QUERY", "entities": {"date": "today"}}
+    return {"intent": "PRODUCT_RECOMMEND", "entities": {}}
 
 
 # CONFIRM_* 상태에서 문장형 발화 시 호출하는 상위 의도 분류 (classify_intent_top_level)
@@ -221,6 +222,8 @@ def test_off_topic() -> None:
 
     r2 = co.handle_commerce_recommend("오늘 루틴 뭐였지?", session_id, auth_token=auth)
     assert r2["error"] == "OFF_TOPIC", r2
+    assert r2.get("intent") == "ROUTINE_QUERY", r2
+    assert isinstance(r2.get("entities"), dict), r2
     assert session_id not in _SESSIONS
 
 
@@ -233,6 +236,23 @@ def test_recommend_state_off_topic() -> None:
     r = co.handle_commerce_recommend("오늘 루틴 뭐였지?", session_id, auth_token=auth)
     assert r["error"] == "OFF_TOPIC", r
     assert r.get("intent") == "ROUTINE_QUERY", r
+    assert isinstance(r.get("entities"), dict), r
+    assert session_id not in _SESSIONS
+
+
+def test_session_expired() -> None:
+    """awaiting_since 3분 경과 시 SESSION_EXPIRED + 세션 삭제."""
+    session_id = "test_session_expired"
+    auth = "Bearer dummy"
+
+    co.state_machine.create_session(session_id)
+    co.state_machine.update_session(
+        session_id,
+        awaiting_since=datetime.now() - timedelta(seconds=181),
+    )
+
+    r = co.handle_commerce_recommend("다음 말은 새로 처리돼야 해", session_id, auth_token=auth)
+    assert r["error"] == "SESSION_EXPIRED", r
     assert session_id not in _SESSIONS
 
 
@@ -242,6 +262,7 @@ def main() -> None:
         ("info_lack_then_recommend", test_info_lack_then_recommend),
         ("off_topic", test_off_topic),
         ("recommend_state_off_topic", test_recommend_state_off_topic),
+        ("session_expired", test_session_expired),
     ]
 
     print("== Commerce flow tests (mocked) ==")
