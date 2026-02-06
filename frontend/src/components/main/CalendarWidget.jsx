@@ -14,6 +14,9 @@ export default function CalendarWidget() {
   const [isRoutineModalOpen, setIsRoutineModalOpen] = useState(false);
   const [mealDates, setMealDates] = useState([]); // 식사 데이터가 있는 날짜 배열 (YYYY-MM-DD)
   const [routineDates, setRoutineDates] = useState([]); // 루틴이 있는 날짜 배열 (YYYY-MM-DD)
+  // 상태 맵: "none" | "exists" | "in-progress" | "completed"
+  const [routineStatusMap, setRoutineStatusMap] = useState({});
+  const [mealStatusMap, setMealStatusMap] = useState({});
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -171,9 +174,59 @@ export default function CalendarWidget() {
           }
           
           setMealDates(dates);
+
+          // 식단 상태 계산 - 현재 월의 모든 날짜에 대해
+          const statusMap = {};
+          const daysInMonth = new Date(year, month + 1, 0).getDate();
+          const statusPromises = [];
+
+          for (let day = 1; day <= daysInMonth; day++) {
+            const checkDate = new Date(year, month, day);
+            const dateStr = formatDateKey(checkDate);
+
+            statusPromises.push(
+              mealApi.getDashboard(dateStr)
+                .then(data => {
+                  if (!data) {
+                    statusMap[dateStr] = 'none';
+                    return;
+                  }
+
+                  // 모든 끼니의 meals 수집
+                  const allMeals = [
+                    ...(data.breakfast?.meals || []),
+                    ...(data.lunch?.meals || []),
+                    ...(data.dinner?.meals || []),
+                    ...(data.snack?.meals || []),
+                  ];
+
+                  if (allMeals.length === 0) {
+                    statusMap[dateStr] = 'none';
+                  } else {
+                    const eatenCount = allMeals.filter((meal) => meal.status === 'EATEN').length;
+                    const totalCount = allMeals.length;
+
+                    if (eatenCount === 0) {
+                      statusMap[dateStr] = 'exists'; // 식단 있음, eaten 없음
+                    } else if (eatenCount < totalCount) {
+                      statusMap[dateStr] = 'in-progress'; // 일부 eaten
+                    } else {
+                      statusMap[dateStr] = 'completed'; // 모두 eaten
+                    }
+                  }
+                })
+                .catch(() => {
+                  statusMap[dateStr] = 'none';
+                })
+            );
+          }
+
+          await Promise.all(statusPromises);
+          setMealStatusMap(statusMap);
         } catch (error) {
           console.error('❌ 식사 캘린더 조회 실패:', error);
           setMealDates([]);
+          setMealStatusMap({});
         }
       } else {
         try {
@@ -189,9 +242,44 @@ export default function CalendarWidget() {
                 })
             : [];
           setRoutineDates(dates);
+
+          // 루틴 상태 계산
+          const statusMap = {};
+          if (Array.isArray(routines)) {
+            routines.forEach((routine) => {
+              if (!routine.date) return;
+              
+              let dateKey = '';
+              if (typeof routine.date === 'string') {
+                dateKey = routine.date.split('T')[0].trim();
+              } else {
+                dateKey = formatDateKey(new Date(routine.date));
+              }
+
+              if (!dateKey || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return;
+
+              const exercises = routine.exercises || [];
+              if (exercises.length === 0) {
+                statusMap[dateKey] = 'exists'; // 루틴은 있지만 운동이 없음
+              } else {
+                const completedCount = exercises.filter((ex) => ex.completed === true).length;
+                const totalCount = exercises.length;
+
+                if (completedCount === 0) {
+                  statusMap[dateKey] = 'exists'; // 루틴 있음, 완료 없음
+                } else if (completedCount < totalCount) {
+                  statusMap[dateKey] = 'in-progress'; // 일부 완료
+                } else {
+                  statusMap[dateKey] = 'completed'; // 모두 완료
+                }
+              }
+            });
+          }
+          setRoutineStatusMap(statusMap);
         } catch (error) {
           console.error('루틴 히스토리 조회 실패:', error);
           setRoutineDates([]);
+          setRoutineStatusMap({});
         }
       }
     };
@@ -287,18 +375,30 @@ export default function CalendarWidget() {
           const isTodayDate = isToday(date);
           const dateKey = formatDateKey(date);
 
-          // 날짜 비교: 간단하고 확실한 방법
-          let hasMealData = false;
-          let hasRoutineData = false;
+          // 상태 확인
+          let status = 'none';
+          let hasData = false;
           
           if (selectedTag === 'MEAL') {
-            // mealDates 배열에 정확히 일치하는 날짜가 있는지 확인
-            hasMealData = mealDates.includes(dateKey);
+            status = mealStatusMap[dateKey] || 'none';
+            hasData = isCurrent && (status !== 'none');
           } else if (selectedTag === 'ROUTINE') {
-            hasRoutineData = routineDates.includes(dateKey);
+            status = routineStatusMap[dateKey] || 'none';
+            hasData = isCurrent && (status !== 'none');
           }
-          
-          const hasData = isCurrent && (selectedTag === 'MEAL' ? hasMealData : hasRoutineData);
+
+          // 점 색상 결정
+          let dotColorClass = '';
+          if (hasData) {
+            // 루틴/식단 공통: 회색(존재) -> 노란색(진행중) -> 초록색(완료)
+            if (status === 'exists') {
+              dotColorClass = 'bg-gray-400';
+            } else if (status === 'in-progress') {
+              dotColorClass = 'bg-yellow-500';
+            } else if (status === 'completed') {
+              dotColorClass = 'bg-primary-500';
+            }
+          }
 
           return (
             <button
@@ -307,14 +407,14 @@ export default function CalendarWidget() {
               className={`aspect-square rounded-token text-sm transition-colors flex flex-col items-center justify-center ${
                 isCurrent
                   ? isTodayDate
-                    ? 'bg-primary-500 text-bg-root font-bold'
+                    ? 'bg-bg-surface text-text-main font-bold border-2 border-primary-500'
                     : 'bg-bg-surface text-text-main hover:bg-gray-100'
                   : 'text-text-muted'
               }`}
             >
               <span>{date.getDate()}</span>
-              {hasData && (
-                <span className="mt-1 w-1.5 h-1.5 rounded-full bg-primary-500" />
+              {hasData && dotColorClass && (
+                <span className={`mt-1 w-1.5 h-1.5 rounded-full ${dotColorClass}`} />
               )}
             </button>
           );
