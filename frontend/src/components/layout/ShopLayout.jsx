@@ -138,7 +138,7 @@ const ShopLayout = ({ children }) => {
 
   return (
     <CartContext.Provider value={cartContextValue}>
-      <BasicLayout containerClassName="page-container page-container-wide">
+      <BasicLayout containerClassName="page-container">
         {children}
 
         {!isCheckoutPage && (

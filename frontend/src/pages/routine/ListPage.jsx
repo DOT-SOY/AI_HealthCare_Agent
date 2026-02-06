@@ -1,17 +1,38 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useRoutines } from '../../hooks/useRoutines';
 import { useExercises } from '../../hooks/useExercises';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { routineApi } from '../../api/routineApi';
+import WeeklyCalendar from '../../components/routine/WeeklyCalendar';
 import AISummaryCard from '../../components/routine/AISummaryCard';
 import ExerciseCard from '../../components/routine/ExerciseCard';
 import ExerciseEditModal from '../../components/routine/ExerciseEditModal';
 import LoadingModal from '../../components/common/LoadingModal';
 
 export default function TodayRoutinePage() {
+  const location = useLocation();
   const { todayRoutine, weekRoutines, loading, fetchRoutineByDate, fetchTodayRoutine, fetchWeekRoutines } = useRoutines();
   const { addExercise } = useExercises();
   const { connectWebSocket, subscribeToRoutineUpdate } = useWebSocket();
+  // URL 쿼리에서 date=YYYY-MM-DD가 있으면 그 날짜를 기본 선택 날짜로 사용
+  const getInitialSelectedDate = () => {
+    try {
+      const params = new URLSearchParams(location.search);
+      const dateParam = params.get('date');
+      if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+        const parsed = new Date(`${dateParam}T00:00:00`);
+        if (!isNaN(parsed.getTime())) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('선택 날짜 파싱 실패:', e);
+    }
+    return new Date();
+  };
+
+  const [selectedDate, setSelectedDate] = useState(getInitialSelectedDate);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showYearDropdown, setShowYearDropdown] = useState(false);
   const [showMonthDropdown, setShowMonthDropdown] = useState(false);
@@ -19,6 +40,16 @@ export default function TodayRoutinePage() {
   const [activeExerciseId, setActiveExerciseId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isAddExerciseModalOpen, setIsAddExerciseModalOpen] = useState(false);
+  const [dateRoutine, setDateRoutine] = useState(null); // URL/선택 날짜용 개별 루틴
+
+  // 로컬 기준 YYYY-MM-DD 키 생성 (UTC toISOString 사용으로 인한 1일 차이 방지)
+  const toLocalDateKey = (d) => {
+    const dd = d instanceof Date ? d : new Date(d);
+    const y = dd.getFullYear();
+    const m = String(dd.getMonth() + 1).padStart(2, '0');
+    const day = String(dd.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
 
   const selectedDateObj = useMemo(
     () => (selectedDate instanceof Date ? selectedDate : new Date(selectedDate || Date.now())),
@@ -50,12 +81,57 @@ export default function TodayRoutinePage() {
 
     const found = weekRoutines.find(r => {
       if (!r || !r.date) return false;
-      const routineDateStr = typeof r.date === 'string' ? r.date.split('T')[0] : formatDateForApi(new Date(r.date));
+      const routineDateStr = typeof r.date === 'string' 
+        ? (r.date.includes('T') ? r.date.split('T')[0] : r.date)
+        : toLocalDateKey(r.date);
       return routineDateStr === selectedDateStr;
     });
 
-    return found || null;
-  }, [selectedDateObj, todayRoutine, weekRoutines, refreshKey]);
+    if (found) return found;
+
+    // 주간 루틴에 없으면, 개별 조회한 루틴(dateRoutine) 사용
+    if (dateRoutine && dateRoutine.date) {
+      const routineDateStr = typeof dateRoutine.date === 'string'
+        ? (dateRoutine.date.includes('T') ? dateRoutine.date.split('T')[0] : dateRoutine.date)
+        : toLocalDateKey(dateRoutine.date);
+      if (routineDateStr === selectedDateStr) {
+        return dateRoutine;
+      }
+    }
+
+    return null;
+  }, [selectedDate, todayRoutine, weekRoutines, dateRoutine, refreshKey]);
+
+  // URL 쿼리(date)가 변경되면 선택 날짜를 동기화
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const dateParam = params.get('date');
+    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+      const parsed = new Date(`${dateParam}T00:00:00`);
+      if (!isNaN(parsed.getTime())) {
+        setSelectedDate(parsed);
+      }
+    }
+  }, [location.search]);
+
+  // 선택된 날짜 기준으로 개별 루틴 데이터 로딩 (오늘/이번 주에 없을 때를 대비)
+  useEffect(() => {
+    const fetchByDate = async () => {
+      const selectedDateStr = toLocalDateKey(selectedDate);
+      const todayStr = toLocalDateKey(new Date());
+
+      // 오늘은 todayRoutine/weekRoutines를 우선 사용
+      if (selectedDateStr === todayStr) {
+        setDateRoutine(null);
+        return;
+      }
+
+      const data = await fetchRoutineByDate(selectedDateStr);
+      setDateRoutine(data || null);
+    };
+
+    fetchByDate();
+  }, [selectedDate, fetchRoutineByDate]);
 
 
   const handleRoutineUpdate = useCallback(async () => {
@@ -124,7 +200,7 @@ export default function TodayRoutinePage() {
 
   return (
     <div className="w-full">
-      {/* 헤더: 식사처럼 오른쪽에 년/월/일 선택 */}
+      {/* 헤더 */}
       <header className="section-header-token flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="section-title">
@@ -239,17 +315,26 @@ export default function TodayRoutinePage() {
           {/* 운동 목록 */}
           <div className="space-y-4 mt-6">
             {displayRoutine.exercises && Array.isArray(displayRoutine.exercises) && displayRoutine.exercises.length > 0 ? (
-              displayRoutine.exercises.map((exercise, index) => (
-                <ExerciseCard
-                  key={exercise.id || index}
-                  exercise={exercise}
-                  routineId={displayRoutine.id}
-                  isActive={activeExerciseId === exercise.id}
-                  onStart={() => handleExerciseStart(exercise.id)}
-                  onComplete={handleExerciseComplete}
-                  onUpdate={handleRoutineUpdate}
-                />
-              ))
+              (() => {
+                // 완료된 운동과 미완료 운동 분리
+                const incompleteExercises = displayRoutine.exercises.filter(ex => !ex.completed);
+                const completedExercises = displayRoutine.exercises.filter(ex => ex.completed);
+
+                // 미완료 항목을 위로, 완료 항목을 아래로 배치
+                const sortedExercises = [...incompleteExercises, ...completedExercises];
+
+                return sortedExercises.map((exercise, index) => (
+                  <ExerciseCard
+                    key={exercise.id || index}
+                    exercise={exercise}
+                    routineId={displayRoutine.id}
+                    isActive={activeExerciseId === exercise.id}
+                    onStart={() => handleExerciseStart(exercise.id)}
+                    onComplete={handleExerciseComplete}
+                    onUpdate={handleRoutineUpdate}
+                  />
+                ));
+              })()
             ) : (
               <div className="text-center text-text-muted py-8">
                 <p>이 루틴에 운동이 없습니다.</p>
@@ -286,4 +371,3 @@ export default function TodayRoutinePage() {
     </div>
   );
 }
-

@@ -1,10 +1,358 @@
-import { Outlet } from "react-router-dom";
+import React, { useState, useEffect } from "react";
 import BasicLayout from "../../components/layout/BasicLayout";
+import { User, Moon, Sun, X, Plus, Edit, Trash2 } from "lucide-react";
+import AddressSearchModal from "../../components/common/AddressSearchModal";
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip,
+} from "recharts";
+import { getMyBodyInfoHistory, updateBodyInfo } from "../../services/bodyInfoApi";
+import {
+  getMemberInfoAddrList,
+  createMemberInfoAddr,
+  updateMemberInfoAddr,
+  deleteMemberInfoAddr,
+  setDefaultMemberInfoAddr
+} from "../../services/memberInfoAddrApi";
 
 const ProfileIndex = () => {
+  const [historyData, setHistoryData] = useState([]);
+  const [latestInfo, setLatestInfo] = useState(null);
+
+  // 대시보드 차트/레이아웃에서 사용할 다크 모드 플래그
+  const isDark = true;
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editData, setEditData] = useState({});
+
+  // 배송지 관련 상태
+  const [addressList, setAddressList] = useState([]);
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [editingAddress, setEditingAddress] = useState(null);
+  const [addressFormData, setAddressFormData] = useState({
+    shipToName: '',
+    shipToPhone: '',
+    shipZipcode: '',
+    shipAddress1: '',
+    shipAddress2: '',
+    isDefault: false
+  });
+  const [isAddressSearchOpen, setIsAddressSearchOpen] = useState(false);
+  const fetchData = async () => {
+    try {
+      const data = await getMyBodyInfoHistory();
+      if (data && data.length > 0) {
+        setHistoryData(data);
+        // ✅ 백엔드에서 이미 최신순으로 정렬해서 반환하므로 첫 번째가 최신
+        setLatestInfo(data[0]);
+        // 배송지 목록도 함께 조회
+        if (data[0]?.memberId) {
+          fetchAddressList(data[0].memberId);
+        }
+      }
+    } catch (error) {
+      console.error("데이터 로딩 실패:", error);
+    }
+  };
+
+  const fetchAddressList = async (memberId) => {
+    try {
+      const data = await getMemberInfoAddrList(memberId);
+      // 기본 배송지가 맨 위로 오도록 정렬
+      const sorted = [...data].sort((a, b) => {
+        if (a.isDefault && !b.isDefault) return -1;
+        if (!a.isDefault && b.isDefault) return 1;
+        return 0;
+      });
+      setAddressList(sorted);
+    } catch (error) {
+      console.error("배송지 목록 조회 실패:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleEditClick = () => {
+    if (!latestInfo) {
+      alert("수정할 데이터가 없습니다.");
+      return;
+    }
+    setEditData({ ...latestInfo });
+    setIsModalOpen(true);
+  };
+
+  const safeParseFloat = (val) => {
+    if (val === "" || val === null || val === undefined) return 0;
+    const num = Number(val);
+    return isNaN(num) ? 0 : num;
+  };
+
+  const handleSave = async (updatedData) => {
+    try {
+      const payload = {
+        ...latestInfo,
+        ...updatedData
+      };
+
+      // 불필요한 BaseEntity 필드 제거
+      delete payload.regDate;
+      delete payload.modDate;
+
+      // 숫자로 변환
+      payload.height = Number(payload.height);
+      payload.weight = Number(payload.weight);
+      payload.skeletalMuscleMass = Number(payload.skeletalMuscleMass);
+      payload.bodyFatPercent = Number(payload.bodyFatPercent);
+      payload.bodyWater = Number(payload.bodyWater);
+      payload.protein = Number(payload.protein);
+      payload.minerals = Number(payload.minerals);
+      payload.bodyFatMass = Number(payload.bodyFatMass);
+      payload.targetWeight = Number(payload.targetWeight);
+      payload.weightControl = Number(payload.weightControl);
+      payload.fatControl = Number(payload.fatControl);
+      payload.muscleControl = Number(payload.muscleControl);
+
+      console.log("🚀 최종 전송 Payload:", payload);
+
+      await updateBodyInfo(payload.id, payload);
+
+      alert("성공적으로 수정되었습니다.");
+      setIsModalOpen(false);
+      fetchData();
+    } catch (error) {
+      console.error("수정 실패:", error);
+      alert(error.message || "수정 중 오류가 발생했습니다.");
+    }
+  };
+
+  // 차트 데이터 가공 - 날짜별 최신 1건만 남기고 표시 (같은 날 여러 기록 시 그래프 튐 방지)
+  const getDateKey = (isoString) => {
+    if (!isoString) return "";
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return "";
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const dailyLatestMap = new Map();
+  for (const item of historyData) {
+    const dateKey = getDateKey(item.measuredTime);
+    if (!dateKey) continue;
+    const current = dailyLatestMap.get(dateKey);
+    const currentTime = current?.measuredTime ? new Date(current.measuredTime).getTime() : 0;
+    const itemTime = item.measuredTime ? new Date(item.measuredTime).getTime() : 0;
+    if (!current || itemTime >= currentTime) {
+      dailyLatestMap.set(dateKey, item);
+    }
+  }
+
+  const chartData = Array.from(dailyLatestMap.entries())
+    .sort((a, b) => (a[0] > b[0] ? 1 : -1))
+    .map(([dateKey, item]) => ({
+      name: dateKey,
+      fatRate: item.bodyFatPercent,
+      muscle: item.skeletalMuscleMass,
+      weight: item.weight,
+    }));
+
+  const val = (v, unit = "") => (v !== null && v !== undefined ? `${v} ${unit}` : "-");
+
+  const calculateAge = (birthDateString) => {
+    if (!birthDateString) return "-";
+    const birthYear = new Date(birthDateString).getFullYear();
+    const currentYear = new Date().getFullYear();
+    return currentYear - birthYear + 1;
+  };
+
+  // 배송지 관련 핸들러
+  const handleAddAddressClick = () => {
+    setEditingAddress(null);
+    setAddressFormData({
+      shipToName: '',
+      shipToPhone: '',
+      shipZipcode: '',
+      shipAddress1: '',
+      shipAddress2: '',
+      isDefault: false
+    });
+    setIsAddressModalOpen(true);
+  };
+
+  const handleEditAddressClick = (address) => {
+    setEditingAddress(address);
+    setAddressFormData({
+      shipToName: address.shipToName || '',
+      shipToPhone: address.shipToPhone || '',
+      shipZipcode: address.shipZipcode || '',
+      shipAddress1: address.shipAddress1 || '',
+      shipAddress2: address.shipAddress2 || '',
+      isDefault: address.isDefault || false
+    });
+    setIsAddressModalOpen(true);
+  };
+
+  const handleAddressSave = async () => {
+    try {
+      if (editingAddress) {
+        await updateMemberInfoAddr(editingAddress.id, addressFormData);
+      } else {
+        await createMemberInfoAddr(addressFormData);
+      }
+      setIsAddressModalOpen(false);
+      if (latestInfo?.memberId) {
+        fetchAddressList(latestInfo.memberId);
+      }
+      alert("배송지가 저장되었습니다.");
+    } catch (error) {
+      console.error("배송지 저장 실패:", error);
+      alert(error.message || "배송지 저장 중 오류가 발생했습니다.");
+    }
+  };
+
+  const handleDeleteAddress = async (id) => {
+    if (!window.confirm("정말 삭제하시겠습니까?")) return;
+    try {
+      await deleteMemberInfoAddr(id);
+      if (latestInfo?.memberId) {
+        fetchAddressList(latestInfo.memberId);
+      }
+      alert("배송지가 삭제되었습니다.");
+    } catch (error) {
+      console.error("배송지 삭제 실패:", error);
+      alert(error.message || "배송지 삭제 중 오류가 발생했습니다.");
+    }
+  };
+
+  const handleSetDefaultAddress = async (id) => {
+    try {
+      await setDefaultMemberInfoAddr(id);
+      if (latestInfo?.memberId) {
+        fetchAddressList(latestInfo.memberId);
+      }
+      alert("기본 배송지로 설정되었습니다.");
+    } catch (error) {
+      console.error("기본 배송지 설정 실패:", error);
+      alert(error.message || "기본 배송지 설정 중 오류가 발생했습니다.");
+    }
+  };
+
   return (
-    <BasicLayout>
-      <Outlet />
+    <BasicLayout containerClassName="page-container dashboard-container">
+      <div className="w-full">
+        <header className="section-header-token">
+          <h1 className="section-title">
+            <span className="text-text-main">My </span>
+            <span className="text-primary-500">Profile</span>
+          </h1>
+        </header>
+
+        <div className="dashboard-main mt-6">
+          {/* === 좌측 패널 === */}
+          <aside className="left-sidebar">
+            <div className="info-card">
+              <div className="card-header">
+                <h2 className="text-text-main font-display font-bold">회원정보</h2>
+              </div>
+              <div className="card-content profile-details">
+                <div className="row name-row flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="name text-lg font-bold text-text-main">
+                      {latestInfo?.memberName || "사용자"}
+                    </span>
+                    <span className="gender-icon text-sm text-text-sub">
+                      {latestInfo?.gender === "MALE" ? "♂ 남성" : latestInfo?.gender === "FEMALE" ? "♀ 여성" : "-"}
+                    </span>
+                  </div>
+                  <button type="button" className="btn-edit" onClick={handleEditClick}>
+                    <User size={12} /> 수정
+                  </button>
+                </div>
+
+                <div className="row date mt-1 text-text-sub text-sm">
+                  {latestInfo?.birthDate} ({calculateAge(latestInfo?.birthDate)}세)
+                </div>
+                <div className="row stats text-text-main">
+                  <span>{val(latestInfo?.height, "cm")}</span> &nbsp;/&nbsp; <span>{val(latestInfo?.weight, "kg")}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="info-card">
+              <h3 className="section-title text-text-main">체성분 분석</h3>
+              <div className="data-list">
+                <DataRow label="체수분(L)" value={val(latestInfo?.bodyWater, "L")} />
+                <DataRow label="단백질(kg)" value={val(latestInfo?.protein, "kg")} />
+                <DataRow label="무기질(kg)" value={val(latestInfo?.minerals, "kg")} />
+                <DataRow label="체지방(kg)" value={val(latestInfo?.bodyFatMass, "kg")} />
+              </div>
+            </div>
+
+            <div className="info-card">
+              <h3 className="section-title text-text-main">체중조절</h3>
+              <div className="data-list">
+                <DataRow label="적정체중" value={val(latestInfo?.targetWeight, "kg")} />
+                <DataRow label="체중조절" value={val(latestInfo?.weightControl, "kg")} />
+                <DataRow label="지방조절" value={val(latestInfo?.fatControl, "kg")} />
+                <DataRow label="근육조절" value={val(latestInfo?.muscleControl, "kg")} />
+              </div>
+            </div>
+          </aside>
+
+          {/* === 우측 패널 (차트) === */}
+          <main className="right-content">
+            <div className="badge-row">
+              <span className="lime-badge">인바디 자동분석</span>
+            </div>
+            <div className="charts-container">
+              <ChartRow title="체지방률" value={val(latestInfo?.bodyFatPercent, "%")}
+                        chartTitle="체지방률 변화" data={chartData} dataKey="fatRate" strokeColor="#4A90E2" isDark={isDark} />
+              <ChartRow title="골격근량" value={val(latestInfo?.skeletalMuscleMass, "kg")}
+                        chartTitle="골격근량 변화" data={chartData} dataKey="muscle" strokeColor="#D0021B" isDark={isDark} />
+              <ChartRow title="체중" value={val(latestInfo?.weight, "kg")}
+                        chartTitle="체중 변화" data={chartData} dataKey="weight" strokeColor="#7ED321" isDark={isDark} />
+            </div>
+          </main>
+        </div>
+
+        {/* ✅ 신체 정보 수정 모달 */}
+        {isModalOpen && (
+          <BodyInfoModifyModal
+            data={editData}
+            addressList={addressList}
+            onClose={() => setIsModalOpen(false)}
+            onSave={handleSave}
+            onAddAddress={handleAddAddressClick}
+            onEditAddress={handleEditAddressClick}
+            onDeleteAddress={handleDeleteAddress}
+            onSetDefaultAddress={handleSetDefaultAddress}
+            onRefreshAddress={() => latestInfo?.memberId && fetchAddressList(latestInfo.memberId)}
+          />
+        )}
+
+        {/* ✅ 배송지 추가/수정 모달 */}
+        {isAddressModalOpen && (
+          <AddressEditModal
+            data={addressFormData}
+            onChange={(field, value) => setAddressFormData(prev => ({ ...prev, [field]: value }))}
+            onClose={() => setIsAddressModalOpen(false)}
+            onSave={handleAddressSave}
+            onAddressSearch={() => setIsAddressSearchOpen(true)}
+          />
+          )}
+
+        {/* 주소 검색 모달 */}
+        <AddressSearchModal
+          isOpen={isAddressSearchOpen}
+          onClose={() => setIsAddressSearchOpen(false)}
+          onSelect={(addressData) => {
+            setAddressFormData(prev => ({ ...prev, shipZipcode: addressData.zipcode, shipAddress1: addressData.address1, shipAddress2: addressData.address2 || prev.shipAddress2 }));
+            setIsAddressSearchOpen(false);
+          }}
+        />
+      </div>
     </BasicLayout>
   );
 };

@@ -375,28 +375,50 @@ const OrderDetailPage = () => {
           <h2 className="text-base font-semibold mb-3 text-text-main">상품 정보</h2>
           {order.items && order.items.length > 0 ? (
             <div className="space-y-3">
-              {order.items.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex justify-between gap-3 text-sm border-b border-border-default pb-2 last:border-b-0"
-                >
-                  <div className="flex-1">
-                    <p className="font-medium text-text-main">{item.productName}</p>
-                    {item.variantOption && (
-                      <p className="text-text-muted mt-0.5 text-xs">옵션: {item.variantOption}</p>
-                    )}
-                    <p className="text-text-muted mt-1 text-xs">수량: {item.qty}개</p>
+              {order.items.map((item) => {
+                const productLink = item.productId ? `/shop/detail/${item.productId}` : null;
+
+                const content = (
+                  <>
+                    <div className="flex-1">
+                      <p className="font-medium text-text-main">{item.productName}</p>
+                      {item.variantOption && (
+                        <p className="text-text-muted mt-0.5 text-xs">옵션: {item.variantOption}</p>
+                      )}
+                      <p className="text-text-muted mt-1 text-xs">수량: {item.qty}개</p>
+                    </div>
+                    <div className="text-right whitespace-nowrap">
+                      <p className="text-text-muted text-xs">
+                        단가 {Number(item.unitPrice ?? 0).toLocaleString()}원
+                      </p>
+                      <p className="font-medium text-text-main mt-1">
+                        {Number(item.lineAmount ?? 0).toLocaleString()}원
+                      </p>
+                    </div>
+                  </>
+                );
+
+                if (productLink) {
+                  return (
+                    <Link
+                      key={item.id}
+                      to={productLink}
+                      className="flex justify-between gap-3 text-sm border-b border-border-default pb-2 last:border-b-0 rounded-token px-2 -mx-2 hover:bg-bg-surface/60 transition-colors"
+                    >
+                      {content}
+                    </Link>
+                  );
+                }
+
+                return (
+                  <div
+                    key={item.id}
+                    className="flex justify-between gap-3 text-sm border-b border-border-default pb-2 last:border-b-0"
+                  >
+                    {content}
                   </div>
-                  <div className="text-right whitespace-nowrap">
-                    <p className="text-text-muted text-xs">
-                      단가 {Number(item.unitPrice ?? 0).toLocaleString()}원
-                    </p>
-                    <p className="font-medium text-text-main mt-1">
-                      {Number(item.lineAmount ?? 0).toLocaleString()}원
-                    </p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <p className="text-sm text-text-muted">주문 상품이 없습니다.</p>

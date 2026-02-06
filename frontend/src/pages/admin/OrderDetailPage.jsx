@@ -8,7 +8,7 @@ import { getAdminOrderDetail, updateOrderStatusAdmin } from '../../services/orde
 const statusLabels = {
   CREATED: '주문 생성',
   PAYMENT_PENDING: '결제 대기',
-  PAID: '결제 완료',
+  PAID: '배송 대기',
   SHIPPED: '배송중',
   DELIVERED: '배송완료',
   CANCELED: '취소',

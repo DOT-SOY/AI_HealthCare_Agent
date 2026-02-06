@@ -16,6 +16,7 @@ import { useWebSocket } from '../hooks/useWebSocket';
 import RoutineRecommendModal from '../components/ai/RoutineRecommendModal';
 import PainModifyModal from '../components/ai/PainModifyModal';
 import { mealApi } from '../api/mealApi';
+import { aiApi } from '../api/aiApi';
 import ExerciseRecognitionModal from '../components/exercise/ExerciseRecognitionModal';
 
 export default function AIChatOverlay() {
@@ -355,7 +356,7 @@ export default function AIChatOverlay() {
       dispatch(
         addMessage({
           role: 'user',
-          content: '[음식 이미지 업로드]',
+          content: '',
           imageUrl: dataUrl,
           meta: { kind: 'MEAL_IMAGE' },
         }),
@@ -367,11 +368,11 @@ export default function AIChatOverlay() {
 
       dispatch(setLoading(true));
 
-      const base64 = dataUrl.split(',')[1] || '';
+      // /api/ai/chat 엔드포인트로 이미지 전송 (이미지 분류 후 음식/인바디 라우팅)
+      // 백엔드는 이미지 분류 후 mealService.asyncVisionAnalysis를 호출하고,
+      // 실제 결과는 WebSocket(/topic/meal/vision/{userId})로 옴
       visionPendingRef.current = true;
-
-      // 서버는 즉시 응답, 결과는 WS로 수신
-      await mealApi.analyzeVision(base64);
+      await aiApi.sendMessage(null, file, null);
 
       dispatch(addMessage({ role: 'assistant', content: '이미지 분석을 시작했어요. 잠시만 기다려주세요...' }));
     } catch (err) {
@@ -432,13 +433,13 @@ export default function AIChatOverlay() {
             <svg className="w-8 h-8 relative z-[2] text-neutral-950" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
             </svg>
-
-            {notificationCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-accent-secondary text-white text-xs font-bold rounded-full min-w-[22px] h-[22px] px-2 flex items-center justify-center border-2 border-bg-root z-[3] shadow-sm leading-none">
-                {notificationCount > 9 ? '9+' : notificationCount}
-              </span>
-            )}
           </button>
+
+          {notificationCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-accent-secondary text-white text-xs font-bold rounded-full min-w-[22px] h-[22px] px-2 flex items-center justify-center border-2 border-bg-root z-[3] shadow-sm leading-none pointer-events-none">
+              {notificationCount > 9 ? '9+' : notificationCount}
+            </span>
+          )}
         </div>
       )}
       </div>
