@@ -136,7 +136,7 @@ export default function VolumeChart() {
       <div className="flex gap-2 mb-4">
         <button
           onClick={() => setPeriod('month')}
-          className={`px-4 py-2 rounded-token text-sm font-medium transition-colors ${
+          className={`px-4 py-1 rounded-token text-sm font-medium transition-colors ${
             period === 'month'
               ? 'bg-primary-500 text-bg-root'
               : 'bg-bg-surface text-text-main hover:bg-bg-card border border-border-default'
@@ -146,7 +146,7 @@ export default function VolumeChart() {
         </button>
         <button
           onClick={() => setPeriod('week')}
-          className={`px-4 py-2 rounded-token text-sm font-medium transition-colors ${
+          className={`px-4 py-1 rounded-token text-sm font-medium transition-colors ${
             period === 'week'
               ? 'bg-primary-500 text-bg-root'
               : 'bg-bg-surface text-text-main hover:bg-bg-card border border-border-default'

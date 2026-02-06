@@ -22,7 +22,7 @@ const AdminPage = () => {
     <BasicLayout>
       <div className="w-full max-w-5xl mx-auto py-6">
         <nav className="flex gap-4 mb-6 border-b pb-4">
-          <Link to="/admin/orders" className="text-gray-600 hover:text-gray-900 font-medium">
+          <Link to="/admin/orders" className="text-text-sub hover:text-text-main font-medium">
             주문 관리
           </Link>
         </nav>

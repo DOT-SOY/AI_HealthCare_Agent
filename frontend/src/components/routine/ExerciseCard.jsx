@@ -203,13 +203,13 @@ export default function ExerciseCard({ exercise, routineId, isActive = false, on
           className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
           onClick={() => setIsDeleteConfirmOpen(false)}
         >
-          <div
-            className="bg-neutral-800 rounded-lg p-6 w-96"
+            <div
+            className="bg-bg-card rounded-lg p-6 w-96 border border-border-default shadow-card"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-xl font-semibold text-neutral-50 mb-4">운동 삭제</h3>
-            <p className="text-neutral-300 mb-6">
-              정말로 <span className="font-medium" style={{ color: '#88ce02' }}>{exercise.name}</span> 운동을 삭제하시겠습니까?
+            <h3 className="text-xl font-semibold text-text-main mb-4">운동 삭제</h3>
+            <p className="text-text-sub mb-6">
+              정말로 <span className="font-medium text-primary-500">{exercise.name}</span> 운동을 삭제하시겠습니까?
               <br />
               <span className="text-sm text-text-muted">이 작업은 되돌릴 수 없습니다.</span>
             </p>
@@ -224,7 +224,7 @@ export default function ExerciseCard({ exercise, routineId, isActive = false, on
               <button
                 type="button"
                 onClick={handleDelete}
-                className="px-4 py-2 rounded-token font-medium bg-accent-secondary text-white hover:opacity-90 transition-colors"
+                className="px-4 py-2 rounded-token font-medium bg-accent-secondary text-bg-root hover:opacity-90 transition-colors"
               >
                 삭제
               </button>

@@ -110,9 +110,14 @@ const OrderListPage = () => {
 
   return (
     <div className="space-y-token-6">
-      <header className="section-header-token">
-        <h1 className="section-title">내 주문 내역</h1>
-        <p className="section-desc">최근 주문 현황과 결제 금액을 한 번에 확인하세요.</p>
+      <header className="section-header-token flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
+        <div>
+          <h1 className="section-title">
+            <span className="text-text-main">내 주문 </span>
+            <span className="text-primary-500">내역</span>
+          </h1>
+          <p className="section-desc mt-1">최근 주문 현황과 결제 금액을 한 번에 확인하세요.</p>
+        </div>
       </header>
 
       <section>

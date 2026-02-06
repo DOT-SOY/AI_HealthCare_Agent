@@ -25,7 +25,6 @@
   }
   @media (min-width: 1024px) {
     .page-container {
-      padding-top: 4rem;
       padding-bottom: 4rem;
       padding-left: 2rem;
       padding-right: 2rem;
@@ -251,6 +250,9 @@
     line-height: 1.2;
     letter-spacing: -0.025em;
     text-transform: uppercase;
+    color: var(--text-main);
+    text-align: left;
+    padding: 0;
     color: var(--text-main);
   }
   .section-header-token .section-desc {
