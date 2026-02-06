@@ -17,7 +17,6 @@ public class Meal {
     // [Inner Enum Definition]
     // =================================================================
     @Getter
-    @AllArgsConstructor
     public enum MealTime {
         BREAKFAST("아침"),
         LUNCH("점심"),
@@ -26,19 +25,22 @@ public class Meal {
 
         private final String label;
 
-        public String getLabel() {
-            return label;
+        MealTime(String label) {
+            this.label = label;
         }
     }
 
     @Getter
-    @AllArgsConstructor
     public enum MealStatus {
         PLANNED("계획"),
         EATEN("섭취"),
         SKIPPED("건너뜀");
 
         private final String description;
+
+        MealStatus(String description) {
+            this.description = description;
+        }
     }
     // =================================================================
 

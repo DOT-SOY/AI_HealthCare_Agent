@@ -8,6 +8,9 @@ export default defineConfig({
   define: {
     global: 'globalThis',
   },
+  optimizeDeps: {
+    include: ['@mediapipe/pose', '@mediapipe/camera_utils'],
+  },
   server: {
     port: 5173,
     proxy: {
