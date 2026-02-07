@@ -16,7 +16,7 @@ import {
   deleteMemberInfoAddr,
   setDefaultMemberInfoAddr
 } from "../../services/memberInfoAddrApi";
-import { extractOcrText, extractOcrTextPaddle } from "../../services/ocrApi";
+import { extractOcrText } from "../../services/ocrApi";
 
 const ProfileIndex = () => {
   const _location = useLocation();
@@ -168,10 +168,9 @@ const ProfileIndex = () => {
     setOcrLoading(true);
 
     try {
-      // Paddle OCR (AI 서버)
-      const res = await extractOcrTextPaddle(list[0].file);
+      // Vision OCR (Spring 백엔드 gpt-4o-mini)
+      const res = await extractOcrText(list[0].file);
       const parsedData = res?.parsed ?? {};
-      // [기존] Spring 백엔드 OCR: const res = await extractOcrText(list[0].file);
       setOcrImages((prev) => [{ ...prev[0], parsedData }]);
       setComparisonFeedback(null);
       // 확인 단계 진입 시 편집 폼·측정일 초기화 (OCR 추출값 + 기존 최신 정보 보조)
