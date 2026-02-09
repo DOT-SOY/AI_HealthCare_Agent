@@ -15,6 +15,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -46,11 +51,37 @@ public class OpenAiVisionClient {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
-    @Value("${openai.api-key}")
+    private static final String PROTEIN_REGION_PROMPT =
+            "이 이미지는 인바디 체성분분석 표의 단백질(kg) 측정치 영역입니다. 이 영역에 있는 숫자 하나만 추출하세요. 소수점 있으면 포함 (예: 11.9). Return ONLY the number, no JSON, no explanation.";
+    private static final String MINERALS_REGION_PROMPT =
+            "이 이미지는 인바디 체성분분석 표의 무기질(kg) 측정치 영역입니다. 이 영역에 있는 숫자 하나만 추출하세요. 소수점 있으면 포함 (예: 3.81). Return ONLY the number, no JSON, no explanation.";
+
+    @Value("${openai.api-key:}")
     private String apiKey;
 
-    @Value("${openai.model}")
+    @Value("${openai.model:gpt-4o-mini}")
     private String model;
+
+    @Value("${inbody.region.protein.enabled:false}")
+    private boolean proteinRegionEnabled;
+    @Value("${inbody.region.protein.x:0.14}")
+    private double proteinX;
+    @Value("${inbody.region.protein.y:0.17}")
+    private double proteinY;
+    @Value("${inbody.region.protein.w:0.32}")
+    private double proteinW;
+    @Value("${inbody.region.protein.h:0.055}")
+    private double proteinH;
+    @Value("${inbody.region.minerals.enabled:false}")
+    private boolean mineralsRegionEnabled;
+    @Value("${inbody.region.minerals.x:0.14}")
+    private double mineralsX;
+    @Value("${inbody.region.minerals.y:0.235}")
+    private double mineralsY;
+    @Value("${inbody.region.minerals.w:0.32}")
+    private double mineralsW;
+    @Value("${inbody.region.minerals.h:0.055}")
+    private double mineralsH;
 
     /**
      * OpenAI Vision API로 이미지에서 텍스트를 추출합니다.
@@ -63,7 +94,8 @@ public class OpenAiVisionClient {
         }
 
         try {
-            String base64Image = Base64.getEncoder().encodeToString(file.getBytes());
+            byte[] fullImageBytes = file.getBytes();
+            String base64Image = Base64.getEncoder().encodeToString(fullImageBytes);
             String mimeType = file.getContentType() != null ? file.getContentType() : "image/jpeg";
             String dataUrl = "data:" + mimeType + ";base64," + base64Image;
 
@@ -151,6 +183,43 @@ public class OpenAiVisionClient {
                     .measurementDate(measurementDate)
                     .build();
 
+            // 영역 기반 보정: 파란 박스(단백질), 빨간 박스(무기질) 영역만 크롭 후 Vision으로 재추출
+            Double regionProtein = null;
+            Double regionMinerals = null;
+            if (proteinRegionEnabled && fullImageBytes != null && fullImageBytes.length > 0) {
+                try {
+                    byte[] cropped = cropImageByRatio(fullImageBytes, proteinX, proteinY, proteinW, proteinH);
+                    if (cropped != null) regionProtein = extractSingleNumberFromImage(cropped, PROTEIN_REGION_PROMPT);
+                } catch (Exception e) {
+                    log.warn("영역 기반 단백질 추출 실패: {}", e.getMessage());
+                }
+            }
+            if (mineralsRegionEnabled && fullImageBytes != null && fullImageBytes.length > 0) {
+                try {
+                    byte[] cropped = cropImageByRatio(fullImageBytes, mineralsX, mineralsY, mineralsW, mineralsH);
+                    if (cropped != null) regionMinerals = extractSingleNumberFromImage(cropped, MINERALS_REGION_PROMPT);
+                } catch (Exception e) {
+                    log.warn("영역 기반 무기질 추출 실패: {}", e.getMessage());
+                }
+            }
+            if (regionProtein != null || regionMinerals != null) {
+                parsed = OcrParsedBodyDTO.builder()
+                        .weight(parsed.getWeight())
+                        .height(parsed.getHeight())
+                        .skeletalMuscleMass(parsed.getSkeletalMuscleMass())
+                        .bodyFatPercent(parsed.getBodyFatPercent())
+                        .bodyWater(parsed.getBodyWater())
+                        .protein(regionProtein != null ? regionProtein : parsed.getProtein())
+                        .minerals(regionMinerals != null ? regionMinerals : parsed.getMinerals())
+                        .bodyFatMass(parsed.getBodyFatMass())
+                        .targetWeight(parsed.getTargetWeight())
+                        .weightControl(parsed.getWeightControl())
+                        .fatControl(parsed.getFatControl())
+                        .muscleControl(parsed.getMuscleControl())
+                        .measurementDate(parsed.getMeasurementDate())
+                        .build();
+            }
+
             return OcrResponseDTO.builder()
                     .parsed(parsed)
                     .language("ko")
@@ -195,6 +264,77 @@ public class OpenAiVisionClient {
             }
         }
         return null;
+    }
+
+    /**
+     * 이미지를 비율(0~1)로 지정한 영역만 잘라서 PNG 바이트로 반환.
+     */
+    private byte[] cropImageByRatio(byte[] imageBytes, double xRatio, double yRatio, double wRatio, double hRatio) {
+        try (InputStream in = new ByteArrayInputStream(imageBytes)) {
+            BufferedImage img = ImageIO.read(in);
+            if (img == null) return null;
+            int w = img.getWidth();
+            int h = img.getHeight();
+            int x = (int) Math.round(xRatio * w);
+            int y = (int) Math.round(yRatio * h);
+            int cw = (int) Math.round(wRatio * w);
+            int ch = (int) Math.round(hRatio * h);
+            if (x < 0) x = 0;
+            if (y < 0) y = 0;
+            if (x + cw > w) cw = w - x;
+            if (y + ch > h) ch = h - y;
+            if (cw <= 0 || ch <= 0) return null;
+            BufferedImage sub = img.getSubimage(x, y, cw, ch);
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            if (!ImageIO.write(sub, "png", out)) return null;
+            return out.toByteArray();
+        } catch (Exception e) {
+            log.debug("이미지 크롭 실패: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 크롭된 이미지에서 Vision으로 숫자 하나만 추출.
+     */
+    private Double extractSingleNumberFromImage(byte[] imageBytes, String prompt) {
+        if (imageBytes == null || imageBytes.length == 0) return null;
+        String base64Image = Base64.getEncoder().encodeToString(imageBytes);
+        String dataUrl = "data:image/png;base64," + base64Image;
+        Map<String, Object> imageContent = Map.of(
+                "type", "image_url",
+                "image_url", Map.of("url", dataUrl)
+        );
+        Map<String, Object> textContent = Map.of("type", "text", "text", prompt);
+        Map<String, Object> message = Map.of(
+                "role", "user",
+                "content", List.of(textContent, imageContent)
+        );
+        Map<String, Object> requestBody = Map.of(
+                "model", model,
+                "messages", List.of(message),
+                "max_tokens", 64
+        );
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(apiKey.trim());
+        try {
+            ResponseEntity<String> response = restTemplate.postForEntity(
+                    OPENAI_CHAT_URL, new HttpEntity<>(requestBody, headers), String.class);
+            String body = response.getBody();
+            if (body == null || body.isEmpty()) return null;
+            JsonNode root = objectMapper.readTree(body);
+            String content = root.path("choices").path(0).path("message").path("content").asText("").trim();
+            // 숫자만 추출 (소수점, 마이너스 허용)
+            Matcher m = Pattern.compile("-?\\d+\\.?\\d*").matcher(content);
+            if (m.find()) {
+                return Double.parseDouble(m.group());
+            }
+            return null;
+        } catch (Exception e) {
+            log.debug("영역 Vision 추출 실패: {}", e.getMessage());
+            return null;
+        }
     }
 
     /**

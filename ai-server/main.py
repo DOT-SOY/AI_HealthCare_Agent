@@ -1,7 +1,8 @@
-# OneDNN 비활성화 (Paddle OCR 시 ConvertPirAttribute2RuntimeAttribute 오류 방지)
-import os
-os.environ["FLAGS_use_mkldnn"] = "0"
+# Paddle OCR 미사용 (인바디 OCR은 Spring 백엔드 gpt-4o-mini Vision 사용)
+# import os
+# os.environ["FLAGS_use_mkldnn"] = "0"
 
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File, Header
 from fastapi.middleware.cors import CORSMiddleware
@@ -254,39 +255,24 @@ async def analyze_inbody(file: UploadFile = File(...)):
     )
 
 
-@app.post("/ocr/extract")
-async def ocr_extract(file: UploadFile = File(...)):
-    """Paddle OCR로 인바디 이미지에서 체성분 텍스트 추출 → 프론트 parsed 형식 반환"""
-    try:
-        from services.ocr.paddle_ocr_service import extract_inbody_from_image
-    except ImportError as e:
-        return {"parsed": {}, "error": f"Paddle OCR 로드 실패: {e}"}
-    content = await file.read()
-    if not content:
-        return {"parsed": {}, "error": "이미지 데이터가 없습니다."}
-    try:
-        parsed = extract_inbody_from_image(content)
-        # 디버그/이상징후 로깅: 빈 결과 또는 모든 값이 동일하면 호출은 됐는데 파싱/인식이 깨진 케이스
-        try:
-            vals = [v for v in (parsed or {}).values() if isinstance(v, (int, float, str)) and v not in ("", None)]
-            uniq = {str(v) for v in vals}
-            if not parsed:
-                # 어떤 파일이 실제로 실행 중인지 확정(경로 불일치/서버 다른 곳 실행 의심 해결)
-                try:
-                    src = extract_inbody_from_image.__code__.co_filename  # type: ignore[attr-defined]
-                except Exception:
-                    src = "unknown"
-                print(f"[ocr] parsed is empty (no fields extracted) source={src}", flush=True)
-            elif len(vals) >= 4 and len(uniq) == 1:
-                print(f"[ocr] suspicious parsed: all values identical -> {next(iter(uniq))}, keys={list(parsed.keys())}", flush=True)
-        except Exception:
-            pass
-        # parsed가 비면 프론트에서도 바로 보이도록 에러를 내려줌 (200 OK라도 ocrApi.js가 data.error면 throw)
-        if not parsed:
-            return {"parsed": {}, "error": "OCR 파싱 결과가 비었습니다. (ai-server 로그의 [paddle_ocr] 출력 확인 필요)"}
-        return {"parsed": parsed}
-    except Exception as e:
-        return {"parsed": {}, "error": str(e)}
+# ----- Paddle OCR 주석 처리. 인바디 OCR은 Spring 백엔드(gpt-4o-mini Vision) 사용 -----
+# @app.post("/ocr/extract")
+# async def ocr_extract(file: UploadFile = File(...)):
+#     """Paddle OCR로 인바디 이미지에서 체성분 텍스트 추출 → 프론트 parsed 형식 반환"""
+#     try:
+#         from services.ocr.paddle_ocr_service import extract_inbody_from_image
+#     except ImportError as e:
+#         return {"parsed": {}, "error": f"Paddle OCR 로드 실패: {e}"}
+#     content = await file.read()
+#     if not content:
+#         return {"parsed": {}, "error": "이미지 데이터가 없습니다."}
+#     try:
+#         parsed = extract_inbody_from_image(content)
+#         if not parsed:
+#             return {"parsed": {}, "error": "OCR 파싱 결과가 비었습니다. (ai-server 로그의 [paddle_ocr] 출력 확인 필요)"}
+#         return {"parsed": parsed}
+#     except Exception as e:
+#         return {"parsed": {}, "error": str(e)}
 
 
 @app.post("/food/analyze", response_model=FoodAnalyzeResponse)
