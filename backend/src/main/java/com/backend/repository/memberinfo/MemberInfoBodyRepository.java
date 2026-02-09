@@ -18,7 +18,8 @@ public interface MemberInfoBodyRepository extends JpaRepository<MemberInfoBody, 
     List<MemberInfoBody> findByMemberIdAndNotDeletedOrderByMeasuredTimeDesc(@Param("memberId") Long memberId);
 
     // 특정 회원의 최신 신체 정보 조회 (첫 번째 결과만)
-    Optional<MemberInfoBody> findFirstByMemberIdAndDeletedAtIsNullOrderByMeasuredTimeDescCreatedAtDesc(Long memberId);
+    // Spring Data JPA 메서드 네이밍: findTop1... 사용 시 자동으로 LIMIT 1 적용
+    Optional<MemberInfoBody> findTop1ByMemberIdAndDeletedAtIsNullOrderByMeasuredTimeDescCreatedAtDesc(Long memberId);
 
     // ID로 조회 (삭제되지 않은 것만)
     @Query("SELECT m FROM MemberInfoBody m WHERE m.id = :id AND m.deletedAt IS NULL")

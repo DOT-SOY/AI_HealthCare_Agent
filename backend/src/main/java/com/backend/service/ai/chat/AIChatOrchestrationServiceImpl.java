@@ -10,6 +10,9 @@ import com.backend.dto.response.ImageClassificationResponse;
 import com.backend.dto.response.IntentClassificationResult;
 import com.backend.service.ai.AIIntentService;
 import com.backend.service.ai.ConversationContextService;
+import com.backend.service.meal.context.MealAiContextService;
+import com.backend.dto.meal.MealAiContextDto;
+import com.backend.service.member.CurrentMemberService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
@@ -18,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -60,9 +64,13 @@ public class AIChatOrchestrationServiceImpl implements AIChatOrchestrationServic
     private final MealChatService mealChatService;
     private final BodyChatService bodyChatService;
     private final DeliveryChatService deliveryChatService;
+    private final CommerceChatService commerceChatService;
     private final ImageClassificationClient imageClassificationClient;
     private final InbodyAnalysisClient inbodyAnalysisClient;
     private final FoodAnalysisClient foodAnalysisClient;
+    private final MealAiContextService mealAiContextService;
+    private final com.backend.service.meal.MealService mealService;
+    private final CurrentMemberService currentMemberService;
 
     @Override
     public AIChatResponse handleAIChat(AIChatRequest request) {
@@ -84,6 +92,39 @@ public class AIChatOrchestrationServiceImpl implements AIChatOrchestrationServic
         
         // 4. Speech Act가 아닌 경우에만 트리거 키워드 감지 (기존 로직)
         boolean isTrigger = !isSpeechAct && isTriggerMessage(text);
+
+        // commerce 세션 가드: Redis(ai-server)에 세션이 있으면 우선 commerce로 위임하되,
+        //      응답의 error 코드(SESSION_EXPIRED/OFF_TOPIC/FLOW_COMPLETED)에 따라 재분류 또는 플로우 종료를 판단한다.
+        try {
+            Long memberId = currentMemberService.getCurrentMemberOrThrow().getId();
+            String sessionId = "commerce_" + memberId;
+            boolean inFlow = commerceChatService.isInCommerceFlow(sessionId);
+            if (inFlow) {
+                log.info("commerce 세션 가드: in_flow=true, sessionId={}, 우선 commerce로 위임", sessionId);
+                AIChatResponse commerceResponse = commerceChatService.handleCommerceRecommendBySession(sessionId, text);
+
+                // ai-server 응답의 error 코드 확인
+                String commerceError = null;
+                Object data = commerceResponse.getData();
+                if (data instanceof Map<?, ?> dataMap) {
+                    Object errorValue = dataMap.get("error");
+                    if (errorValue instanceof String) {
+                        commerceError = (String) errorValue;
+                    }
+                }
+
+                if ("SESSION_EXPIRED".equals(commerceError) || "OFF_TOPIC".equals(commerceError)) {
+                    // 세션 만료 또는 딴소리로 인한 플로우 종료: 같은 발화로 intent 재분류 진행
+                    log.info("commerce 플로우 종료 신호 감지: error={}, sessionId={}", commerceError, sessionId);
+                    // fall-through: 아래 intent 분류 로직으로 이어진다.
+                } else {
+                    // FLOW_COMPLETED 또는 기타/없음: commerce 응답을 그대로 반환
+                    return commerceResponse;
+                }
+            }
+        } catch (Exception e) {
+            // 비로그인 등으로 memberId를 얻지 못하면 가드 건너뛰고 기존 의도 분류 진행
+        }
         
         IntentClassificationResult classification;
         
@@ -144,15 +185,51 @@ public class AIChatOrchestrationServiceImpl implements AIChatOrchestrationServic
         }
         
         String intent = classification.getIntent();
+        String intentNorm = intent == null ? "GENERAL_CHAT" : intent.trim().toUpperCase();
+
+        // [중요] MEAL 멀티턴(pending) 중에는, 사용자의 "짧은 후속 응답"이 의도 분류에 의해 다른 도메인으로 튀면 UX가 망가집니다.
+        // 정책: pending이 있는 동안에는 '명확한' WORKOUT/PAIN_REPORT가 아니면 MEAL로 유지합니다.
+        Long memberId = null;
+        try {
+            memberId = currentMemberService.getCurrentMemberOrThrow().getId();
+        } catch (Exception ignored) {
+            memberId = null;
+        }
+
+        MealAiContextDto preCtx = null;
+        try {
+            if (memberId != null) {
+                preCtx = mealAiContextService.get(memberId);
+            }
+        } catch (Exception ignored) {
+            preCtx = null;
+        }
+        
+        boolean hasMealPending = preCtx != null
+                && preCtx.getPending() != null
+                && preCtx.getPending().getType() != null
+                && !preCtx.getPending().getType().isBlank();
+
+        if (hasMealPending && !"MEAL_QUERY".equals(intentNorm)) {
+            boolean clearlyPain = _looksLikePain(text);
+            boolean clearlyWorkout = _looksLikeWorkout(text);
+            boolean shouldKeepMeal = !(clearlyPain || clearlyWorkout);
+            if (shouldKeepMeal) {
+                // pending이 있는 동안에는 식단 컨텍스트로 처리
+                AIChatResponse forcedMeal = mealChatService.handleMeal(classification, request);
+                return forcedMeal;
+            }
+        }
         
         // 7. 의도에 따라 적절한 Service 호출
-        AIChatResponse response = switch (intent) {
+        AIChatResponse response = switch (intentNorm) {
             case "PAIN_REPORT" -> painReportChatService.handlePainReport(classification);
             case "GENERAL_CHAT" -> generalChatService.handleGeneralChat(classification);
             case "WORKOUT" -> workoutChatService.handleWorkout(classification);
-            case "MEAL_QUERY" -> mealChatService.handleMeal(classification);
+            case "MEAL_QUERY" -> mealChatService.handleMeal(classification, request);
             case "BODY_QUERY" -> bodyChatService.handleBodyQuery(classification);
             case "DELIVERY_QUERY" -> deliveryChatService.handleDelivery(classification);
+            case "PRODUCT_RECOMMEND" -> commerceChatService.handleCommerceRecommend(classification, request.getText());
             default -> createErrorResponse("알 수 없는 의도입니다.");
         };
         
@@ -183,7 +260,28 @@ public class AIChatOrchestrationServiceImpl implements AIChatOrchestrationServic
             } else {
                 // food 또는 unknown 모두 음식 분석으로 라우팅
                 log.info("음식 분석으로 라우팅: filename={}", image.getOriginalFilename());
-                return foodAnalysisClient.analyzeFood(image);
+                // 이미지를 base64로 변환하여 MealServiceImpl.asyncVisionAnalysis 호출
+                try {
+                    byte[] imageBytes = image.getBytes();
+                    String base64Image = java.util.Base64.getEncoder().encodeToString(imageBytes);
+                    Long userId = null;
+                    try {
+                        userId = currentMemberService.getCurrentMemberOrThrow().getId();
+                    } catch (Exception ignored) {
+                        // userId를 가져올 수 없으면 일반 분석으로 fallback
+                        return foodAnalysisClient.analyzeFood(image);
+                    }
+                    // 비동기로 이미지 분석 시작 (결과는 WebSocket으로 전송됨)
+                    mealService.asyncVisionAnalysis(userId, base64Image);
+                    // 즉시 응답 반환 (분석은 백그라운드에서 진행)
+                    return AIChatResponse.builder()
+                            .message("이미지 분석을 시작했어요. 잠시만 기다려주세요...")
+                            .intent("MEAL_QUERY")
+                            .build();
+                } catch (Exception e) {
+                    log.error("이미지 base64 변환 실패, 일반 분석으로 fallback", e);
+                    return foodAnalysisClient.analyzeFood(image);
+                }
             }
             
         } catch (Exception e) {
@@ -271,6 +369,41 @@ public class AIChatOrchestrationServiceImpl implements AIChatOrchestrationServic
         }
         
         return context.toString();
+    }
+
+    /**
+     * [도메인 보호] 통증/부상으로 강하게 보이는지(명확할 때만 PAIN_REPORT로 전환)
+     */
+    private boolean _looksLikePain(String text) {
+        if (text == null) return false;
+        String t = text.trim();
+        if (t.isEmpty()) return false;
+        // 최소 키워드 기반(보수적으로): 통증 관련 단어가 명시될 때만 true
+        String[] keywords = new String[] { "아파", "통증", "뻐근", "쑤셔", "저려", "다쳤", "부상", "삐끗", "염좌" };
+        for (String k : keywords) {
+            if (t.contains(k)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * [도메인 보호] 운동 루틴/기록으로 강하게 보이는지(명확할 때만 WORKOUT로 전환)
+     * - "운동" 단독 키워드는 식단 대화에서도 등장할 수 있어, 더 구체적인 신호를 우선 사용합니다.
+     */
+    private boolean _looksLikeWorkout(String text) {
+        if (text == null) return false;
+        String t = text.trim();
+        if (t.isEmpty()) return false;
+
+        String[] strong = new String[] {
+                "루틴", "세트", "횟수", "kg", "RM", "운동 추천", "루틴 추천",
+                "스쿼트", "벤치", "데드", "데드리프트", "오버헤드", "프레스", "바벨", "플랭크",
+                "유산소", "러닝", "런닝", "달리기"
+        };
+        for (String k : strong) {
+            if (t.contains(k)) return true;
+        }
+        return false;
     }
 
     private AIChatResponse createErrorResponse(String errorMessage) {

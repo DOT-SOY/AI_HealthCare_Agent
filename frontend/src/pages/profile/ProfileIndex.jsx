@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from "react";
 import BasicLayout from "../../components/layout/BasicLayout";
 import { User, Moon, Sun, X, Plus, Edit, Trash2 } from "lucide-react";
+import AddressSearchModal from "../../components/common/AddressSearchModal";
+import OcrInbodyUploadModal from "../../components/profile/ocrInbodyUploadModal";
+import OcrInbodyVerifyModal from "../../components/profile/OcrInbodyVerifyModal";
+import { analyzeInbodyImage, saveVerifiedBodyInfo } from "../../services/ocrInbodyApi";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip,
 } from "recharts";
@@ -23,6 +27,12 @@ const ProfileIndex = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editData, setEditData] = useState({});
 
+  // 인바디 OCR 업로드 모달
+  const [isInbodyOcrOpen, setIsInbodyOcrOpen] = useState(false);
+  // 인바디 검증 모달
+  const [isInbodyVerifyOpen, setIsInbodyVerifyOpen] = useState(false);
+  const [inbodyVerifyData, setInbodyVerifyData] = useState(null);
+
   // 배송지 관련 상태
   const [addressList, setAddressList] = useState([]);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
@@ -35,16 +45,17 @@ const ProfileIndex = () => {
     shipAddress2: '',
     isDefault: false
   });
-
+  const [isAddressSearchOpen, setIsAddressSearchOpen] = useState(false);
   const fetchData = async () => {
     try {
       const data = await getMyBodyInfoHistory();
       if (data && data.length > 0) {
         setHistoryData(data);
-        setLatestInfo(data[data.length - 1]);
+        // ✅ 백엔드에서 이미 최신순으로 정렬해서 반환하므로 첫 번째가 최신
+        setLatestInfo(data[0]);
         // 배송지 목록도 함께 조회
-        if (data[data.length - 1]?.memberId) {
-          fetchAddressList(data[data.length - 1].memberId);
+        if (data[0]?.memberId) {
+          fetchAddressList(data[0].memberId);
         }
       }
     } catch (error) {
@@ -124,28 +135,37 @@ const ProfileIndex = () => {
     }
   };
 
-  // 차트 데이터 가공 - measuredTime을 X축에 표시 (오른쪽으로 갈수록 최근 날짜)
-  const sortedHistory = [...historyData].sort((a, b) => {
-    const aTime = a.measuredTime ? new Date(a.measuredTime).getTime() : 0;
-    const bTime = b.measuredTime ? new Date(b.measuredTime).getTime() : 0;
-    return aTime - bTime; // 오래된 날짜 -> 최신 날짜 순
-  });
+  // 차트 데이터 가공 - 날짜별 최신 1건만 남기고 표시 (같은 날 여러 기록 시 그래프 튐 방지)
+  const getDateKey = (isoString) => {
+    if (!isoString) return "";
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return "";
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
 
-  const chartData = sortedHistory.map((item) => {
-    let name = "";
-    if (item.measuredTime) {
-      const date = new Date(item.measuredTime);
-      const month = date.getMonth() + 1;
-      const day = date.getDate();
-      name = `${month}/${day}`;
+  const dailyLatestMap = new Map();
+  for (const item of historyData) {
+    const dateKey = getDateKey(item.measuredTime);
+    if (!dateKey) continue;
+    const current = dailyLatestMap.get(dateKey);
+    const currentTime = current?.measuredTime ? new Date(current.measuredTime).getTime() : 0;
+    const itemTime = item.measuredTime ? new Date(item.measuredTime).getTime() : 0;
+    if (!current || itemTime >= currentTime) {
+      dailyLatestMap.set(dateKey, item);
     }
-    return {
-      name,
+  }
+
+  const chartData = Array.from(dailyLatestMap.entries())
+    .sort((a, b) => (a[0] > b[0] ? 1 : -1))
+    .map(([dateKey, item]) => ({
+      name: dateKey,
       fatRate: item.bodyFatPercent,
       muscle: item.skeletalMuscleMass,
       weight: item.weight,
-    };
-  });
+    }));
 
   const val = (v, unit = "") => (v !== null && v !== undefined ? `${v} ${unit}` : "-");
 
@@ -228,6 +248,31 @@ const ProfileIndex = () => {
     }
   };
 
+  const handleAnalyzeInbodyOcr = async (file) => {
+    try {
+      const result = await analyzeInbodyImage(file);
+      // 업로드 모달 닫기 -> 검증 모달 열기
+      setIsInbodyOcrOpen(false);
+      setInbodyVerifyData(result);
+      setIsInbodyVerifyOpen(true);
+    } catch (err) {
+      console.error(err);
+      alert("분석에 실패했습니다.");
+    }
+  };
+
+  const handleSaveVerifiedInbody = async (finalData) => {
+    try {
+      await saveVerifiedBodyInfo(finalData);
+      alert("인바디 정보가 저장되었습니다.");
+      setIsInbodyVerifyOpen(false);
+      await fetchData();
+    } catch (err) {
+      console.error(err);
+      alert("저장에 실패했습니다.");
+    }
+  };
+
   return (
     <BasicLayout containerClassName="page-container dashboard-container">
       <div className="w-full">
@@ -275,7 +320,7 @@ const ProfileIndex = () => {
                 <DataRow label="체수분(L)" value={val(latestInfo?.bodyWater, "L")} />
                 <DataRow label="단백질(kg)" value={val(latestInfo?.protein, "kg")} />
                 <DataRow label="무기질(kg)" value={val(latestInfo?.minerals, "kg")} />
-                <DataRow label="체지방(kg)" value={val(latestInfo?.bodyFatMass, "kg")} />
+                <DataRow label="체지방량(kg)" value={val(latestInfo?.bodyFatMass, "kg")} />
               </div>
             </div>
 
@@ -293,7 +338,13 @@ const ProfileIndex = () => {
           {/* === 우측 패널 (차트) === */}
           <main className="right-content">
             <div className="badge-row">
-              <span className="lime-badge">인바디 자동분석</span>
+              <button
+                type="button"
+                className="lime-badge"
+                onClick={() => setIsInbodyOcrOpen(true)}
+              >
+                인바디 자동분석
+              </button>
             </div>
             <div className="charts-container">
               <ChartRow title="체지방률" value={val(latestInfo?.bodyFatPercent, "%")}
@@ -328,8 +379,34 @@ const ProfileIndex = () => {
             onChange={(field, value) => setAddressFormData(prev => ({ ...prev, [field]: value }))}
             onClose={() => setIsAddressModalOpen(false)}
             onSave={handleAddressSave}
+            onAddressSearch={() => setIsAddressSearchOpen(true)}
           />
-        )}
+          )}
+
+        {/* 주소 검색 모달 */}
+        <AddressSearchModal
+          isOpen={isAddressSearchOpen}
+          onClose={() => setIsAddressSearchOpen(false)}
+          onSelect={(addressData) => {
+            setAddressFormData(prev => ({ ...prev, shipZipcode: addressData.zipcode, shipAddress1: addressData.address1, shipAddress2: addressData.address2 || prev.shipAddress2 }));
+            setIsAddressSearchOpen(false);
+          }}
+        />
+
+        {/* ✅ 인바디 OCR 업로드 모달 */}
+        <OcrInbodyUploadModal
+          isOpen={isInbodyOcrOpen}
+          onClose={() => setIsInbodyOcrOpen(false)}
+          onAnalyze={handleAnalyzeInbodyOcr}
+        />
+
+        {/* ✅ 인바디 OCR 검증 모달 */}
+        <OcrInbodyVerifyModal
+          isOpen={isInbodyVerifyOpen}
+          data={inbodyVerifyData}
+          onClose={() => setIsInbodyVerifyOpen(false)}
+          onSave={handleSaveVerifiedInbody}
+        />
       </div>
     </BasicLayout>
   );
@@ -419,9 +496,10 @@ const BodyInfoModifyModal = ({ data, addressList, onClose, onSave, onAddAddress,
     }}>
       <div className="modal-content" style={{
         backgroundColor: 'white', padding: '30px', borderRadius: '10px', width: '600px',
-        maxHeight: '90vh', overflowY: 'auto', position: 'relative', boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+        maxHeight: '90vh', overflowY: 'auto', position: 'relative', boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+        color: '#333'
       }}>
-        <button onClick={onClose} style={{ position: 'absolute', top: '15px', right: '15px', border: 'none', background: 'none', cursor: 'pointer' }}>
+        <button onClick={onClose} style={{ position: 'absolute', top: '15px', right: '15px', border: 'none', background: 'none', cursor: 'pointer', color: '#333' }}>
           <X size={24} />
         </button>
 
@@ -448,7 +526,9 @@ const BodyInfoModifyModal = ({ data, addressList, onClose, onSave, onAddAddress,
                   padding: '8px',
                   border: '1px solid #ddd',
                   borderRadius: '4px',
-                  fontSize: '14px'
+                  fontSize: '14px',
+                  color: '#333',
+                  backgroundColor: '#fff'
                 }}
               >
                 <option value="">선택해주세요</option>
@@ -491,7 +571,8 @@ const BodyInfoModifyModal = ({ data, addressList, onClose, onSave, onAddAddress,
                   key={addr.id}
                   style={{
                     padding: '12px', border: '1px solid #ddd', borderRadius: '4px',
-                    backgroundColor: addr.isDefault ? '#f0f8ff' : '#fff'
+                    backgroundColor: addr.isDefault ? '#f0f8ff' : '#fff',
+                    color: '#333'
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
@@ -501,7 +582,7 @@ const BodyInfoModifyModal = ({ data, addressList, onClose, onSave, onAddAddress,
                           [기본]
                         </span>
                       )}
-                      <span style={{ fontWeight: '600' }}>{addr.shipToName}</span>
+                      <span style={{ fontWeight: '600', color: '#333' }}>{addr.shipToName}</span>
                       <span style={{ marginLeft: '8px', fontSize: '13px', color: '#666' }}>{addr.shipToPhone}</span>
                     </div>
                     <div style={{ display: 'flex', gap: '4px' }}>
@@ -510,7 +591,7 @@ const BodyInfoModifyModal = ({ data, addressList, onClose, onSave, onAddAddress,
                           type="button"
                           onClick={() => onSetDefaultAddress(addr.id)}
                           style={{
-                            padding: '4px 8px', fontSize: '11px', backgroundColor: '#f0f0f0',
+                            padding: '4px 8px', fontSize: '11px', backgroundColor: '#f0f0f0', color: '#333',
                             border: '1px solid #ccc', borderRadius: '3px', cursor: 'pointer'
                           }}
                         >
@@ -521,7 +602,7 @@ const BodyInfoModifyModal = ({ data, addressList, onClose, onSave, onAddAddress,
                         type="button"
                         onClick={() => onEditAddress(addr)}
                         style={{
-                          padding: '4px 8px', fontSize: '11px', backgroundColor: '#f0f0f0',
+                          padding: '4px 8px', fontSize: '11px', backgroundColor: '#f0f0f0', color: '#333',
                           border: '1px solid #ccc', borderRadius: '3px', cursor: 'pointer'
                         }}
                       >
@@ -531,7 +612,7 @@ const BodyInfoModifyModal = ({ data, addressList, onClose, onSave, onAddAddress,
                         type="button"
                         onClick={() => onDeleteAddress(addr.id)}
                         style={{
-                          padding: '4px 8px', fontSize: '11px', backgroundColor: '#ffebee',
+                          padding: '4px 8px', fontSize: '11px', backgroundColor: '#ffebee', color: '#d32f2f',
                           border: '1px solid #f44336', borderRadius: '3px', cursor: 'pointer'
                         }}
                       >
@@ -557,7 +638,7 @@ const BodyInfoModifyModal = ({ data, addressList, onClose, onSave, onAddAddress,
 };
 
 // ✅ 배송지 추가/수정 모달
-const AddressEditModal = ({ data, onChange, onClose, onSave }) => {
+const AddressEditModal = ({ data, onChange, onClose, onSave, onAddressSearch }) => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     onChange(name, value);
@@ -575,9 +656,10 @@ const AddressEditModal = ({ data, onChange, onClose, onSave }) => {
     }}>
       <div className="modal-content" style={{
         backgroundColor: 'white', padding: '25px', borderRadius: '10px', width: '450px',
-        position: 'relative', boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+        position: 'relative', boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+        color: '#333'
       }}>
-        <button onClick={onClose} style={{ position: 'absolute', top: '15px', right: '15px', border: 'none', background: 'none', cursor: 'pointer' }}>
+        <button onClick={onClose} style={{ position: 'absolute', top: '15px', right: '15px', border: 'none', background: 'none', cursor: 'pointer', color: '#333' }}>
           <X size={24} />
         </button>
 
@@ -586,8 +668,48 @@ const AddressEditModal = ({ data, onChange, onClose, onSave }) => {
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <InputGroup label="받는 분" name="shipToName" value={data.shipToName || ''} onChange={handleChange} />
           <InputGroup label="연락처" name="shipToPhone" value={data.shipToPhone || ''} onChange={handleChange} />
-          <InputGroup label="우편번호" name="shipZipcode" value={data.shipZipcode || ''} onChange={handleChange} />
-          <InputGroup label="주소" name="shipAddress1" value={data.shipAddress1 || ''} onChange={handleChange} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            <label style={{ fontSize: '12px', color: '#666', fontWeight:'bold' }}>우편번호</label>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="text"
+                name="shipZipcode"
+                value={data.shipZipcode || ''}
+                onChange={handleChange}
+                style={{
+                  flex: 1, padding: '8px', border: '1px solid #ddd', borderRadius: '4px',
+                  fontSize:'14px',
+                  color: '#333', backgroundColor: '#fff'
+                }}
+                placeholder="우편번호"
+              />
+              <button
+                type="button"
+                onClick={onAddressSearch}
+                style={{
+                  padding: '8px 16px', backgroundColor: '#4A90E2', color: 'white',
+                  border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '14px', whiteSpace: 'nowrap'
+                }}
+              >
+                주소 검색
+              </button>
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            <label style={{ fontSize: '12px', color: '#666', fontWeight:'bold' }}>주소</label>
+            <input
+              type="text"
+              name="shipAddress1"
+              value={data.shipAddress1 || ''}
+              onChange={handleChange}
+              style={{
+                padding: '8px', border: '1px solid #ddd', borderRadius: '4px',
+                fontSize:'14px',
+                color: '#333', backgroundColor: '#fff'
+              }}
+              placeholder="주소"
+            />
+          </div>
           <InputGroup label="상세주소" name="shipAddress2" value={data.shipAddress2 || ''} onChange={handleChange} />
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -597,7 +719,7 @@ const AddressEditModal = ({ data, onChange, onClose, onSave }) => {
               checked={data.isDefault || false}
               onChange={(e) => onChange('isDefault', e.target.checked)}
             />
-            <label htmlFor="isDefault" style={{ fontSize: '14px', cursor: 'pointer' }}>
+            <label htmlFor="isDefault" style={{ fontSize: '14px', cursor: 'pointer', color: '#333' }}>
               기본 배송지로 설정
             </label>
           </div>
@@ -623,7 +745,7 @@ const InputGroup = ({ label, name, value, onChange }) => (
       name={name}
       value={value !== null && value !== undefined ? value : ''}
       onChange={onChange}
-      style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize:'14px' }}
+      style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize:'14px', color: '#333', backgroundColor: '#fff' }}
     />
   </div>
 );

@@ -73,8 +73,6 @@ class DummyDataGeneratorTest {
                     .name("테스트회원")
                     .gender(Member.Gender.MALE)
                     .birthDate(LocalDate.of(1990, 1, 1))
-                    .height(175)
-                    .weight(70.0)
                     .isDeleted(false)
                     .build();
                 

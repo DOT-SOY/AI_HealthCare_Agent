@@ -1,11 +1,15 @@
 package com.backend.controller.routine;
 
+import com.backend.dto.request.ApplyPresetRequest;
+import com.backend.dto.request.CreateRoutinesFromRecommendationRequest;
+import com.backend.dto.request.PainModifyApplyRequest;
 import com.backend.dto.request.ExerciseAddRequest;
 import com.backend.dto.request.ExerciseUpdateRequest;
 import com.backend.dto.request.RoutineCreateRequest;
 import com.backend.dto.request.RoutineUpdateRequest;
 import com.backend.dto.response.ExerciseResponse;
 import com.backend.dto.response.RoutineResponse;
+import com.backend.dto.response.RoutinePresetGroupDto;
 import com.backend.dto.response.VolumeStatsResponse;
 import com.backend.service.member.CurrentMemberService;
 import com.backend.service.routine.RoutineService;
@@ -15,6 +19,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -48,7 +53,7 @@ public class RoutineController {
         List<RoutineResponse> response = routineService.getWeeklyRoutines(memberId);
         return ResponseEntity.ok(response);
     }
-    
+
     /**
      * 특정 날짜의 루틴 조회
      */
@@ -64,7 +69,7 @@ public class RoutineController {
         }
         return ResponseEntity.ok(response);
     }
-    
+
     /**
      * 운동 기록 조회
      * - 과거 루틴 목록 조회 (최근 3개월)
@@ -127,7 +132,67 @@ public class RoutineController {
         RoutineResponse response = routineService.createRoutine(memberId, request);
         return ResponseEntity.ok(response);
     }
-    
+
+    /**
+     * 프리셋 루틴 그룹 목록 조회 (카드 1: 분할 4일, 카드 2: 상하체 2일).
+     */
+    @GetMapping("/presets")
+    public ResponseEntity<List<RoutinePresetGroupDto>> getPresets() {
+        List<RoutinePresetGroupDto> presets = routineService.getPresets();
+        return ResponseEntity.ok(presets);
+    }
+
+    /**
+     * 선택한 프리셋 적용. startDate부터 연속 일수만큼 루틴 저장.
+     * presetIndex 0 = 4일 (Push→Pull→Leg→Core+), 1 = 2일 (상체→하체).
+     */
+    @PostMapping("/apply-preset")
+    public ResponseEntity<Map<String, Object>> applyPreset(@RequestBody ApplyPresetRequest request) {
+        Long memberId = currentMemberService.getCurrentMemberOrThrow().getId();
+        LocalDate startDate = request.getStartDate() != null ? request.getStartDate() : LocalDate.now();
+        int presetIndex = request.getPresetIndex() != null ? request.getPresetIndex() : 0;
+        if (presetIndex < 0 || presetIndex > 1) {
+            return ResponseEntity.badRequest().body(Map.of("error", "presetIndex must be 0 or 1"));
+        }
+        routineService.applyPreset(memberId, startDate, presetIndex);
+        return ResponseEntity.ok(Map.of(
+                "message", "프리셋 루틴이 적용되었습니다.",
+                "startDate", startDate.toString(),
+                "presetIndex", presetIndex
+        ));
+    }
+
+    /**
+     * AI 루틴 추천 모달에서 "루틴 생성하기" 클릭 시, 오늘부터 N일치 루틴 저장
+     */
+    @PostMapping("/from-recommendation")
+    public ResponseEntity<Map<String, Object>> createFromRecommendation(
+            @RequestBody CreateRoutinesFromRecommendationRequest request) {
+        Long memberId = currentMemberService.getCurrentMemberOrThrow().getId();
+        if (request.getDays() == null || request.getDays().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "days must not be empty"));
+        }
+        routineService.createRoutinesFromRecommendation(memberId, request);
+        return ResponseEntity.ok(Map.of(
+                "message", "루틴이 저장되었습니다.",
+                "startDate", (request.getStartDate() != null ? request.getStartDate() : LocalDate.now()).toString(),
+                "daysCount", request.getDays().size()
+        ));
+    }
+
+    /**
+     * 통증 수정 모달에서 선택한 대체 운동 적용
+     */
+    @PostMapping("/pain-modify-apply")
+    public ResponseEntity<Map<String, Object>> applyPainModify(@RequestBody PainModifyApplyRequest request) {
+        Long memberId = currentMemberService.getCurrentMemberOrThrow().getId();
+        routineService.applyPainModify(memberId, request);
+        return ResponseEntity.ok(Map.of(
+                "message", "루틴이 수정되었습니다.",
+                "date", (request.getDate() != null ? request.getDate() : LocalDate.now()).toString()
+        ));
+    }
+
     @PutMapping("/{routineId}/status")
     public ResponseEntity<RoutineResponse> updateRoutineStatus(
         @PathVariable Long routineId,
@@ -161,7 +226,8 @@ public class RoutineController {
         @PathVariable Long routineId,
         @PathVariable Long exerciseId
     ) {
-        routineService.deleteExercise(routineId, exerciseId);
+        Long memberId = currentMemberService.getCurrentMemberOrThrow().getId();
+        routineService.deleteExercise(memberId, routineId, exerciseId);
         return ResponseEntity.noContent().build();
     }
     
@@ -173,7 +239,7 @@ public class RoutineController {
         ExerciseResponse response = routineService.toggleExerciseCompleted(routineId, exerciseId);
         return ResponseEntity.ok(response);
     }
-    
+
     /**
      * 총 볼륨 통계 조회
      * - period: "month" (월별) 또는 "week" (주별)

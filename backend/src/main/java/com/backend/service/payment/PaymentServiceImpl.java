@@ -17,6 +17,7 @@ import com.backend.repository.payment.PaymentRepository;
 import com.backend.repository.shop.ProductVariantRepository;
 import com.backend.service.cart.CartKey;
 import com.backend.service.cart.CartService;
+import com.backend.service.shop.ProductSalesRankingService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -55,6 +56,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final ProductVariantRepository productVariantRepository;
     private final CartService cartService;
+    private final ProductSalesRankingService productSalesRankingService;
     private final ObjectMapper objectMapper;
 
     @Value("${toss.payments.client-key:}")
@@ -90,7 +92,7 @@ public class PaymentServiceImpl implements PaymentService {
         Order order = orderRepository.findByOrderNo(orderNo)
                 .orElseThrow(() -> new BusinessException(ErrorCode.SHOP_ORDER_NOT_FOUND, orderNo));
 
-        if (order.getStatus() != OrderStatus.CREATED) {
+        if (order.getStatus() != OrderStatus.CREATED && order.getStatus() != OrderStatus.PAYMENT_PENDING) {
             throw new BusinessException(ErrorCode.SHOP_PAYMENT_INVALID_ORDER_STATE, orderNo, order.getStatus());
         }
 
@@ -98,10 +100,12 @@ public class PaymentServiceImpl implements PaymentService {
             throw new BusinessException(ErrorCode.SHOP_ORDER_ACCESS_DENIED, orderNo);
         }
 
-        order.toPaymentPending();
-
-        String readyPaymentKey = "ready:" + orderNo;
-        upsertPaymentByKey(order, readyPaymentKey, PaymentStatus.READY, null, null);
+        // CREATED일 때만 상태 전이 및 READY 결제 레코드 생성 (PAYMENT_PENDING이면 주문서에서 재결제 시도용으로 정보만 반환)
+        if (order.getStatus() == OrderStatus.CREATED) {
+            order.toPaymentPending();
+            String readyPaymentKey = "ready:" + orderNo;
+            upsertPaymentByKey(order, readyPaymentKey, PaymentStatus.READY, null, null);
+        }
 
         String orderName = "주문 " + orderNo;
         // 토스 customerKey: 영문 대소문자, 숫자, -, _, =, ., @ 로 2~50자. 회원은 long(memberId)이므로 "m_" 접두사로 규격 맞춤.
@@ -262,7 +266,14 @@ public class PaymentServiceImpl implements PaymentService {
             cartService.clearCart(CartKey.ofMember(order.getMember().getId()));
         }
 
-        // 5) 후처리 완료 플래그 설정 (멱등 보장)
+        // 5) Redis 판매순 랭킹 반영 (ZINCRBY, 실패 시 로깅만)
+        try {
+            productSalesRankingService.recordOrderCompleted(order);
+        } catch (Exception e) {
+            log.warn("Redis sales ranking update failed for orderNo={}", orderNo, e);
+        }
+
+        // 6) 후처리 완료 플래그 설정 (멱등 보장)
         order.markFinalized();
     }
 

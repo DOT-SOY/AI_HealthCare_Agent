@@ -69,4 +69,8 @@ public class MemberDTO {
     @DecimalMin(value = "1.0", message = "몸무게는 1kg 이상이어야 합니다.")
     private Double weight;
 
+    // 8. 운동 목적 (선택, 회원가입 시 신체 정보에 함께 저장)
+    @Pattern(regexp = "^(DIET|MAINTAIN|BULK_UP)?$", message = "운동 목적은 DIET, MAINTAIN, BULK_UP 중 하나만 가능합니다.")
+    private String exercisePurpose;
+
 }

@@ -5,8 +5,8 @@ import { Search, RotateCcw, LayoutGrid, UtensilsCrossed, Pill, Dumbbell, Shirt, 
 import { getProductList } from '../../services/productApi';
 import ProductCard from '../../components/shop/ProductCard';
 import Button from '../../components/common/Button';
+import LoadingModal from '../../components/common/LoadingModal';
 
-/** 카테고리: 전체, 음식, 보충제, 헬스용품, 의류, 기타 (아이콘 포함) */
 const SEGMENT_CARDS = [
   { id: null, label: '전체', Icon: LayoutGrid },
   { id: 1, label: '음식', Icon: UtensilsCrossed },
@@ -16,9 +16,6 @@ const SEGMENT_CARDS = [
   { id: 5, label: '기타', Icon: Package },
 ];
 
-/**
- * 상품 목록 페이지 — 클릭 시 상세 이동, 장바구니 담기는 상세에서만
- */
 const ProductList = () => {
   const navigate = useNavigate();
   const loginState = useSelector((state) => state.loginSlice);
@@ -33,7 +30,7 @@ const ProductList = () => {
   const [hasPrevious, setHasPrevious] = useState(false);
   const [keyword, setKeyword] = useState('');
   const [searchInput, setSearchInput] = useState('');
-  const [searchType, setSearchType] = useState('all'); // 'name' | 'description' | 'all'
+  const [searchType, setSearchType] = useState('all');
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
   const productsRef = useRef(null);
 
@@ -118,12 +115,7 @@ const ProductList = () => {
   };
 
   if (loading && products.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-token-4 bg-bg-root">
-        <div className="spinner-token" />
-        <p className="text-text-sub font-medium">로딩 중...</p>
-      </div>
-    );
+    return <LoadingModal isOpen={true} message="로딩 중..." />;
   }
 
   if (error) {
@@ -139,9 +131,7 @@ const ProductList = () => {
 
   return (
     <div className="w-full bg-bg-root">
-      {/* 히어로: 강한 카피 + 그래픽 배경 + CTA */}
       <section className="relative min-h-0 flex flex-col justify-center py-8 sm:py-10 lg:py-12 overflow-hidden">
-        {/* 배경: 그라데이션 + 그리드 패턴 */}
         <div
           className="absolute inset-0 bg-gradient-to-br from-bg-root via-gray-100/30 to-bg-root"
           aria-hidden
@@ -157,19 +147,15 @@ const ProductList = () => {
         />
         <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-bg-root to-transparent" aria-hidden />
 
-        <div className="relative z-10 container-token">
+        <div className="relative z-10">
           <div className="flex flex-wrap items-start justify-between gap-token-6">
             <div>
-              <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl tracking-tighter text-text-main uppercase">
-                TRAIN.
+              <h1 className="section-title" style={{ fontSize: 'clamp(2.25rem, 6vw, 3.75rem)' }}>
+                <span className="text-text-main">TRAIN.</span><br />
+                <span className="text-primary-500">FUEL.</span><br />
+                <span className="text-text-main">PERFORM.</span>
               </h1>
-              <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl tracking-tighter text-primary-500 uppercase">
-                FUEL.
-              </h1>
-              <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl tracking-tighter text-text-main uppercase">
-                PERFORM.
-              </h1>
-              <p className="mt-2 text-text-sub text-base sm:text-lg max-w-md tracking-wide">
+              <p className="section-desc mt-2 max-w-md">
                 지금 필요한 보충제로 퍼포먼스를 올려보세요.
               </p>
               <Button
@@ -201,8 +187,7 @@ const ProductList = () => {
         </div>
       </section>
 
-      {/* 카테고리: 전체, 음식, 보충제, 헬스용품, 의류, 기타 */}
-      <section className="relative z-10 container-token -mt-2 mb-token-4">
+      <section className="relative z-10 -mt-2 mb-token-4">
         <div className="flex flex-wrap items-center gap-2">
           {SEGMENT_CARDS.map(({ id, label, Icon }) => {
             const isSelected = selectedCategoryId === id;
@@ -221,8 +206,7 @@ const ProductList = () => {
         </div>
       </section>
 
-      {/* 검색 바 — 검색 타입 드롭다운 + 검색어 + 검색 초기화 */}
-      <section className="container-token mb-token-8">
+      <section className="mb-token-8">
         <form onSubmit={handleSearch} className="max-w-2xl flex flex-wrap items-stretch gap-2">
           <select
             value={searchType}
@@ -270,8 +254,7 @@ const ProductList = () => {
         </form>
       </section>
 
-      {/* 상품 그리드 — 루틴·기록·식사와 동일 섹션 톤 */}
-      <section ref={productsRef} className="container-token pb-14">
+      <section ref={productsRef} className="pb-14">
         {products.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 gap-token-4 text-center">
             <p className="text-text-muted text-lg">등록된 상품이 없습니다.</p>

@@ -82,16 +82,18 @@ function RankingView() {
   );
 
   return (
-    <div className="w-full text-text-main">
-      {/* 상단 헤더: 운동 기록 페이지와 유사한 크기 */}
-      <header className="section-header-token mb-6">
-        <h1 className="section-title text-3xl sm:text-4xl">
-          <span className="text-text-main">Today's </span>
-          <span className="text-primary-500">Rank</span>
-        </h1>
-        <p className="section-desc">
-          최근 7일 기준 · {filterSummary || "내 프로필(성별·나이대·운동 목적)과 같은 그룹 내 순위"}
-        </p>
+    <div className="w-full text-text-main font-sans">
+      {/* 상단 헤더 */}
+      <header className="section-header-token flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
+        <div>
+          <h1 className="section-title">
+            <span className="text-text-main">Today's </span>
+            <span className="text-primary-500">Rank</span>
+          </h1>
+          <p className="section-desc mt-1">
+            최근 7일 기준 · {filterSummary || "내 프로필(성별·나이대·운동 목적)과 같은 그룹 내 순위"}
+          </p>
+        </div>
       </header>
 
       {loading && (

@@ -5,7 +5,9 @@ import com.backend.common.exception.ErrorCode;
 import com.backend.domain.member.Member;
 import com.backend.dto.member.MemberDTO;
 import com.backend.dto.member.MemberModifyDTO;
+import com.backend.domain.memberinfo.MemberInfoBody;
 import com.backend.dto.memberinfo.MemberInfoBodyDTO;
+import com.backend.dto.memberinfo.MemberInfoBodyResponseDTO;
 import com.backend.service.memberinfo.MemberInfoBodyService;
 import com.backend.repository.member.MemberRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +23,7 @@ import java.time.LocalDate;
 @RequiredArgsConstructor
 @Transactional // 트랜잭션 처리 (오류 발생 시 롤백)
 @Log4j2        // 로그 기록용
+@SuppressWarnings("null")
 public class MemberServiceImpl implements MemberService {
 
     private final MemberRepository memberRepository;
@@ -39,16 +42,23 @@ public class MemberServiceImpl implements MemberService {
         Member member = dtoToEntity(memberDTO, passwordEncoder);
 
         // 3. DB 저장
-        memberRepository.save(member);
+        Member savedMember = memberRepository.save(member);
 
         // 4. 회원가입 시점의 기본 신체 정보 저장 (member_info_body)
+        MemberInfoBody.ExercisePurpose purpose = null;
+        if (memberDTO.getExercisePurpose() != null && !memberDTO.getExercisePurpose().isBlank()) {
+            try {
+                purpose = MemberInfoBody.ExercisePurpose.valueOf(memberDTO.getExercisePurpose().trim());
+            } catch (IllegalArgumentException ignored) { }
+        }
         MemberInfoBodyDTO bodyDto = MemberInfoBodyDTO.builder()
                 .height(memberDTO.getHeight() != null ? memberDTO.getHeight().doubleValue() : null)
                 .weight(memberDTO.getWeight())
+                .exercisePurpose(purpose)
                 .build();
-        memberInfoBodyService.create(member.getId(), bodyDto);
+        memberInfoBodyService.create(savedMember.getId(), bodyDto);
 
-        return member.getId();
+        return savedMember.getId();
     }
 
     // 중복 검사 로직 (탈퇴 회원 제외, existsById 패턴처럼 존재 여부만 확인)
@@ -91,12 +101,38 @@ public class MemberServiceImpl implements MemberService {
         member.setName(memberModifyDTO.getName());
         member.setGender(Member.Gender.valueOf(memberModifyDTO.getGender()));
         member.setBirthDate(LocalDate.parse(memberModifyDTO.getBirthDate()));
-        member.setHeight(memberModifyDTO.getHeight());
-        member.setWeight(memberModifyDTO.getWeight());
         member.changePw(passwordEncoder.encode(memberModifyDTO.getPw()));
 
         // 영속 상태라 save 호출 없이도 반영되지만, 명시적으로 남김
         memberRepository.save(member);
+
+        // 키/몸무게는 MemberInfoBody에서만 관리: 최신 기록 갱신 또는 신규 생성
+        Double heightDouble = memberModifyDTO.getHeight() != null ? memberModifyDTO.getHeight().doubleValue() : null;
+        MemberInfoBodyResponseDTO latestBody = memberInfoBodyService.getLatest(member.getId());
+        if (latestBody != null && latestBody.getId() != null) {
+            MemberInfoBodyDTO bodyDto = MemberInfoBodyDTO.builder()
+                    .height(heightDouble)
+                    .weight(memberModifyDTO.getWeight())
+                    .skeletalMuscleMass(latestBody.getSkeletalMuscleMass())
+                    .bodyFatPercent(latestBody.getBodyFatPercent())
+                    .bodyWater(latestBody.getBodyWater())
+                    .protein(latestBody.getProtein())
+                    .minerals(latestBody.getMinerals())
+                    .bodyFatMass(latestBody.getBodyFatMass())
+                    .targetWeight(latestBody.getTargetWeight())
+                    .weightControl(latestBody.getWeightControl())
+                    .fatControl(latestBody.getFatControl())
+                    .muscleControl(latestBody.getMuscleControl())
+                    .exercisePurpose(latestBody.getExercisePurpose())
+                    .build();
+            memberInfoBodyService.update(latestBody.getId(), bodyDto);
+        } else {
+            MemberInfoBodyDTO bodyDto = MemberInfoBodyDTO.builder()
+                    .height(heightDouble)
+                    .weight(memberModifyDTO.getWeight())
+                    .build();
+            memberInfoBodyService.create(member.getId(), bodyDto);
+        }
 
         log.info("회원 정보 수정 완료: {}", email);
     }

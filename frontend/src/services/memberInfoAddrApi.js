@@ -2,17 +2,27 @@ import jwtAxios from '../util/jwtUtil';
 
 const BASE_URL = '/member-addr-info';
 
+/** 동일 API 중복 호출 방지: 진행 중인 요청이 있으면 같은 Promise 반환 */
+let _myAddressListPromise = null;
+
 /**
  * [조회] 내 배송지 목록 조회 (JWT 인증, jwtAxios가 토큰 자동 첨부)
+ * 짧은 시간 내 연속 호출 시 한 번만 요청하고 동일 Promise 공유
  */
 export const getMyAddressList = async () => {
-  try {
-    const res = await jwtAxios.get(`${BASE_URL}/me`);
-    return res.data ?? [];
-  } catch (error) {
-    console.error('내 배송지 목록 조회 실패:', error);
-    throw error;
-  }
+  if (_myAddressListPromise) return _myAddressListPromise;
+  _myAddressListPromise = (async () => {
+    try {
+      const res = await jwtAxios.get(`${BASE_URL}/me`);
+      return res.data ?? [];
+    } catch (error) {
+      console.error('내 배송지 목록 조회 실패:', error);
+      throw error;
+    } finally {
+      _myAddressListPromise = null;
+    }
+  })();
+  return _myAddressListPromise;
 };
 
 /**

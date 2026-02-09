@@ -3,6 +3,7 @@ package com.backend.domain.meal;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDate;
+import java.time.Instant;
 
 @Entity
 @Table(name = "meal_schedule")
@@ -39,6 +40,20 @@ public class Meal {
 
         private final String description;
     }
+
+    /**
+     * 내부 상태 코드(사용자에게 직접 노출 X)
+     * - status(SKIPPED 등)의 의미가 "사용자 생략"과 "교체로 밀려난 항목"에서 섞이는 문제를 분리하기 위한 코드
+     */
+    @Getter
+    @AllArgsConstructor
+    public enum MealChanged {
+        NONE("없음"),
+        REPLACED_OUT("교체로 제외됨"),
+        REPLACED_IN("교체로 반영됨");
+
+        private final String description;
+    }
     // =================================================================
 
     @Id
@@ -60,6 +75,14 @@ public class Meal {
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
     private MealStatus status = MealStatus.PLANNED;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "changed", length = 30)
+    @Builder.Default
+    private MealChanged changed = MealChanged.NONE;
+
+    @Column(name = "changed_at")
+    private Instant changedAt;
 
     @Column(name = "is_additional", nullable = false)
     @Builder.Default
@@ -123,6 +146,11 @@ public class Meal {
      */
     public void changeStatus(MealStatus status) {
         this.status = status;
+    }
+
+    public void markChanged(MealChanged changed, Instant at) {
+        this.changed = changed != null ? changed : MealChanged.NONE;
+        this.changedAt = at;
     }
 }
 

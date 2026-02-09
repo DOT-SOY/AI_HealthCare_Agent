@@ -18,43 +18,33 @@ import java.util.List;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "products")
 public class Product extends BaseEntity {
-
-    // PK
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // 상품명
     @Column(nullable = false, length = 200)
     private String name;
 
-    // 상품 설명
     @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
     private String description;
 
-    // 판매 상태
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private ProductStatus status = ProductStatus.DRAFT;
 
-    // 기본 가격 - 초기엔 0원
     @Column(name = "base_price", nullable = false, precision = 18, scale = 2)
     private BigDecimal basePrice = BigDecimal.ZERO;
 
-    // 작성자
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "created_by", referencedColumnName = "member_id", nullable = false)
     private Member createdBy;
 
-    // 관계 정리
-    // FetchType.LAZY 명시로 N+1 문제 방지 (필요할 때만 조회)
-    // orphanRemoval 제거: 소프트 삭제를 사용하므로 하드 삭제와 충돌
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @BatchSize(size = 20) // N+1 문제 방지: 20개씩 배치로 조회
+    @BatchSize(size = 20)
     private final List<ProductImage> images = new ArrayList<>();
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @BatchSize(size = 20) // N+1 문제 방지: 20개씩 배치로 조회
+    @BatchSize(size = 20)
     private final List<ProductVariant> variants = new ArrayList<>();
 
     @Builder

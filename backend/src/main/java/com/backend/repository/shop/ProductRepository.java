@@ -10,9 +10,7 @@ import java.util.Optional;
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Long> {
     boolean existsByName(String name);
-    
-    // 페치 조인으로 N+1 문제 방지 (createdBy만 fetch, images와 variants는 별도 조회)
-    // MultipleBagFetchException 방지: 여러 컬렉션을 동시에 fetch join할 수 없음
+
     @EntityGraph(attributePaths = {"createdBy"})
     Optional<Product> findByIdAndDeletedAtIsNull(Long id);
     

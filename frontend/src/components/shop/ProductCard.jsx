@@ -1,10 +1,6 @@
 import { Link } from 'react-router-dom';
 import Card from '../common/Card';
 
-/**
- * 쇼핑몰 리스트용 상품 카드 — 클릭 시 상세 이동
- * 옵션·장바구니 담기는 상세 페이지에서만
- */
 const ProductCard = ({
   product,
   displayPrice,
@@ -30,18 +26,19 @@ const ProductCard = ({
             e.target.src = 'https://via.placeholder.com/300x300?text=No+Image';
           }}
         />
-        <span
-          className={`absolute top-2 right-2 px-2 py-0.5 rounded-token-sm text-xs font-semibold uppercase ${
-            product.status === 'ACTIVE'
-              ? 'bg-primary-500/90 text-bg-root border border-primary-400'
-              : 'bg-accent-secondary/90 text-white border border-accent-secondary'
-          }`}
-        >
-          {product.status === 'ACTIVE' ? '판매중' : '품절'}
-        </span>
+        {product.status !== 'ACTIVE' && (
+          <span
+            className={`absolute top-2 right-2 px-2 py-0.5 rounded-token-sm text-xs font-semibold uppercase ${
+              product.status === 'SOLD_OUT'
+                ? 'bg-accent-secondary/90 text-white border border-accent-secondary'
+                : 'bg-gray-500/90 text-white border border-gray-400'
+            }`}
+          >
+            {product.status === 'SOLD_OUT' ? '품절' : '임시저장'}
+          </span>
+        )}
       </Link>
 
-      {/* 정보 영역 — 패딩·간격 축소 */}
       <div className="flex flex-col flex-1 px-3 py-3 min-h-0">
         <Link to={`/shop/detail/${product.id}`} className="block flex-1 min-h-0">
           <h3 className="font-semibold text-[23px] text-text-main line-clamp-2 leading-snug group-hover:text-primary-400 transition-colors duration-200">

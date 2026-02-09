@@ -36,3 +36,10 @@ public interface MealSearch {
     List<Meal> findMealsBetweenDates(Long userId, LocalDate startDate, LocalDate endDate);
 }
 
+
+
+
+
+
+
+

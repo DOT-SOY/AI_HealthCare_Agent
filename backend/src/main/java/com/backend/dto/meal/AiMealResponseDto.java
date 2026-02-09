@@ -19,6 +19,9 @@ public class AiMealResponseDto {
     // AI가 짜준 식단 리스트 (아침, 점심, 저녁...)
     private List<MealDto> suggestedMeals;
 
+    // [1-2] (선택) 하루 목표치 (GENERATE* 응답에서 함께 내려올 수 있음)
+    private TargetMacros target;
+
     // [2] Vision AI 분석 결과 (ANALYZE_IMAGE 응답)
     // 사진 보고 "이거 치킨이네요" 라고 알려주는 데이터
     private AnalyzedFood analyzedFood;
@@ -31,7 +34,11 @@ public class AiMealResponseDto {
     // =================================================================
     // [Inner Class] Vision 분석 상세 데이터
     // =================================================================
-    @Getter @AllArgsConstructor @Builder
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
     public static class AnalyzedFood {
         private String foodName;      // 추론된 음식명 (예: "양념치킨")
         private Integer calories;     // 추론된 칼로리
@@ -42,5 +49,18 @@ public class AiMealResponseDto {
         // (선택) AI가 얼마나 확신하는지?
         // private Double confidence; // 예: 0.98 (98% 확신)
     }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class TargetMacros {
+        private Integer targetCalories;
+        private Integer targetCarbs;
+        private Integer targetProtein;
+        private Integer targetFat;
+    }
 }
+
 

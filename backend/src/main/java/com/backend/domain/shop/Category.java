@@ -15,27 +15,21 @@ import java.util.List;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "categories")
 public class Category extends BaseEntity {
-
-    // PK
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // 부모 카테고리 (자기참조)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
     private Category parent;
 
-    // 자식 카테고리 목록 (자기참조)
     @OneToMany(mappedBy = "parent")
     private final List<Category> children = new ArrayList<>();
 
-    // 카테고리 타입 (enum)
     @Enumerated(EnumType.STRING)
     @Column(name = "category_type", nullable = false, length = 50)
     private CategoryType categoryType;
 
-    // 정렬 순서
     @Column(name = "sort_order", nullable = false)
     private Integer sortOrder = 0;
 
@@ -64,12 +58,10 @@ public class Category extends BaseEntity {
         }
     }
 
-    // 루트 카테고리로 이동
     public void moveToRoot() {
         moveTo(null);
     }
 
-    // 카테고리 타입 변경
     public void changeCategoryType(CategoryType categoryType) {
         if (categoryType == null) {
             throw new IllegalArgumentException("카테고리 타입은 필수입니다.");
@@ -77,7 +69,6 @@ public class Category extends BaseEntity {
         this.categoryType = categoryType;
     }
 
-    // 정렬 순서 변경
     public void changeSortOrder(Integer sortOrder) {
         if (sortOrder == null || sortOrder < 0) {
             throw new IllegalArgumentException("정렬 순서는 0 이상이어야 합니다.");
@@ -90,7 +81,6 @@ public class Category extends BaseEntity {
         return this.parent == null;
     }
 
-    // 카테고리명 조회 (카테고리 타입의 displayName 반환)
     public String getName() {
         return this.categoryType.getDisplayName();
     }

@@ -13,6 +13,7 @@ import com.backend.dto.shop.request.ProductVariantRequest;
 import com.backend.dto.shop.response.CategoryResponse;
 import com.backend.dto.shop.response.ProductImageResponse;
 import com.backend.dto.shop.response.ProductResponse;
+import com.backend.dto.shop.response.ReviewStatus;
 import com.backend.dto.shop.response.ProductVariantResponse;
 import com.backend.dto.shop.response.ReviewSummaryResponse;
 import com.backend.domain.order.OrderItemStatus;
@@ -55,10 +56,6 @@ public class ProductServiceImpl implements ProductService {
     private final OrderItemRepository orderItemRepository;
     private final CartItemRepository cartItemRepository;
 
-    // ===========================
-    // Public APIs
-    // ===========================
-
     @Override
     @Transactional
     public ProductResponse create(ProductCreateRequest request, Long createdBy) {
@@ -77,21 +74,14 @@ public class ProductServiceImpl implements ProductService {
                 .createdBy(member)
                 .build();
 
-        // 1) 이미지/옵션은 컬렉션 기반으로 구성 (cascade로 저장)
         replaceImages(product, request.getImageFilePaths());
         replaceVariants(product, request.getVariants());
-
-        // 2) 상품 저장(이미지/옵션 포함)
         Product saved = productRepository.save(product);
         log.info("Product created: id={}, name={}", saved.getId(), saved.getName());
-
-        // 3) 카테고리는 조인 테이블이라 별도로 replace
         List<Long> categoryIds = resolveCategoryIds(request.getCategoryTypes(), request.getCategoryIds());
         if (categoryIds != null) {
             replaceCategories(saved, categoryIds);
         }
-
-        // 응답용 조회(현재 구조 유지)
         List<ProductImage> images = productImageRepository.findByProductIdAndDeletedAtIsNull(saved.getId());
         List<ProductVariant> variants = productVariantRepository.findByProductId(saved.getId());
         return toFullResponse(saved, images, variants);
@@ -118,11 +108,22 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
-    public void setCanReview(ProductResponse response, Long productId, Long memberId) {
+    public void setReviewStatus(ProductResponse response, Long productId, Long memberId) {
+        if (memberId == null) { response.setReviewStatus(ReviewStatus.NOT_LOGGED_IN);
+            return;
+        }
+
         boolean purchased = orderItemRepository.existsByMemberIdAndProductIdAndOrderStatusInAndItemStatus(
                 memberId, productId, PAID_OR_LATER, OrderItemStatus.ORDERED);
+
+        if (!purchased) { response.setReviewStatus(ReviewStatus.NOT_PURCHASED);
+            return;
+        }
+
         boolean alreadyReviewed = productReviewRepository.existsByProductIdAndMemberId(productId, memberId);
-        response.setCanReview(purchased && !alreadyReviewed);
+        if (alreadyReviewed) { response.setReviewStatus(ReviewStatus.ALREADY_REVIEWED);
+        } else { response.setReviewStatus(ReviewStatus.CAN_REVIEW);
+        }
     }
 
     @Override
@@ -132,7 +133,6 @@ public class ProductServiceImpl implements ProductService {
                 ? searchRequest.toCondition()
                 : ProductSearchCondition.builder()
                         .keyword(searchRequest.getKeyword())
-                        .searchType(searchRequest.getSearchType())
                         .categoryId(searchRequest.getCategoryId())
                         .minPrice(searchRequest.getMinPrice())
                         .maxPrice(searchRequest.getMaxPrice())
@@ -196,7 +196,6 @@ public class ProductServiceImpl implements ProductService {
         applyBasicFields(product, request);
 
         if (request.getImageFilePaths() != null) {
-            // update는 diff 기반 replace 권장(동일 filePath 재사용)
             replaceImagesDiff(product, request.getImageFilePaths());
         }
 
@@ -238,7 +237,6 @@ public class ProductServiceImpl implements ProductService {
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("이미지를 찾을 수 없습니다. productId=" + productId + ", imageUuid=" + imageUuid));
 
-        // 활성 이미지 primary 정리 후 target만 primary
         product.getImages().stream()
                 .filter(img -> img.getDeletedAt() == null)
                 .forEach(ProductImage::markAsSecondary);
@@ -249,17 +247,9 @@ public class ProductServiceImpl implements ProductService {
         log.info("Primary image set: productId={}, imageUuid={}", productId, imageUuid);
     }
 
-    // ===========================
-    // Core Replace Methods
-    // ===========================
-
-    /**
-     * create 등에서 단순 구성용(기존이 없다는 가정) - 빈이면 전체 제거 의미.
-     */
     private void replaceImages(Product product, List<String> filePaths) {
         List<String> requested = normalizePaths(filePaths);
         if (requested.isEmpty()) {
-            // 활성만 soft delete + 컬렉션에서 제거(현재 정책 유지)
             softDeleteAndRemoveActiveImages(product);
             return;
         }
@@ -275,9 +265,6 @@ public class ProductServiceImpl implements ProductService {
         }
     }
 
-    /**
-     * update에서 권장: 동일 filePath는 재사용, 없는 것만 생성.
-     */
     private void replaceImagesDiff(Product product, List<String> filePaths) {
         List<String> requested = normalizePaths(filePaths);
 
@@ -287,17 +274,14 @@ public class ProductServiceImpl implements ProductService {
             return;
         }
 
-        // 기존 활성 이미지: filePath -> image (null/빈 filePath 제외, toMap NPE 방지)
+        // 기존 활성 이미지: filePath -> image
         Map<String, ProductImage> activeByPath = product.getImages().stream()
                 .filter(img -> img.getDeletedAt() == null)
-                .filter(img -> img.getFilePath() != null && !img.getFilePath().trim().isEmpty())
                 .collect(Collectors.toMap(
                         ProductImage::getFilePath,
                         Function.identity(),
                         (a, b) -> a
                 ));
-
-        // 요청 순서대로 재사용/생성
         List<ProductImage> nextActives = new ArrayList<>(requested.size());
         for (String path : requested) {
             ProductImage reused = activeByPath.remove(path);
@@ -313,7 +297,6 @@ public class ProductServiceImpl implements ProductService {
             }
         }
 
-        // 요청에 없는 기존 활성 => soft delete + 컬렉션에서 제거
         for (ProductImage toDelete : activeByPath.values()) {
             toDelete.softDelete();
         }
@@ -325,8 +308,6 @@ public class ProductServiceImpl implements ProductService {
                 .toList();
         product.getImages().removeAll(currentActives);
         product.getImages().addAll(nextActives);
-
-        // primary 1개 보장: 요청 첫 번째를 primary
         product.getImages().stream()
                 .filter(img -> img.getDeletedAt() == null)
                 .forEach(ProductImage::markAsSecondary);
@@ -348,23 +329,18 @@ public class ProductServiceImpl implements ProductService {
         product.getImages().removeAll(actives);
     }
 
-    /**
-     * 옵션(variant) 수정: 기존은 ID로 수정, 새 행은 추가, 요청에 없고 참조도 없는 것만 삭제.
-     * 주문/장바구니에 참조된 옵션은 삭제하지 않아 FK 제약 없이 수정 가능.
-     */
     private void replaceVariants(Product product, List<ProductVariantRequest> requests) {
-        if (requests == null) {
-            log.info("replaceVariants: requests is null, skipping");
+        if (requests == null) return;
+
+        product.getVariants().clear();
+
+        if (requests.isEmpty()) {
+            log.info("All variants removed from product: productId={}", product.getId());
             return;
         }
-        
-        log.info("replaceVariants: processing {} variant requests for product {}", 
-                requests.size(), product.getId());
 
         List<ProductVariant> currentVariants = product.getVariants();
         List<Long> currentIds = currentVariants.stream().map(ProductVariant::getId).toList();
-
-        // 주문 또는 장바구니에 사용 중인 variant ID (이건 삭제하면 안 됨)
         Set<Long> inUseIds = new HashSet<>();
         if (!currentIds.isEmpty()) {
             inUseIds.addAll(orderItemRepository.findVariantIdsReferencedByOrderItems(currentIds));
@@ -381,28 +357,20 @@ public class ProductServiceImpl implements ProductService {
 
         // 수정: 요청에 id가 있고 해당 variant가 있으면 updateDetails
         for (ProductVariantRequest req : requests) {
-            if (req.getId() != null && currentById.containsKey(req.getId())) {
-                ProductVariant existing = currentById.get(req.getId());
-                existing.updateDetails(
-                        normalizeOptionText(req.getOptionText()),
-                        req.getPrice(),
-                        req.getStockQty(),
-                        req.getActive()
-                );
-            } else {
-                String optionText = normalizeOptionText(req.getOptionText());
-                product.getVariants().add(ProductVariant.builder()
-                        .product(product)
-                        .optionText(optionText)
-                        .price(req.getPrice())
-                        .stockQty(req.getStockQty() != null ? req.getStockQty() : 0)
-                        .active(req.getActive() != null ? req.getActive() : true)
-                        .build());
-            }
+            String sku = (req.getSku() != null && !req.getSku().isBlank())
+                    ? req.getSku().trim()
+                    : "PROD-" + product.getId() + "-" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+            product.getVariants().add(ProductVariant.builder()
+                    .product(product)
+                    .sku(sku)
+                    .optionText(req.getOptionText())
+                    .price(req.getPrice())
+                    .stockQty(req.getStockQty() != null ? req.getStockQty() : 0)
+                    .active(req.getActive() != null ? req.getActive() : true)
+                    .build());
         }
 
-        // 삭제: 기존(이미 id 있음) variant 중 요청에 없고 주문/장바구니에도 없는 것만 제거.
-        // 새로 추가한 variant(id==null)는 제외해야 생성 시 옵션이 사라지지 않음.
+        log.info("Product variants replaced: productId={}, variantCount={}", product.getId(), requests.size());
         List<ProductVariant> toRemove = currentVariants.stream()
                 .filter(v -> v.getId() != null && !requestIds.contains(v.getId()) && !inUseIds.contains(v.getId()))
                 .toList();
@@ -412,16 +380,10 @@ public class ProductServiceImpl implements ProductService {
                 product.getId(), requestIds.size(), requests.size() - requestIds.size(), toRemove.size());
     }
 
-    /**
-     * 카테고리는 현재 구조상 repo 기반 유지(조인 엔티티).
-     * - update/create 둘 다 replace로 통일
-     */
     @Transactional
     private void replaceCategories(Product product, List<Long> categoryIds) {
-        // 기존 연결 삭제
         List<ProductCategory> existing = productCategoryRepository.findById_ProductId(product.getId());
         if (!existing.isEmpty()) {
-            // deleteAll이 반복 delete로 갈 수 있어 필요시 deleteAllInBatch로 교체
             productCategoryRepository.deleteAll(existing);
         }
 
@@ -429,8 +391,6 @@ public class ProductServiceImpl implements ProductService {
             log.info("All categories removed from product: productId={}", product.getId());
             return;
         }
-
-        // 새 연결 생성
         List<ProductCategory> toSave = new ArrayList<>(categoryIds.size());
         for (Long categoryId : categoryIds) {
             Category category = categoryRepository.findById(categoryId)
@@ -449,14 +409,6 @@ public class ProductServiceImpl implements ProductService {
     // ===========================
     // Helpers
     // ===========================
-
-    /** 옵션 텍스트: null/blank면 "기본 옵션" (DB nullable=false 및 검증 완화 대응) */
-    private static String normalizeOptionText(String optionText) {
-        if (optionText != null && !optionText.trim().isEmpty()) {
-            return optionText.trim();
-        }
-        return "기본 옵션";
-    }
 
     private Product findActiveProduct(Long id) {
         return productRepository.findByIdAndDeletedAtIsNull(id)
@@ -492,7 +444,7 @@ public class ProductServiceImpl implements ProductService {
         return paths.stream()
                 .filter(p -> p != null && !p.trim().isEmpty())
                 .map(String::trim)
-                .distinct() // 요청 중복 방지(순서 유지)
+                .distinct()
                 .toList();
     }
 
@@ -521,7 +473,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Transactional
     private Category getOrCreateRootCategory(CategoryType categoryType) {
-        return categoryRepository.findByCategoryTypeAndParentIsNull(categoryType)
+        return categoryRepository.findFirstByCategoryTypeAndParentIsNullOrderBySortOrderAsc(categoryType)
                 .orElseGet(() -> {
                     log.info("Creating root category for type: {} (Lazy Create)", categoryType);
                     Category saved = categoryRepository.saveAndFlush(Category.builder()
@@ -529,13 +481,9 @@ public class ProductServiceImpl implements ProductService {
                             .categoryType(categoryType)
                             .sortOrder(0)
                             .build());
-                    return categoryRepository.findByCategoryTypeAndParentIsNull(categoryType).orElse(saved);
+                    return categoryRepository.findFirstByCategoryTypeAndParentIsNullOrderBySortOrderAsc(categoryType).orElse(saved);
                 });
     }
-
-    // ===========================
-    // Response mapping (기존 구조 유지)
-    // ===========================
 
     private ProductResponse toFullResponse(Product product, List<ProductImage> images, List<ProductVariant> variants) {
         ProductResponse base = toResponseWithImages(product, images);

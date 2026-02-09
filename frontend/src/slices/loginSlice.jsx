@@ -53,13 +53,21 @@ const loginSlice = createSlice({
   // createSlice : Redux에서 필요한 걸 한 번에 만들어줌
   name: "LoginSlice",
   // loadMemberCookie() 실행, 값이 “truthy”(true로 평가되는 값) 이면 → 그 값을 사용, 그렇지 않으면 → initState 사용
-  initialState: loadMemberCookie() || initState, // 쿠키가 없다면 초깃값 사용
+  initialState: (() => {
+    try {
+      return loadMemberCookie() || initState;
+    } catch (_) {
+      return initState;
+    }
+  })(),
   reducers: {
     // 이 slice가 직접 정의한 action + reducer
     login: (state, action) => {
       // 소셜 로그인 회원이 사용
       const payload = action.payload;
       setCookie("member", JSON.stringify(payload), 1); // 1일 - 로그인 정보를 쿠키에 저장
+
+      // slice의 state를 payload로 변환
       if (payload?.accessToken && typeof localStorage !== "undefined") {
         try {
           localStorage.setItem("accessToken", payload.accessToken);

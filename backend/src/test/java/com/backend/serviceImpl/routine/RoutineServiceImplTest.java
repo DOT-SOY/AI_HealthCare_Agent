@@ -59,8 +59,6 @@ class RoutineServiceImplTest {
             .pw("encodedPw")
             .name("테스트 회원")
             .gender(Member.Gender.MALE)
-            .height(175)
-            .weight(70.0)
             .build();
         
         exercises = new ArrayList<>();
@@ -256,23 +254,24 @@ class RoutineServiceImplTest {
     @DisplayName("운동 삭제")
     void deleteExercise() {
         // given
-        when(routineRepository.findById(1L)).thenReturn(Optional.of(routine));
+        when(routineRepository.findByIdAndMemberIdWithExercises(1L, 1L)).thenReturn(Optional.of(routine));
         
         // when
-        routineService.deleteExercise(1L, 1L);
+        routineService.deleteExercise(1L, 1L, 1L);
         
-        // then
-        verify(exerciseRepository, times(1)).delete(any(Exercise.class));
+        // then: 컬렉션에서 제거됨(orphanRemoval로 DB 삭제)
+        verify(routineRepository).findByIdAndMemberIdWithExercises(1L, 1L);
+        assertThat(routine.getExercises()).isEmpty();
     }
     
     @Test
     @DisplayName("운동 삭제 - 루틴을 찾을 수 없는 경우")
     void deleteExercise_RoutineNotFound() {
         // given
-        when(routineRepository.findById(1L)).thenReturn(Optional.empty());
+        when(routineRepository.findByIdAndMemberIdWithExercises(1L, 1L)).thenReturn(Optional.empty());
         
         // when & then
-        assertThatThrownBy(() -> routineService.deleteExercise(1L, 1L))
+        assertThatThrownBy(() -> routineService.deleteExercise(1L, 1L, 1L))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("루틴을 찾을 수 없습니다");
         
@@ -283,10 +282,10 @@ class RoutineServiceImplTest {
     @DisplayName("운동 삭제 - 운동을 찾을 수 없는 경우")
     void deleteExercise_ExerciseNotFound() {
         // given
-        when(routineRepository.findById(1L)).thenReturn(Optional.of(routine));
+        when(routineRepository.findByIdAndMemberIdWithExercises(1L, 1L)).thenReturn(Optional.of(routine));
         
         // when & then
-        assertThatThrownBy(() -> routineService.deleteExercise(1L, 999L))
+        assertThatThrownBy(() -> routineService.deleteExercise(1L, 1L, 999L))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("운동을 찾을 수 없습니다");
         

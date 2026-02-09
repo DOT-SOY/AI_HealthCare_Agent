@@ -1,4 +1,4 @@
-package com.backend.service.meal;
+package com.backend.service.meal.target;
 
 import com.backend.domain.meal.Meal;
 import com.backend.domain.meal.MealTarget;
@@ -105,17 +105,66 @@ public class MealTargetServiceImpl implements MealTargetService {
      * [비즈니스 로직] 하루 목표 대비 특정 끼니의 영양 기여도 계산 (UI Bar용)
      */
     private MealDashboardDto.MealTimeSection assembleSection(List<Meal> meals, Meal.MealTime time, MealTargetDto target) {
-        List<MealDto> sectionMeals = meals.stream()
+        // "끼니 전체 생략" 판정:
+        // - non-additional 기준으로 PLANNED/EATEN이 없고, SKIPPED가 존재할 때만 true
+        // - (예: Vision 대체로 일부만 SKIPPED 처리된 경우는 "끼니 전체 생략"이 아님)
+        List<Meal> timeMeals = meals.stream()
                 .filter(m -> m.getMealTime() == time)
+                .toList();
+
+        boolean hasNonAdditionalSkipped = timeMeals.stream()
+                .anyMatch(m -> m.getStatus() == Meal.MealStatus.SKIPPED
+                        && (m.getIsAdditional() == null || !m.getIsAdditional())
+                        && m.getChanged() != Meal.MealChanged.REPLACED_OUT);
+        boolean hasNonAdditionalPlanned = timeMeals.stream()
+                .anyMatch(m -> m.getStatus() == Meal.MealStatus.PLANNED && (m.getIsAdditional() == null || !m.getIsAdditional()));
+
+        // [중요] 추가 섭취(isAdditional=true)로 EATEN이 들어오면, 끼니 전체를 "생략"으로 취급하면 UX가 깨집니다.
+        // 예: 끼니를 생략한 뒤, 사진으로 "추가 섭취 기록"을 하면 해당 끼니가 계속 0kcal/생략 상태로 보임.
+        // 정책: 해당 끼니에 EATEN(추가/정규 무관)이 1개라도 있으면 "끼니 전체 생략"으로 보지 않습니다.
+        boolean hasAnyEaten = timeMeals.stream()
+                .anyMatch(m -> m.getStatus() == Meal.MealStatus.EATEN);
+
+        boolean mealTimeSkipped = hasNonAdditionalSkipped && !hasNonAdditionalPlanned && !hasAnyEaten;
+
+        // UI 정책:
+        // - "사용자 메뉴별 생략"은 리스트에서 사라지면 취소가 불가하므로, SKIPPED라도 화면에 유지해야 합니다.
+        // - 단, 교체(VISION REPLACE)로 밀려난 잔여 항목은 changed=REPLACED_OUT로 마킹되어 화면에서 숨깁니다.
+        // - 합계(칼로리/탄단지)는 SKIPPED 항목을 제외하고 계산합니다.
+        List<Meal> visibleMeals = timeMeals.stream()
+                .filter(m -> m.getChanged() != Meal.MealChanged.REPLACED_OUT)
+                .filter(m -> {
+                    if (mealTimeSkipped) {
+                        // 끼니 전체 생략 상태면, non-additional 메뉴만 노출(회색 처리용)
+                        return (m.getIsAdditional() == null || !m.getIsAdditional());
+                    }
+                    return true;
+                })
+                .toList();
+
+        List<MealDto> sectionMeals = visibleMeals.stream()
                 .map(MealDto::fromEntity)
                 .collect(Collectors.toList());
 
-        int sCal = sectionMeals.stream().mapToInt(m -> m.getCalories() != null ? m.getCalories() : 0).sum();
-        int sCarb = sectionMeals.stream().mapToInt(m -> m.getCarbs() != null ? m.getCarbs() : 0).sum();
-        int sProt = sectionMeals.stream().mapToInt(m -> m.getProtein() != null ? m.getProtein() : 0).sum();
-        int sFat = sectionMeals.stream().mapToInt(m -> m.getFat() != null ? m.getFat() : 0).sum();
+        int sCal = mealTimeSkipped ? 0 : visibleMeals.stream()
+                .filter(m -> m.getStatus() != Meal.MealStatus.SKIPPED)
+                .mapToInt(m -> m.getCalories() != null ? m.getCalories() : 0)
+                .sum();
+        int sCarb = mealTimeSkipped ? 0 : visibleMeals.stream()
+                .filter(m -> m.getStatus() != Meal.MealStatus.SKIPPED)
+                .mapToInt(m -> m.getCarbs() != null ? m.getCarbs() : 0)
+                .sum();
+        int sProt = mealTimeSkipped ? 0 : visibleMeals.stream()
+                .filter(m -> m.getStatus() != Meal.MealStatus.SKIPPED)
+                .mapToInt(m -> m.getProtein() != null ? m.getProtein() : 0)
+                .sum();
+        int sFat = mealTimeSkipped ? 0 : visibleMeals.stream()
+                .filter(m -> m.getStatus() != Meal.MealStatus.SKIPPED)
+                .mapToInt(m -> m.getFat() != null ? m.getFat() : 0)
+                .sum();
 
         return MealDashboardDto.MealTimeSection.builder()
+                .skipped(mealTimeSkipped)
                 .totalCalories(sCal)
                 .totalCarbs(sCarb).totalProtein(sProt).totalFat(sFat)
                 // 하루 전체 목표량 중 이 끼니가 차지하는 비중 계산
@@ -218,7 +267,7 @@ public class MealTargetServiceImpl implements MealTargetService {
         MealTargetDto target = getTargetByDate(userId, date);
         if (target == null) return null; // 목표 없으면 계산 불가
 
-        // 2. 현재까지 먹은 양 조회
+        // 2. 현재까지 먹은 양 조회 (EATEN만)
         List<Meal> eatenMeals = mealSearch.findMealsByDateAndUser(userId, date).stream()
                 .filter(m -> m.getStatus() == Meal.MealStatus.EATEN)
                 .toList();
@@ -228,12 +277,36 @@ public class MealTargetServiceImpl implements MealTargetService {
         int currentProt = eatenMeals.stream().mapToInt(m -> m.getProtein() != null ? m.getProtein() : 0).sum();
         int currentFat = eatenMeals.stream().mapToInt(m -> m.getFat() != null ? m.getFat() : 0).sum();
 
-        // 3. 잔여량 계산 (음수가 나오면 0으로 처리)
+        // 3. 생략된 "끼니 전체"의 영양성분 합산
+        // - 같은 끼니 안에서 일부 항목만 SKIPPED(예: 대체 과정에서 나머지 항목 SKIPPED)는 재분배 대상이 아님
+        // - 끼니 전체 생략은: 해당 mealTime에 non-additional EATEN이 없고, non-additional SKIPPED가 존재하는 경우로 판단
+        List<Meal> dayMeals = mealSearch.findMealsByDateAndUser(userId, date).stream()
+                .filter(m -> m.getIsAdditional() == null || !m.getIsAdditional())
+                .toList();
+
+        java.util.Set<Meal.MealTime> eatenTimes = dayMeals.stream()
+                .filter(m -> m.getStatus() == Meal.MealStatus.EATEN)
+                .map(Meal::getMealTime)
+                .collect(java.util.stream.Collectors.toSet());
+
+        List<Meal> skippedMeals = dayMeals.stream()
+                .filter(m -> m.getStatus() == Meal.MealStatus.SKIPPED)
+                .filter(m -> m.getChanged() != Meal.MealChanged.REPLACED_OUT)
+                .filter(m -> m.getMealTime() != null && !eatenTimes.contains(m.getMealTime()))
+                .toList();
+
+        int skippedCal = skippedMeals.stream().mapToInt(m -> m.getCalories() != null ? m.getCalories() : 0).sum();
+        int skippedCarb = skippedMeals.stream().mapToInt(m -> m.getCarbs() != null ? m.getCarbs() : 0).sum();
+        int skippedProt = skippedMeals.stream().mapToInt(m -> m.getProtein() != null ? m.getProtein() : 0).sum();
+        int skippedFat = skippedMeals.stream().mapToInt(m -> m.getFat() != null ? m.getFat() : 0).sum();
+
+        // 4. 잔여량 계산: 목표 - (먹은 양) + (생략된 끼니의 영양성분)
+        // 생략된 끼니의 영양성분을 남은 끼니에 재분배하기 위해 잔여량에 추가
         return MealTargetDto.builder()
-                .goalCal(Math.max(0, target.getGoalCal() - currentCal))
-                .goalCarbs(Math.max(0, target.getGoalCarbs() - currentCarb))
-                .goalProtein(Math.max(0, target.getGoalProtein() - currentProt))
-                .goalFat(Math.max(0, target.getGoalFat() - currentFat))
+                .goalCal(Math.max(0, target.getGoalCal() - currentCal + skippedCal))
+                .goalCarbs(Math.max(0, target.getGoalCarbs() - currentCarb + skippedCarb))
+                .goalProtein(Math.max(0, target.getGoalProtein() - currentProt + skippedProt))
+                .goalFat(Math.max(0, target.getGoalFat() - currentFat + skippedFat))
                 .build();
     }
 }

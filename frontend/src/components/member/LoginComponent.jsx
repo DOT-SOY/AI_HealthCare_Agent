@@ -1,4 +1,6 @@
 import { useState } from "react";
+// import { useDispatch } from "react-redux"; // 안 쓰므로 제거
+// import { login } from "../../slices/loginSlice"; // 안 쓰므로 제거
 import useCustomLogin from "../../hooks/useCustomLogin";
 import KakaoLoginComponent from "./KakaoLoginComponent";
 import { mergeCart } from "../../services/cartApi";
@@ -86,6 +88,7 @@ const LoginComponent = () => {
         if (data && data.error) {
           handleError(data);
         } else {
+          moveToPath("/");
           // 로그인 직후 게스트 카트 → 회원 카트 병합 (서버에서 성공 시 guest_token 쿠키 삭제)
           mergeCart()
             .catch(() => { /* 병합 실패해도 로그인은 유지 */ })

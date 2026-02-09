@@ -25,7 +25,6 @@
   }
   @media (min-width: 1024px) {
     .page-container {
-      padding-top: 4rem;
       padding-bottom: 4rem;
       padding-left: 2rem;
       padding-right: 2rem;
@@ -228,8 +227,8 @@
 
   /* ---------- 로딩 스피너 (전역) ---------- */
   .spinner-token {
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 3rem;
+    height: 3rem;
     border: 2px solid var(--primary-500);
     border-top-color: transparent;
     border-radius: 9999px;
@@ -251,6 +250,9 @@
     line-height: 1.2;
     letter-spacing: -0.025em;
     text-transform: uppercase;
+    color: var(--text-main);
+    text-align: left;
+    padding: 0;
     color: var(--text-main);
   }
   .section-header-token .section-desc {
@@ -651,6 +653,50 @@
   .ai-fab-wrapper:hover .ai-fab-btn::after {
     opacity: 1;
     animation: ai-shimmer 1.8s ease-in-out infinite;
+  }
+}
+
+/* ---------- AI 채팅 오버레이/패널 열림·닫힘 애니메이션 ---------- */
+.ai-chat-overlay {
+  opacity: 0;
+  transition: opacity 0.25s var(--ease-out-expo);
+  pointer-events: none;
+}
+.ai-chat-overlay[data-visible="true"] {
+  opacity: 1;
+  pointer-events: auto;
+}
+.ai-chat-overlay[data-leaving="true"] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ai-chat-panel {
+  opacity: 0;
+  transform: translateY(20px) scale(0.97);
+  transition: opacity 0.25s var(--ease-out-expo), transform 0.25s var(--ease-out-expo);
+}
+.ai-chat-panel[data-visible="true"] {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+.ai-chat-panel[data-leaving="true"] {
+  opacity: 0;
+  transform: translateY(20px) scale(0.97);
+}
+
+/* FAB 등장 애니메이션 (채팅 닫을 때 버튼이 나타남) */
+.ai-fab-enter {
+  animation: ai-fab-enter 0.3s var(--ease-out-expo) forwards;
+}
+@keyframes ai-fab-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 

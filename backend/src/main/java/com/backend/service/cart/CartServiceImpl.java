@@ -156,6 +156,7 @@ public class CartServiceImpl implements CartService {
         if (variant == null) {
             variant = ProductVariant.builder()
                     .product(product)
+                    .sku("PROD-" + productId + "-DEFAULT")
                     .optionText("기본 옵션")
                     .price(null)  // null이면 product.basePrice 사용
                     .stockQty(999)  // 기본 재고
@@ -366,9 +367,8 @@ public class CartServiceImpl implements CartService {
             }
         }
 
-        // 4. 게스트 장바구니 삭제 (Cart 삭제만 수행. cascade + orphanRemoval로 소속 CartItem이 함께 삭제됨.
-        //    deleteByCartId를 먼저 호출하면 DB 행은 삭제되지만 영속 컨텍스트의 items는 남아,
-        //    delete(guestCart) 시 Hibernate가 이미 삭제된 행을 다시 삭제하려다 ObjectOptimisticLockingFailureException 발생)
+        // 4. 게스트 장바구니 삭제
+        cartItemRepository.deleteByCartId(guestCart.getId());
         cartRepository.delete(guestCart);
         log.info("Guest cart merged and deleted: guestToken={}, memberId={}", guestToken, memberId);
     }

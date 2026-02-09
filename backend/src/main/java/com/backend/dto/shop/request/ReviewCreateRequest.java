@@ -7,6 +7,8 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.List;
+
 @Getter
 @Setter
 public class ReviewCreateRequest {
@@ -18,4 +20,10 @@ public class ReviewCreateRequest {
 
     @Size(max = 2000, message = "리뷰 내용은 2000자 이하여야 합니다")
     private String content;
+
+    /**
+     * 업로드된 리뷰 이미지 파일 경로 목록
+     */
+    @Size(max = 10, message = "리뷰 이미지는 최대 10개까지 업로드할 수 있습니다")
+    private List<@Size(max = 500, message = "파일 경로는 500자 이하여야 합니다") String> imageFilePaths;
 }

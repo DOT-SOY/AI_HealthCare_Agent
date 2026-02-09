@@ -42,3 +42,10 @@ public class MealCalendarDto {
     // 이 DTO는 필드가 많아서 생성자보다는 Builder나 Setter로 값 채우는 게 필수입니다.
 }
 
+
+
+
+
+
+
+

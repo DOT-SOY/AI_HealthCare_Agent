@@ -46,6 +46,8 @@ const KakaoRedirectPage = () => {
         mergeCart()
           .catch(() => {})
           .finally(() => navigate("/", { replace: true }));
+        // 4) 홈으로 이동
+        navigate("/", { replace: true });
       } catch (e) {
         console.error("Kakao login redirect error:", e);
         const msg =
