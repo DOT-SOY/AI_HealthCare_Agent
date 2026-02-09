@@ -33,7 +33,7 @@ export default function TodayRoutinePage() {
   };
 
   const [selectedDate, setSelectedDate] = useState(getInitialSelectedDate);
-  const [selectedDate, setSelectedDate] = useState(new Date());
+
   const [showYearDropdown, setShowYearDropdown] = useState(false);
   const [showMonthDropdown, setShowMonthDropdown] = useState(false);
   const [showDayDropdown, setShowDayDropdown] = useState(false);
