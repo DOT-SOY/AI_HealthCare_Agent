@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { useTheme } from "../../contexts/ThemeContext";
 
+// 간단한 SVG 아이콘 컴포넌트들
 const HomeIcon = ({ className }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -57,7 +58,30 @@ const MoonIcon = ({ className }) => (
   </svg>
 );
 
-const BasicMenu = () => {
+const LockClosedIcon = ({ className }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M8 11V7a4 4 0 118 0v4M7 11h10a1 1 0 011 1v7a1 1 0 01-1 1H7a1 1 0 01-1-1v-7a1 1 0 011-1z"
+    />
+  </svg>
+);
+
+const AdminIcon = ({ className }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+    />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+  </svg>
+);
+
+const BasicMenu = ({ isSidebarOpen = true }) => {
   const location = useLocation();
   const { theme, setTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -65,14 +89,18 @@ const BasicMenu = () => {
   const [shopMobileOpen, setShopMobileOpen] = useState(false);
   const loginState = useSelector((state) => state.loginSlice);
   const isLogin = !!loginState?.email;
+  const isAdmin =
+    Array.isArray(loginState?.roleNames) &&
+    loginState.roleNames.some((r) => r === "ADMIN" || r === "ROLE_ADMIN");
 
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
   const closeMobileMenu = () => {
     setIsMobileMenuOpen(false);
     setShopMobileOpen(false);
   };
+
   const menuItems = [
-    { icon: HomeIcon, label: "메인", path: "/" },
+    { icon: HomeIcon, label: "Home", path: "/" },
     { icon: ClockIcon, label: "루틴", path: "/routine" },
     { icon: FileTextIcon, label: "기록", path: "/record" },
     { icon: UtensilsIcon, label: "식사", path: "/meal" },
@@ -115,14 +143,12 @@ const BasicMenu = () => {
   return (
     <>
       {/* 데스크톱 사이드바 — 쇼핑몰 리스트와 동일한 다크·네온 그린 스타일 */}
-      <aside className="hidden lg:flex fixed left-0 top-0 h-full w-64 bg-bg-card border-r border-border-default flex-col z-50">
+      <aside className={`hidden lg:flex fixed left-0 top-0 h-full w-64 bg-bg-card border-r border-border-default flex-col z-50 transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="p-5 border-b border-border-default">
           <Link to="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary-500 rounded-token flex items-center justify-center flex-shrink-0">
-              <span className="text-bg-root font-display font-bold text-xl">H</span>
-            </div>
+            <img src="/logo.png" alt="ALGORHYGYM" className="w-10 h-10 flex-shrink-0 object-contain" />
             <span className="font-display text-xl tracking-tight text-text-main uppercase">
-              Healthcare
+              ALGORHYGYM
             </span>
           </Link>
         </div>
@@ -176,27 +202,28 @@ const BasicMenu = () => {
               </Link>
             );
           })}
+
+          {/* 프로필 아래 로그인 (비로그인 시만) */}
+          {!isLogin && (
+            <Link
+              to="/member/login"
+              className={getMenuClass("/member/login")}
+              onClick={closeMobileMenu}
+            >
+              <LockClosedIcon className="w-5 h-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-110" />
+              <span>로그인</span>
+            </Link>
+          )}
+
+          {isLogin && isAdmin && (
+            <Link to="/admin" className={getMenuClass("/admin")} onClick={closeMobileMenu}>
+              <AdminIcon className="w-5 h-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-110" />
+              <span>관리자</span>
+            </Link>
+          )}
         </nav>
 
-        {isLogin && (
-          <div className="p-4">
-            <Link
-              to="/profile"
-              onClick={closeMobileMenu}
-              className="block rounded-token p-3 text-center border border-transparent hover:bg-primary-500/10 hover:border-primary-500/40 transition-all duration-200 group"
-              aria-label="마이페이지"
-            >
-              <div className="text-sm font-medium text-text-sub group-hover:text-primary-500">Welcome</div>
-              <div className="text-base font-bold text-primary-400 mt-0.5 group-hover:text-primary-500">
-                {(loginState?.name || loginState?.email)
-                  ? `${loginState?.name || loginState?.email}님`
-                  : ""}
-              </div>
-            </Link>
-          </div>
-        )}
-
-        {/* 테마 토글 — Welcome 밑 (데스크톱 사이드바) */}
+        {/* 테마 토글 (데스크톱 사이드바) — 아이콘만 표시 */}
         <div className="p-3 border-t border-border-default">
           <div
             className="relative flex w-full rounded-full border border-border-default bg-bg-surface p-0.5"
@@ -211,7 +238,7 @@ const BasicMenu = () => {
             <button
               type="button"
               onClick={() => setTheme("dark")}
-              className="relative z-10 flex flex-1 items-center justify-center gap-2 py-2.5 rounded-full text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+              className="relative z-10 flex flex-1 items-center justify-center py-2.5 rounded-full text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
               aria-pressed={theme === "dark"}
               aria-label="다크 모드"
             >
@@ -220,12 +247,11 @@ const BasicMenu = () => {
                   theme === "dark" ? "text-primary-500 scale-110" : "text-text-sub"
                 }`}
               />
-              <span className={theme === "dark" ? "text-primary-500" : "text-text-sub"}>다크</span>
             </button>
             <button
               type="button"
               onClick={() => setTheme("light")}
-              className="relative z-10 flex flex-1 items-center justify-center gap-2 py-2.5 rounded-full text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+              className="relative z-10 flex flex-1 items-center justify-center py-2.5 rounded-full text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
               aria-pressed={theme === "light"}
               aria-label="라이트 모드"
             >
@@ -234,7 +260,6 @@ const BasicMenu = () => {
                   theme === "light" ? "text-primary-500 scale-110" : "text-text-sub"
                 }`}
               />
-              <span className={theme === "light" ? "text-primary-500" : "text-text-sub"}>라이트</span>
             </button>
           </div>
         </div>
@@ -273,11 +298,9 @@ const BasicMenu = () => {
       >
         <div className="p-5 border-b border-border-default">
           <Link to="/" className="flex items-center gap-3" onClick={closeMobileMenu}>
-            <div className="w-10 h-10 bg-primary-500 rounded-token flex items-center justify-center flex-shrink-0">
-              <span className="text-bg-root font-display font-bold text-xl">H</span>
-            </div>
+            <img src="/logo.png" alt="ALGORHYGYM" className="w-10 h-10 flex-shrink-0 object-contain" />
             <span className="font-display text-xl tracking-tight text-text-main uppercase">
-              Healthcare
+              ALGORHYGYM
             </span>
           </Link>
         </div>
@@ -333,25 +356,7 @@ const BasicMenu = () => {
           })}
         </nav>
 
-        {isLogin && (
-          <div className="p-4">
-            <Link
-              to="/profile"
-              onClick={closeMobileMenu}
-              className="block rounded-token p-3 text-center border border-transparent hover:bg-primary-500/10 hover:border-primary-500/40 transition-all duration-200 group"
-              aria-label="마이페이지"
-            >
-              <div className="text-sm font-medium text-text-sub group-hover:text-primary-500">Welcome</div>
-              <div className="text-base font-bold text-primary-400 mt-0.5 group-hover:text-primary-500">
-                {(loginState?.name || loginState?.email)
-                  ? `${loginState?.name || loginState?.email}님`
-                  : ""}
-              </div>
-            </Link>
-          </div>
-        )}
-
-        {/* 테마 토글 — Welcome 밑 (모바일 사이드바) */}
+        {/* 테마 토글 (모바일 사이드바) — 아이콘만 표시 */}
         <div className="p-3 border-t border-border-default">
           <div
             className="relative flex w-full rounded-full border border-border-default bg-bg-surface p-0.5"
@@ -366,7 +371,7 @@ const BasicMenu = () => {
             <button
               type="button"
               onClick={() => setTheme("dark")}
-              className="relative z-10 flex flex-1 items-center justify-center gap-2 py-2.5 rounded-full text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+              className="relative z-10 flex flex-1 items-center justify-center py-2.5 rounded-full text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
               aria-pressed={theme === "dark"}
               aria-label="다크 모드"
             >
@@ -375,12 +380,11 @@ const BasicMenu = () => {
                   theme === "dark" ? "text-primary-500 scale-110" : "text-text-sub"
                 }`}
               />
-              <span className={theme === "dark" ? "text-primary-500" : "text-text-sub"}>다크</span>
             </button>
             <button
               type="button"
               onClick={() => setTheme("light")}
-              className="relative z-10 flex flex-1 items-center justify-center gap-2 py-2.5 rounded-full text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+              className="relative z-10 flex flex-1 items-center justify-center py-2.5 rounded-full text-sm font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
               aria-pressed={theme === "light"}
               aria-label="라이트 모드"
             >
@@ -389,7 +393,6 @@ const BasicMenu = () => {
                   theme === "light" ? "text-primary-500 scale-110" : "text-text-sub"
                 }`}
               />
-              <span className={theme === "light" ? "text-primary-500" : "text-text-sub"}>라이트</span>
             </button>
           </div>
         </div>

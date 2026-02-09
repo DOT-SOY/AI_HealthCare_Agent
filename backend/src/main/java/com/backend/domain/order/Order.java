@@ -162,5 +162,29 @@ public class Order extends AuditEntity {
                 || this.status == OrderStatus.DELIVERED
                 || this.status == OrderStatus.CANCELED;
     }
+
+    /**
+     * 관리자 배송 상태 변경.
+     * 허용 전이: PAID→SHIPPED, PAID→CANCELED, SHIPPED→DELIVERED, CREATED/PAYMENT_PENDING→CANCELED
+     */
+    public void updateStatusByAdmin(OrderStatus newStatus) {
+        if (newStatus == OrderStatus.SHIPPED) {
+            if (this.status != OrderStatus.PAID) {
+                throw new IllegalStateException("PAID 상태에서만 SHIPPED로 변경 가능합니다.");
+            }
+        } else if (newStatus == OrderStatus.DELIVERED) {
+            if (this.status != OrderStatus.SHIPPED) {
+                throw new IllegalStateException("SHIPPED 상태에서만 DELIVERED로 변경 가능합니다.");
+            }
+        } else if (newStatus == OrderStatus.CANCELED) {
+            if (this.status == OrderStatus.DELIVERED) {
+                throw new IllegalStateException("DELIVERED 상태는 CANCELED로 변경할 수 없습니다.");
+            }
+            // CREATED, PAYMENT_PENDING, PAID, SHIPPED → CANCELED 허용
+        } else {
+            throw new IllegalStateException("관리자는 SHIPPED, DELIVERED, CANCELED로만 변경할 수 있습니다.");
+        }
+        this.status = newStatus;
+    }
 }
 

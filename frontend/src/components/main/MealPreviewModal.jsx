@@ -36,6 +36,17 @@ export default function MealPreviewModal({ isOpen, onClose, mealData, date }) {
   const lunch = mealData?.lunch || { meals: [], totalCalories: 0 };
   const dinner = mealData?.dinner || { meals: [], totalCalories: 0 };
 
+  // 각 끼니의 완료 여부 확인 (모든 meals가 EATEN 상태인지)
+  const isMealTimeCompleted = (mealTime) => {
+    const meals = mealTime?.meals || [];
+    if (meals.length === 0) return false;
+    return meals.every((meal) => meal.status === 'EATEN');
+  };
+
+  const isBreakfastCompleted = isMealTimeCompleted(breakfast);
+  const isLunchCompleted = isMealTimeCompleted(lunch);
+  const isDinnerCompleted = isMealTimeCompleted(dinner);
+
   return (
     <div
       className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
@@ -82,16 +93,43 @@ export default function MealPreviewModal({ isOpen, onClose, mealData, date }) {
             {/* 식사별 정보 */}
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-text-sub">아침</span>
-                <span className="text-text-main">{breakfast.totalCalories} kcal</span>
+                <span className={`text-text-sub ${isBreakfastCompleted ? 'line-through text-text-muted' : ''}`}>
+                  아침
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`text-text-main ${isBreakfastCompleted ? 'line-through text-text-muted' : ''}`}>
+                    {breakfast.totalCalories} kcal
+                  </span>
+                  {isBreakfastCompleted && (
+                    <span className="text-primary-500 text-xs">완료</span>
+                  )}
+                </div>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-text-sub">점심</span>
-                <span className="text-text-main">{lunch.totalCalories} kcal</span>
+                <span className={`text-text-sub ${isLunchCompleted ? 'line-through text-text-muted' : ''}`}>
+                  점심
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`text-text-main ${isLunchCompleted ? 'line-through text-text-muted' : ''}`}>
+                    {lunch.totalCalories} kcal
+                  </span>
+                  {isLunchCompleted && (
+                    <span className="text-primary-500 text-xs">완료</span>
+                  )}
+                </div>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-text-sub">저녁</span>
-                <span className="text-text-main">{dinner.totalCalories} kcal</span>
+                <span className={`text-text-sub ${isDinnerCompleted ? 'line-through text-text-muted' : ''}`}>
+                  저녁
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`text-text-main ${isDinnerCompleted ? 'line-through text-text-muted' : ''}`}>
+                    {dinner.totalCalories} kcal
+                  </span>
+                  {isDinnerCompleted && (
+                    <span className="text-primary-500 text-xs">완료</span>
+                  )}
+                </div>
               </div>
             </div>
           </div>

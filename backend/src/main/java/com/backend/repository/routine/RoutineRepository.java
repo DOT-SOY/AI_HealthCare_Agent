@@ -24,6 +24,10 @@ public interface RoutineRepository extends JpaRepository<Routine, Long> {
     
     @Query("SELECT r FROM Routine r LEFT JOIN FETCH r.exercises e LEFT JOIN FETCH e.exerciseType WHERE r.id = :id")
     Optional<Routine> findByIdWithExercises(@Param("id") Long id);
+
+    /** 루틴 소유자 확인용: id + memberId로 조회 (삭제 등 본인 루틴만 허용) */
+    @Query("SELECT r FROM Routine r LEFT JOIN FETCH r.exercises e LEFT JOIN FETCH e.exerciseType WHERE r.id = :id AND r.member.id = :memberId")
+    Optional<Routine> findByIdAndMemberIdWithExercises(@Param("id") Long id, @Param("memberId") Long memberId);
     
            /**
             * 특정 운동 이름의 완료된 루틴을 페이지네이션으로 조회

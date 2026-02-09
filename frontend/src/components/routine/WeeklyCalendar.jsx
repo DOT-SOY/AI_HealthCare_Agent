@@ -1,16 +1,13 @@
 export default function WeeklyCalendar({ routines = [], selectedDate, onDateChange }) {
   const days = ['일', '월', '화', '수', '목', '금', '토'];
   const today = new Date();
-  
-  // selectedDate를 기준으로 주간 캘린더 생성
-  // selectedDate가 없으면 오늘 기준으로 생성
   const baseDate = selectedDate || today;
   
-  // baseDate를 중심으로 전후 3일씩 포함한 7일 생성
+  // 이전 3일 + 기준일 + 앞으로 3일 (총 7일)
   const weekDates = [];
   for (let i = -3; i <= 3; i++) {
     const date = new Date(baseDate);
-    date.setDate(date.getDate() + i);
+    date.setDate(baseDate.getDate() + i);
     weekDates.push(date);
   }
 
@@ -23,22 +20,25 @@ export default function WeeklyCalendar({ routines = [], selectedDate, onDateChan
     return date.toDateString() === today.toDateString();
   };
 
-  const formatDateKey = (date) => {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-  };
-
   const getRoutineForDate = (date) => {
-    const dateStr = formatDateKey(date);
+    // 로컬 기준 YYYY-MM-DD 문자열로 통일해서 비교 (UTC 변환으로 인한 1일 차이 방지)
+    const toLocalDateKey = (d) => {
+      const dd = d instanceof Date ? d : new Date(d);
+      const y = dd.getFullYear();
+      const m = String(dd.getMonth() + 1).padStart(2, '0');
+      const day = String(dd.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+
+    const dateKey = toLocalDateKey(date);
+
     return routines.find((r) => {
-      if (!r?.date) return false;
-      const routineDateStr =
+      if (!r.date) return false;
+      const routineKey =
         typeof r.date === 'string'
-          ? r.date
-          : formatDateKey(new Date(r.date));
-      return routineDateStr === dateStr;
+          ? (r.date.includes('T') ? r.date.split('T')[0] : r.date)
+          : toLocalDateKey(r.date);
+      return routineKey === dateKey;
     });
   };
 
@@ -54,24 +54,27 @@ export default function WeeklyCalendar({ routines = [], selectedDate, onDateChan
         return (
           <button
             key={index}
-            type="button"
             onClick={() => onDateChange && onDateChange(date)}
-            className={`px-4 py-3 rounded-token text-sm font-medium transition-colors whitespace-nowrap flex flex-col items-center justify-center gap-1 min-w-[70px] border min-h-[4.5rem] ${
+            className={`px-4 py-3 rounded-lg text-sm font-medium transition-colors whitespace-nowrap flex flex-col items-center gap-1 min-w-[70px] ${
               selected
-                ? 'bg-primary-500 border-primary-500 text-bg-root'
+                ? 'bg-primary-500 text-bg-root'
                 : todayFlag
-                ? 'bg-bg-card border-primary-500 text-primary-500'
-                : 'bg-bg-card border-border-default text-text-main hover:border-primary-500 hover:text-primary-500'
+                ? 'bg-bg-surface border border-primary-500 text-primary-500'
+                : 'bg-bg-card text-text-muted hover:bg-bg-surface'
             }`}
           >
-            <span className={`text-xs leading-none ${selected ? 'text-bg-root' : 'text-text-muted'}`}>
+            <span className={`text-xs ${selected ? 'text-bg-root' : 'text-text-muted'}`}>
               {dayName}
             </span>
-            <span className={`text-lg font-bold leading-none ${selected ? 'text-bg-root' : todayFlag ? 'text-primary-500' : 'text-text-main'}`}>
+            <span className={`text-lg font-bold ${
+              selected ? 'text-bg-root' : todayFlag ? 'text-primary-500' : 'text-text-main'
+            }`}>
               {dayNumber}
             </span>
             {routine && (
-              <span className={`w-1.5 h-1.5 rounded-full shrink-0 mt-0.5 ${selected ? 'bg-bg-root' : 'bg-primary-500'}`} />
+              <span className={`w-1.5 h-1.5 rounded-full mt-1 ${
+                selected ? 'bg-bg-root' : 'bg-primary-500'
+              }`} />
             )}
           </button>
         );
@@ -79,4 +82,3 @@ export default function WeeklyCalendar({ routines = [], selectedDate, onDateChan
     </div>
   );
 }
-

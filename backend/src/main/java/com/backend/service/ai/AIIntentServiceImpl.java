@@ -32,6 +32,7 @@ public class AIIntentServiceImpl implements AIIntentService {
                 .entities(chatResponse.getEntities())
                 .aiAnswer(chatResponse.getAiAnswer())
                 .requiresDbCheck(chatResponse.isRequiresDbCheck())
+                .userInput(userInput)
                 .build();
         } catch (Exception e) {
             log.error("의도 분류 실패: userInput={}, error={}", userInput, e.getMessage(), e);
@@ -57,6 +58,7 @@ public class AIIntentServiceImpl implements AIIntentService {
                 .entities(chatResponse.getEntities())
                 .aiAnswer(chatResponse.getAiAnswer())
                 .requiresDbCheck(chatResponse.isRequiresDbCheck())
+                .userInput(userInput)
                 .build();
         } catch (Exception e) {
             log.error("컨텍스트 포함 의도 분류 실패: context={}, userInput={}, error={}", 

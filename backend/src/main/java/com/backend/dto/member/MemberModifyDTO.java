@@ -1,7 +1,11 @@
 package com.backend.dto.member;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -40,5 +44,15 @@ public class MemberModifyDTO {
     @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$", message = "생년월일은 YYYY-MM-DD 형식이어야 합니다.")
     private String birthDate;
 
+    // 키(cm)
+    @NotNull(message = "키를 입력해주세요.")
+    @Min(value = 50, message = "키는 50cm 이상이어야 합니다.")
+    @Max(value = 300, message = "키는 300cm 이하여야 합니다.")
+    private Integer height;
+
+    // 몸무게(kg)
+    @NotNull(message = "몸무게를 입력해주세요.")
+    @DecimalMin(value = "1.0", message = "몸무게는 1kg 이상이어야 합니다.")
+    private Double weight;
 }
 

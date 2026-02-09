@@ -7,7 +7,9 @@ import lombok.Getter;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 @Getter
 @Builder
@@ -34,7 +36,7 @@ public class OrderDetailResponse {
                 .createdAt(order.getCreatedAt())
                 .buyer(OrderBuyerSnapshotResponse.from(order.getBuyerSnapshot()))
                 .shipTo(OrderShipToSnapshotResponse.from(order.getShipToSnapshot()))
-                .items(order.getItems().stream()
+                .items(Optional.ofNullable(order.getItems()).orElse(Collections.emptyList()).stream()
                         .map(OrderItemDetailResponse::from)
                         .toList())
                 .build();

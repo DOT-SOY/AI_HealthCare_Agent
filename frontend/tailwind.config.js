@@ -53,25 +53,8 @@ export default {
         'out-expo': 'cubic-bezier(0.16, 1, 0.3, 1)',
         'out-quart': 'cubic-bezier(0.25, 1, 0.5, 1)',
       },
-      keyframes: {
-        'stagger-in': {
-          '0%': { opacity: '0', transform: 'translateY(16px)' },
-          '100%': { opacity: '1', transform: 'translateY(0)' },
-        },
-        'energy-bar': {
-          '0%': { transform: 'scaleX(0)', opacity: '1' },
-          '100%': { transform: 'scaleX(1)', opacity: '1' },
-        },
-        'pulse-glow': {
-          '0%, 100%': { boxShadow: '0 0 20px var(--primary-glow)' },
-          '50%': { boxShadow: '0 0 28px var(--primary-glow)' },
-        },
-      },
-      animation: {
-        'stagger-in': 'stagger-in 0.5s var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) forwards',
-        'energy-bar': 'energy-bar 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-        'pulse-glow': 'pulse-glow 1.5s ease-in-out infinite',
-      },
+      /* NOTE: Tailwind v4에서는 keyframes/animation이 CSS @theme + @keyframes로 관리됩니다.
+         → design-tokens.css 참조. 이 파일은 v4에서 자동 로드되지 않습니다. */
       spacing: {
         'token-2': 'var(--spacing-token-2)',
         'token-4': 'var(--spacing-token-4)',

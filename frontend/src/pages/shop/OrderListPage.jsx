@@ -7,7 +7,7 @@ import { getMyOrders } from '../../services/orderApi';
 const statusLabels = {
   CREATED: '주문 생성',
   PAYMENT_PENDING: '결제 대기',
-  PAID: '결제 완료',
+  PAID: '배송 대기',
   SHIPPED: '배송중',
   DELIVERED: '배송완료',
   CANCELED: '취소',
@@ -15,7 +15,7 @@ const statusLabels = {
 
 const statusOptions = [
   { value: '', label: '전체' },
-  { value: 'PAID', label: '결제 완료' },
+  { value: 'PAID', label: '배송 대기' },
   { value: 'SHIPPED', label: '배송중' },
   { value: 'DELIVERED', label: '배송완료' },
   { value: 'CANCELED', label: '취소' },
@@ -110,9 +110,14 @@ const OrderListPage = () => {
 
   return (
     <div className="space-y-token-6">
-      <header className="section-header-token">
-        <h1 className="section-title">내 주문 내역</h1>
-        <p className="section-desc">최근 주문 현황과 결제 금액을 한 번에 확인하세요.</p>
+      <header className="section-header-token flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
+        <div>
+          <h1 className="section-title">
+            <span className="text-text-main">내 주문 </span>
+            <span className="text-primary-500">내역</span>
+          </h1>
+          <p className="section-desc mt-1">최근 주문 현황과 결제 금액을 한 번에 확인하세요.</p>
+        </div>
       </header>
 
       <section>

@@ -26,6 +26,9 @@ function Main() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [todayRoutine]);
   useEffect(() => {
+    // 메인 페이지 진입 시 항상 스크롤 최상단으로 이동
+    window.scrollTo(0, 0);
+
     // 데스크톱(1550px 이상)에서만 스크롤 막기
     const handleResize = () => {
       if (window.innerWidth >= 1550) {
@@ -51,22 +54,22 @@ function Main() {
     <BasicLayout>
       <div className="w-full bg-bg-root ">
         {/* Welcome Section */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold">
+        <header className="section-header-token mb-8">
+          <h1 className="section-title">
             <span className="text-text-main">WELCOME BACK, </span>
             <span className="text-primary-500">{userName.toUpperCase()}</span>
           </h1>
-        </div>
+        </header>
 
         {/* Top Section: Calendar and Chart */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-6 mb-6">
           {/* Calendar Widget */}
-          <div className="bg-bg-card rounded-token p-6 border border-border-default">
+          <div className="bg-bg-card rounded-token p-4 border border-border-default">
             <CalendarWidget />
           </div>
 
           {/* Volume Chart */}
-          <div className="bg-bg-card rounded-token p-6 border border-border-default">
+          <div className="bg-bg-card rounded-token p-4 border border-border-default">
             <VolumeChart />
           </div>
         </div>

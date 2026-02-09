@@ -21,6 +21,8 @@ body {
   padding: 0;
   min-width: 320px;
   min-height: 100vh;
+  background-color: var(--bg-root);
+  color: var(--text-main);
 }
 
 /* 스크롤바: 배경 0B0B0B, 스크롤(thumb) 네온그린 */

@@ -97,12 +97,14 @@ export default function HistoryPage() {
   return (
     <div className="w-full">
       {/* 헤더 */}
-      <header className="section-header-token">
-        <h1 className="section-title">
-          <span className="text-text-main">My Workout </span>
-          <span className="text-primary-500">Records</span>
-        </h1>
-        <p className="section-desc">운동별 기록 및 성과</p>
+      <header className="section-header-token flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
+        <div>
+          <h1 className="section-title">
+            <span className="text-text-main">My Workout </span>
+            <span className="text-primary-500">Records</span>
+          </h1>
+          <p className="section-desc mt-1">운동별 기록 및 성과</p>
+        </div>
       </header>
 
       {/* 필터 버튼 */}

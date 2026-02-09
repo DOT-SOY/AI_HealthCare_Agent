@@ -17,11 +17,19 @@ public class AIChatUtils {
      * entities.date 값을 LocalDate로 변환합니다.
      * - "today" 또는 null: 오늘 날짜
      * - "YYYY-MM-DD" 형식 문자열: 해당 날짜
+     * - "5", "6", "5일", "6일": 이번 달 5일, 6일 (요일 맞바꾸기용)
      * - 그 외: 오늘 날짜 (fallback)
      */
     public static LocalDate resolveDate(Object dateObj) {
         LocalDate today = LocalDate.now();
         if (dateObj == null) {
+            return today;
+        }
+        if (dateObj instanceof Number num) {
+            int day = num.intValue();
+            if (day >= 1 && day <= 31) {
+                return toDateInCurrentMonth(day);
+            }
             return today;
         }
         if (dateObj instanceof String dateStr) {
@@ -32,11 +40,58 @@ public class AIChatUtils {
             try {
                 return LocalDate.parse(trimmed);
             } catch (Exception e) {
+                // "5일", "6" 등 → 이번 달 n일
+                Integer dayOfMonth = parseDayOfMonth(trimmed);
+                if (dayOfMonth != null) {
+                    return toDateInCurrentMonth(dayOfMonth);
+                }
                 log.warn("날짜 파싱 실패, today로 대체: {}", trimmed);
                 return today;
             }
         }
         return today;
+    }
+
+    /** "5", "5일", "15" 등에서 일(day)만 추출. 1~31이면 반환, 아니면 null */
+    public static Integer parseDayOfMonth(String s) {
+        if (s == null || s.isEmpty()) return null;
+        String t = s.trim().replaceAll("일$", "");
+        try {
+            int day = Integer.parseInt(t);
+            return (day >= 1 && day <= 31) ? day : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static LocalDate toDateInCurrentMonth(int day) {
+        LocalDate today = LocalDate.now();
+        int maxDay = today.lengthOfMonth();
+        int safeDay = Math.min(day, maxDay);
+        return today.withDayOfMonth(safeDay);
+    }
+
+    /**
+     * 요일 맞바꾸기용: date1, date2를 해석. "5일", "6일" → 이번 달 5일, 6일.
+     */
+    public static LocalDate resolveDateForSwap(Object dateObj) {
+        if (dateObj == null) return LocalDate.now();
+        if (dateObj instanceof Number num) {
+            int day = num.intValue();
+            if (day >= 1 && day <= 31) return toDateInCurrentMonth(day);
+            return LocalDate.now();
+        }
+        if (dateObj instanceof String s) {
+            String trimmed = s.trim();
+            if (trimmed.isEmpty()) return LocalDate.now();
+            try {
+                return LocalDate.parse(trimmed);
+            } catch (Exception e) {
+                Integer day = parseDayOfMonth(trimmed);
+                if (day != null) return toDateInCurrentMonth(day);
+            }
+        }
+        return LocalDate.now();
     }
 
     /**

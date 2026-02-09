@@ -12,6 +12,9 @@ public interface ProductService {
 
     ProductResponse findById(Long id);
 
+    /**
+     * 상품 응답에 현재 로그인 회원 기준 리뷰 상태를 설정한다.
+     */
     void setReviewStatus(ProductResponse response, Long productId, Long memberId);
 
     PageResponse<ProductResponse> findAll(PageRequest pageRequest, ProductSearchRequest searchRequest);
