@@ -4,7 +4,6 @@ import { useRoutines } from '../../hooks/useRoutines';
 import { useExercises } from '../../hooks/useExercises';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { routineApi } from '../../api/routineApi';
-import WeeklyCalendar from '../../components/routine/WeeklyCalendar';
 import AISummaryCard from '../../components/routine/AISummaryCard';
 import ExerciseCard from '../../components/routine/ExerciseCard';
 import ExerciseEditModal from '../../components/routine/ExerciseEditModal';
@@ -144,10 +143,6 @@ export default function TodayRoutinePage() {
     window.addEventListener('routine-updated', onRoutineUpdated);
     return () => window.removeEventListener('routine-updated', onRoutineUpdated);
   }, [connectWebSocket, subscribeToRoutineUpdate, handleRoutineUpdate]);
-
-  const handleCalendarDateChange = (date) => {
-    setSelectedDate(date);
-  };
 
   const handleDropdownDateChange = (type, value) => {
     const newDate = new Date(selectedDateObj);
@@ -295,13 +290,6 @@ export default function TodayRoutinePage() {
           </div>
         </div>
       </header>
-
-      {/* 주간 캘린더 */}
-      <WeeklyCalendar 
-        routines={weekRoutines} 
-        selectedDate={selectedDate}
-        onDateChange={handleCalendarDateChange}
-      />
 
       {loading && !displayRoutine ? (
         <LoadingModal isOpen={true} message="로딩 중..." />

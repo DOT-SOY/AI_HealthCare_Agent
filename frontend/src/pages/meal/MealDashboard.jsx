@@ -279,7 +279,6 @@ const MealDashboard = () => {
             <header className="section-header-token flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
                 <div>
                     <h1 className="section-title"><span className="text-text-main">Today's </span><span className="text-primary-500">Meal Plan</span></h1>
-                    <p className="section-desc mt-1">{formatDate(selectedDate)}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                     <div className="segment-btn relative cursor-pointer"
