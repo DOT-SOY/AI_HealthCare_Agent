@@ -2,7 +2,7 @@ export default function WeeklyCalendar({ routines = [], selectedDate, onDateChan
   const days = ['일', '월', '화', '수', '목', '금', '토'];
   const today = new Date();
   const baseDate = selectedDate || today;
-
+  
   // 이전 3일 + 기준일 + 앞으로 3일 (총 7일)
   const weekDates = [];
   for (let i = -3; i <= 3; i++) {

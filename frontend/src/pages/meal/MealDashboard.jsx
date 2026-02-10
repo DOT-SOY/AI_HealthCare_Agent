@@ -29,6 +29,7 @@ const MealDashboard = () => {
         }
         return new Date();
     });
+    const selectedDateRef = useRef(selectedDate);
     const [showYearDropdown, setShowYearDropdown] = useState(false);
     const [showMonthDropdown, setShowMonthDropdown] = useState(false);
     const [showDayDropdown, setShowDayDropdown] = useState(false);
@@ -80,9 +81,11 @@ const MealDashboard = () => {
         setShowDayDropdown(false);
     };
 
-    const reload = async () => {
+    const reload = async (targetDate = null) => {
         try {
-            const dateStr = formatDateForApi(selectedDate);
+            // targetDate가 있으면 그것을, 없으면 현재 selectedDate를 사용
+            const dateToLoad = targetDate || selectedDate;
+            const dateStr = formatDateForApi(dateToLoad);
             const response = await mealApi.getDashboard(dateStr);
             if (response) setData(response);
         } catch (err) {
@@ -91,6 +94,7 @@ const MealDashboard = () => {
     };
 
     useEffect(() => {
+        selectedDateRef.current = selectedDate;
         reload();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedDate]);
@@ -105,12 +109,12 @@ const MealDashboard = () => {
                 clearTimeout(replanFallbackTimerRef.current);
                 replanFallbackTimerRef.current = null;
             }
-            reload();
+            reload(selectedDateRef.current);
         });
 
         const subChanged = subscribeToMealChanged(() => {
             // 식단 변경(생성/토글/비전 등) 감지 시 대시보드 재조회
-            reload();
+            reload(selectedDateRef.current);
         });
 
         return () => {
@@ -165,7 +169,7 @@ const MealDashboard = () => {
         try {
             const next = planned.length > 0 ? 'EATEN' : 'PLANNED';
             await Promise.all(toUpdate.map((m) => mealApi.toggleStatus(m.scheduleId, next)));
-            await reload();
+            await reload(selectedDate);
         } catch (e) {
             console.error('끼니 완료 처리 실패:', e);
             window.alert('처리 중 오류가 발생했습니다.');
@@ -194,7 +198,7 @@ const MealDashboard = () => {
             try {
                 const dateStr = formatDateForApi(selectedDate);
                 await mealApi.toggleMealTimeSkip(dateStr, mealTime, false);
-                await reload();
+                await reload(selectedDate);
             } catch (e) {
                 console.error('끼니 생략 취소 실패:', e);
                 window.alert('처리 중 오류가 발생했습니다.');
@@ -224,11 +228,11 @@ const MealDashboard = () => {
                     clearTimeout(replanFallbackTimerRef.current);
                 }
                 replanFallbackTimerRef.current = setTimeout(() => {
-                    reload();
+                    reload(selectedDate);
                     replanFallbackTimerRef.current = null;
                 }, 2500);
             } else {
-                await reload();
+                await reload(selectedDate);
             }
         } catch (e) {
             console.error('끼니 생략 처리 실패:', e);
@@ -245,7 +249,7 @@ const MealDashboard = () => {
         try {
             const next = meal.status === 'EATEN' ? 'PLANNED' : 'EATEN';
             await mealApi.toggleStatus(meal.scheduleId, next);
-            await reload();
+            await reload(selectedDate);
         } catch (e) {
             console.error('항목 완료 처리 실패:', e);
             window.alert('처리 중 오류가 발생했습니다.');
@@ -337,7 +341,7 @@ const MealDashboard = () => {
             </section>
 
             {/* 2. 중단: 식단 카드 섹션 */}
-            <section className="flex gap-4 mb-6 overflow-x-auto pb-4">
+            <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <MealCard title="아침" data={d.breakfast} mealTime="BREAKFAST" busy={busy} onMealComplete={handleMealBoxComplete} onMealSkip={handleMealBoxSkip} onItemComplete={handleItemComplete} onItemSkip={handleItemSkip} />
                 <MealCard title="점심" data={d.lunch} mealTime="LUNCH" busy={busy} onMealComplete={handleMealBoxComplete} onMealSkip={handleMealBoxSkip} onItemComplete={handleItemComplete} onItemSkip={handleItemSkip} />
                 <MealCard title="저녁" data={d.dinner} mealTime="DINNER" busy={busy} onMealComplete={handleMealBoxComplete} onMealSkip={handleMealBoxSkip} onItemComplete={handleItemComplete} onItemSkip={handleItemSkip} />
@@ -470,7 +474,8 @@ const StatusCircle = ({ label, unit, data, type }) => {
 const MealCard = ({ title, data, mealTime, busy, onMealComplete, onMealSkip, onItemComplete, onItemSkip }) => {
     if (!data) return null;
     const badgeClass = (title === '아침' || title === '저녁') ? "bg-primary-500 text-bg-root" : "bg-gray-100 text-text-main";
-    const warningClass = title === '점심' && data.totalCalories > 1000 ? "border-2 border-accent-secondary" : "border border-border-default";
+    // 점심만 빨간 경고 테두리 노출되는 UX 제거 (모든 끼니 동일 디자인 유지)
+    const warningClass = "border border-border-default";
     const mealTimeSkipped = !!data.skipped;
     const hasPlanned = (data.meals || []).some((m) => m?.status === 'PLANNED');
     const hasSkipped = (data.meals || []).some((m) => m?.status === 'SKIPPED' && !m?.isAdditional);
@@ -480,7 +485,7 @@ const MealCard = ({ title, data, mealTime, busy, onMealComplete, onMealSkip, onI
     const skipDisabled = !!busy || (!hasPlanned && !hasSkipped);
 
     return (
-        <div className={`card-token rounded-token min-w-[280px] h-[400px] flex flex-col px-3 py-4 relative ${warningClass}`}>
+        <div className={`card-token rounded-token w-full h-[400px] flex flex-col px-3 py-4 relative ${warningClass}`}>
             <div className="flex justify-between items-center mb-3 border-b border-border-default pb-2 px-1">
                 <div className="flex items-center gap-2">
                     <span className={`text-xs font-bold px-2 py-1 rounded-token-sm ${badgeClass}`}>{title}</span>

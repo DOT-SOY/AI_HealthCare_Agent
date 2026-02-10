@@ -22,3 +22,8 @@ public interface MealTargetRepository extends JpaRepository<MealTarget, Long> {
 
 
 
+
+
+
+
+

@@ -368,11 +368,16 @@ export default function AIChatOverlay() {
 
       dispatch(setLoading(true));
 
-      // /api/ai/chat 엔드포인트로 이미지 전송 (이미지 분류 후 음식/인바디 라우팅)
-      // 백엔드는 이미지 분류 후 mealService.asyncVisionAnalysis를 호출하고,
-      // 실제 결과는 WebSocket(/topic/meal/vision/{userId})로 옴
+      // 1) 식단 비전 파이프라인 우선: mealApi(백엔드 식단 비전) 호출
+      // - 백엔드는 202 ACCEPTED만 반환하고, 실제 결과는 WebSocket(/topic/meal/vision/{userId})로 옴
+      // 2) 실패 시 fallback: 기존 /ai/chat 업로드(서버에서 이미지 분류 후 라우팅)
       visionPendingRef.current = true;
-      await aiApi.sendMessage(null, file, null);
+      try {
+        const base64 = dataUrl.split(',')[1] || '';
+        await mealApi.analyzeVision(base64);
+      } catch (e) {
+        await aiApi.sendMessage(null, file, null);
+      }
 
       dispatch(addMessage({ role: 'assistant', content: '이미지 분석을 시작했어요. 잠시만 기다려주세요...' }));
     } catch (err) {

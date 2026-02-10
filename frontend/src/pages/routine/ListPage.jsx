@@ -4,7 +4,6 @@ import { useRoutines } from '../../hooks/useRoutines';
 import { useExercises } from '../../hooks/useExercises';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { routineApi } from '../../api/routineApi';
-import WeeklyCalendar from '../../components/routine/WeeklyCalendar';
 import AISummaryCard from '../../components/routine/AISummaryCard';
 import ExerciseCard from '../../components/routine/ExerciseCard';
 import ExerciseEditModal from '../../components/routine/ExerciseEditModal';
@@ -33,7 +32,6 @@ export default function TodayRoutinePage() {
   };
 
   const [selectedDate, setSelectedDate] = useState(getInitialSelectedDate);
-
   const [showYearDropdown, setShowYearDropdown] = useState(false);
   const [showMonthDropdown, setShowMonthDropdown] = useState(false);
   const [showDayDropdown, setShowDayDropdown] = useState(false);
@@ -41,15 +39,6 @@ export default function TodayRoutinePage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [isAddExerciseModalOpen, setIsAddExerciseModalOpen] = useState(false);
   const [dateRoutine, setDateRoutine] = useState(null); // URL/선택 날짜용 개별 루틴
-
-  // 로컬 기준 YYYY-MM-DD 키 생성 (UTC toISOString 사용으로 인한 1일 차이 방지)
-  const toLocalDateKey = (d) => {
-    const dd = d instanceof Date ? d : new Date(d);
-    const y = dd.getFullYear();
-    const m = String(dd.getMonth() + 1).padStart(2, '0');
-    const day = String(dd.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  };
 
   const selectedDateObj = useMemo(
     () => (selectedDate instanceof Date ? selectedDate : new Date(selectedDate || Date.now())),
@@ -60,25 +49,32 @@ export default function TodayRoutinePage() {
   const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
   const getDaysInMonth = (year, month) => new Date(year, month, 0).getDate();
-  const days = useMemo(
-    () => Array.from({ length: getDaysInMonth(selectedDateObj.getFullYear(), selectedDateObj.getMonth() + 1) }, (_, i) => i + 1),
-    [selectedDateObj.getFullYear(), selectedDateObj.getMonth()]
+  const daysInSelectedMonth = useMemo(
+    () =>
+      Array.from(
+        { length: getDaysInMonth(selectedDateObj.getFullYear(), selectedDateObj.getMonth() + 1) },
+        (_, i) => i + 1
+      ),
+    [selectedDateObj]
   );
-  const formatDateForApi = (date) => {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
+
+  // 로컬 기준 YYYY-MM-DD 키 생성 (UTC toISOString 사용으로 인한 1일 차이 방지)
+  const toLocalDateKey = (d) => {
+    const dd = d instanceof Date ? d : new Date(d);
+    const y = dd.getFullYear();
+    const m = String(dd.getMonth() + 1).padStart(2, '0');
+    const day = String(dd.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   };
 
   const displayRoutine = useMemo(() => {
-    const selectedDateStr = formatDateForApi(selectedDateObj);
-    const todayStr = formatDateForApi(new Date());
-
+    const selectedDateStr = toLocalDateKey(selectedDateObj);
+    const todayStr = toLocalDateKey(new Date());
+    
     if (selectedDateStr === todayStr && todayRoutine) {
       return todayRoutine;
     }
-
+    
     const found = weekRoutines.find(r => {
       if (!r || !r.date) return false;
       const routineDateStr = typeof r.date === 'string' 
@@ -100,7 +96,7 @@ export default function TodayRoutinePage() {
     }
 
     return null;
-  }, [selectedDate, todayRoutine, weekRoutines, dateRoutine, refreshKey]);
+  }, [selectedDateObj, todayRoutine, weekRoutines, dateRoutine, refreshKey]);
 
   // URL 쿼리(date)가 변경되면 선택 날짜를 동기화
   useEffect(() => {
@@ -117,7 +113,7 @@ export default function TodayRoutinePage() {
   // 선택된 날짜 기준으로 개별 루틴 데이터 로딩 (오늘/이번 주에 없을 때를 대비)
   useEffect(() => {
     const fetchByDate = async () => {
-      const selectedDateStr = toLocalDateKey(selectedDate);
+      const selectedDateStr = toLocalDateKey(selectedDateObj);
       const todayStr = toLocalDateKey(new Date());
 
       // 오늘은 todayRoutine/weekRoutines를 우선 사용
@@ -131,7 +127,7 @@ export default function TodayRoutinePage() {
     };
 
     fetchByDate();
-  }, [selectedDate, fetchRoutineByDate]);
+  }, [selectedDateObj, fetchRoutineByDate]);
 
 
   const handleRoutineUpdate = useCallback(async () => {
@@ -148,13 +144,15 @@ export default function TodayRoutinePage() {
     return () => window.removeEventListener('routine-updated', onRoutineUpdated);
   }, [connectWebSocket, subscribeToRoutineUpdate, handleRoutineUpdate]);
 
-  const handleDateChange = (type, value) => {
+  const handleDropdownDateChange = (type, value) => {
     const newDate = new Date(selectedDateObj);
     if (type === 'year') newDate.setFullYear(value);
     else if (type === 'month') newDate.setMonth(value - 1);
     else if (type === 'day') newDate.setDate(value);
+
     const maxDay = getDaysInMonth(newDate.getFullYear(), newDate.getMonth() + 1);
     if (newDate.getDate() > maxDay) newDate.setDate(maxDay);
+
     setSelectedDate(newDate);
     setShowYearDropdown(false);
     setShowMonthDropdown(false);
@@ -174,7 +172,7 @@ export default function TodayRoutinePage() {
     try {
       let routineId = displayRoutine?.id;
       if (!routineId) {
-        const selectedDateStr = formatDateForApi(selectedDateObj);
+        const selectedDateStr = toLocalDateKey(selectedDateObj);
         const newRoutine = await routineApi.create(
           selectedDateStr,
           '새로운 루틴',
@@ -214,7 +212,11 @@ export default function TodayRoutinePage() {
         <div className="flex items-center gap-2 flex-wrap">
           <div
             className="segment-btn relative cursor-pointer"
-            onClick={() => { setShowYearDropdown(!showYearDropdown); setShowMonthDropdown(false); setShowDayDropdown(false); }}
+            onClick={() => {
+              setShowYearDropdown(!showYearDropdown);
+              setShowMonthDropdown(false);
+              setShowDayDropdown(false);
+            }}
           >
             {selectedDateObj.getFullYear()}년
             {showYearDropdown && (
@@ -223,7 +225,10 @@ export default function TodayRoutinePage() {
                   <div
                     key={year}
                     className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-text-main text-sm"
-                    onClick={(e) => { e.stopPropagation(); handleDateChange('year', year); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDropdownDateChange('year', year);
+                    }}
                   >
                     {year}년
                   </div>
@@ -233,7 +238,11 @@ export default function TodayRoutinePage() {
           </div>
           <div
             className="segment-btn relative cursor-pointer"
-            onClick={() => { setShowMonthDropdown(!showMonthDropdown); setShowYearDropdown(false); setShowDayDropdown(false); }}
+            onClick={() => {
+              setShowMonthDropdown(!showMonthDropdown);
+              setShowYearDropdown(false);
+              setShowDayDropdown(false);
+            }}
           >
             {selectedDateObj.getMonth() + 1}월
             {showMonthDropdown && (
@@ -242,7 +251,10 @@ export default function TodayRoutinePage() {
                   <div
                     key={month}
                     className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-text-main text-sm"
-                    onClick={(e) => { e.stopPropagation(); handleDateChange('month', month); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDropdownDateChange('month', month);
+                    }}
                   >
                     {month}월
                   </div>
@@ -252,16 +264,23 @@ export default function TodayRoutinePage() {
           </div>
           <div
             className="segment-btn relative cursor-pointer"
-            onClick={() => { setShowDayDropdown(!showDayDropdown); setShowYearDropdown(false); setShowMonthDropdown(false); }}
+            onClick={() => {
+              setShowDayDropdown(!showDayDropdown);
+              setShowYearDropdown(false);
+              setShowMonthDropdown(false);
+            }}
           >
             {selectedDateObj.getDate()}일
             {showDayDropdown && (
               <div className="absolute top-full left-0 mt-2 bg-bg-card border border-border-default rounded-token shadow-lg z-50 max-h-48 overflow-y-auto min-w-[80px]">
-                {days.map((day) => (
+                {daysInSelectedMonth.map((day) => (
                   <div
                     key={day}
                     className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-text-main text-sm"
-                    onClick={(e) => { e.stopPropagation(); handleDateChange('day', day); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDropdownDateChange('day', day);
+                    }}
                   >
                     {day}일
                   </div>
@@ -319,10 +338,10 @@ export default function TodayRoutinePage() {
                 // 완료된 운동과 미완료 운동 분리
                 const incompleteExercises = displayRoutine.exercises.filter(ex => !ex.completed);
                 const completedExercises = displayRoutine.exercises.filter(ex => ex.completed);
-
+                
                 // 미완료 항목을 위로, 완료 항목을 아래로 배치
                 const sortedExercises = [...incompleteExercises, ...completedExercises];
-
+                
                 return sortedExercises.map((exercise, index) => (
                   <ExerciseCard
                     key={exercise.id || index}

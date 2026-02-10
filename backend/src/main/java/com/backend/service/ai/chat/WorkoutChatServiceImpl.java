@@ -8,7 +8,6 @@ import com.backend.dto.response.ExerciseResponse;
 import com.backend.dto.response.IntentClassificationResult;
 import com.backend.dto.response.RoutineRecommendResponse;
 import com.backend.dto.response.RoutineResponse;
-import com.backend.repository.exercise.ExerciseTypeRepository;
 import com.backend.service.member.CurrentMemberService;
 import com.backend.service.routine.RoutineService;
 import com.backend.util.AIChatUtils;
@@ -39,7 +38,6 @@ public class WorkoutChatServiceImpl implements WorkoutChatService {
     private final CurrentMemberService currentMemberService;
     private final GeneralChatService generalChatService;
     private final RoutineRecommendClient routineRecommendClient;
-    private final ExerciseTypeRepository exerciseTypeRepository;
 
     @Override
     public AIChatResponse handleWorkout(IntentClassificationResult classification) {
@@ -306,17 +304,6 @@ public class WorkoutChatServiceImpl implements WorkoutChatService {
         return 2;
     }
 
-    private Integer resolveDayIndex(Map<String, Object> entities) {
-        if (entities == null) return 0;
-        Object v = entities.get("day_index");
-        if (v instanceof Number) return ((Number) v).intValue();
-        if (v != null) {
-            try { return Integer.parseInt(String.valueOf(v)); } catch (NumberFormatException ignored) { }
-        }
-        return 0;
-    }
-
-    @SuppressWarnings("unchecked")
     private List<String> resolveTargetBodyParts(Map<String, Object> entities) {
         if (entities == null) return null;
         Object v = entities.get("target_body_parts");
@@ -372,133 +359,19 @@ public class WorkoutChatServiceImpl implements WorkoutChatService {
             return fallbackModifyMessage();
         }
         String modifyType = entities.get("modify_type") != null ? String.valueOf(entities.get("modify_type")).trim() : null;
-        if ("swap_days".equalsIgnoreCase(modifyType)) {
-            return handleSwapDays(entities);
-        }
-        if ("pain_modify".equalsIgnoreCase(modifyType)) {
-            return handlePainModify(entities);
-        }
         if ("add_exercise".equalsIgnoreCase(modifyType)) {
             return handleAddExercise(entities);
         }
         if ("remove_exercise".equalsIgnoreCase(modifyType)) {
             return handleRemoveExercise(entities);
         }
+        if ("swap_days".equalsIgnoreCase(modifyType)) {
+            return handleSwapDays(entities);
+        }
+        if ("pain_modify".equalsIgnoreCase(modifyType)) {
+            return handlePainModify(entities);
+        }
         return fallbackModifyMessage();
-    }
-
-    /**
-     * MODIFY remove_exercise: 루틴에서 지정한 운동 삭제.
-     */
-    private AIChatResponse handleRemoveExercise(Map<String, Object> entities) {
-        Object nameObj = entities.get("exercise_name");
-        String exerciseName = nameObj != null ? String.valueOf(nameObj).trim() : null;
-        if (exerciseName == null || exerciseName.isEmpty()) {
-            return AIChatResponse.builder()
-                .message("어떤 운동을 빼줄까요? (예: 스쿼트, 벤치프레스)")
-                .intent("WORKOUT")
-                .build();
-        }
-
-        LocalDate targetDate = AIChatUtils.resolveDate(entities.get("date"));
-        Long memberId = currentMemberService.getCurrentMemberOrThrow().getId();
-        RoutineResponse routine = routineService.getRoutineByDate(memberId, targetDate);
-
-        if (routine == null) {
-            return AIChatResponse.builder()
-                .message(AIChatUtils.formatDateForMessage(targetDate) + " 루틴이 없어요.")
-                .intent("WORKOUT")
-                .build();
-        }
-
-        List<ExerciseResponse> exercises = routine.getExercises();
-        if (exercises == null || exercises.isEmpty()) {
-            return AIChatResponse.builder()
-                .message("그 루틴에 운동이 없어요.")
-                .intent("WORKOUT")
-                .build();
-        }
-
-        ExerciseResponse toRemove = exercises.stream()
-            .filter(ex -> exerciseName.equals(ex.getName() != null ? ex.getName().trim() : null))
-            .findFirst()
-            .orElse(null);
-
-        if (toRemove == null) {
-            return AIChatResponse.builder()
-                .message("그 루틴에 " + exerciseName + " 운동이 없어요.")
-                .intent("WORKOUT")
-                .build();
-        }
-
-        routineService.deleteExercise(memberId, routine.getId(), toRemove.getId());
-        return AIChatResponse.builder()
-            .message(exerciseName + " 운동 빼뒀어요.")
-            .intent("WORKOUT")
-            .data(Map.of("routineUpdated", true))
-            .build();
-    }
-
-    /**
-     * MODIFY add_exercise: 루틴에 지정한 운동 추가.
-     * - 지원 목록(ExerciseType)에 없으면 "지원하지 않는 운동입니다." 반환.
-     */
-    private AIChatResponse handleAddExercise(Map<String, Object> entities) {
-        Object nameObj = entities.get("exercise_name");
-        String exerciseName = nameObj != null ? String.valueOf(nameObj).trim() : null;
-        if (exerciseName == null || exerciseName.isEmpty()) {
-            return AIChatResponse.builder()
-                .message("어떤 운동을 추가할까요? (예: 스쿼트, 벤치프레스)")
-                .intent("WORKOUT")
-                .build();
-        }
-
-        if (exerciseTypeRepository.findByName(exerciseName).isEmpty()) {
-            return AIChatResponse.builder()
-                .message("지원하지 않는 운동입니다.")
-                .intent("WORKOUT")
-                .build();
-        }
-
-        LocalDate targetDate = AIChatUtils.resolveDate(entities.get("date"));
-        Long memberId = currentMemberService.getCurrentMemberOrThrow().getId();
-        RoutineResponse routine = routineService.getRoutineByDate(memberId, targetDate);
-
-        if (routine == null) {
-            RoutineCreateRequest createRequest = new RoutineCreateRequest();
-            createRequest.setDate(targetDate);
-            createRequest.setTitle("루틴");
-            createRequest.setSummary("");
-            routine = routineService.createRoutine(memberId, createRequest);
-        }
-
-        try {
-            ExerciseAddRequest addRequest = new ExerciseAddRequest();
-            addRequest.setName(exerciseName);
-            addRequest.setSets(null);
-            addRequest.setReps(null);
-            addRequest.setWeight(null);
-            addRequest.setCategory(null);
-            routineService.addExercise(routine.getId(), addRequest);
-        } catch (IllegalArgumentException e) {
-            String msg = e.getMessage() != null ? e.getMessage() : "추가할 수 없어요.";
-            if (msg.contains("이미 같은 운동")) {
-                return AIChatResponse.builder()
-                    .message("이 루틴에 이미 " + exerciseName + " 운동이 있어요.")
-                    .intent("WORKOUT")
-                    .build();
-            }
-            return AIChatResponse.builder()
-                .message(msg)
-                .intent("WORKOUT")
-                .build();
-        }
-
-        return AIChatResponse.builder()
-            .message(exerciseName + " 운동 추가했어요.")
-            .intent("WORKOUT")
-            .data(Map.of("routineUpdated", true))
-            .build();
     }
 
     private AIChatResponse handleSwapDays(Map<String, Object> entities) {
@@ -623,9 +496,119 @@ public class WorkoutChatServiceImpl implements WorkoutChatService {
             .build();
     }
 
+    /**
+     * MODIFY add_exercise: 특정 날짜(기본 오늘)의 루틴에 운동을 추가합니다.
+     */
+    private AIChatResponse handleAddExercise(Map<String, Object> entities) {
+        Object nameObj = entities.get("exercise_name");
+        String exerciseName = nameObj != null ? String.valueOf(nameObj).trim() : null;
+        if (exerciseName == null || exerciseName.isEmpty()) {
+            return AIChatResponse.builder()
+                .message("어떤 운동을 추가할까요? (예: 스쿼트 추가, 벤치프레스 넣어줘)")
+                .intent("WORKOUT")
+                .build();
+        }
+
+        LocalDate targetDate = AIChatUtils.resolveDate(entities.get("date"));
+        Long memberId = currentMemberService.getCurrentMemberOrThrow().getId();
+
+        RoutineResponse routine = routineService.getRoutineByDate(memberId, targetDate);
+        if (routine == null) {
+            // 루틴이 없으면 우선 생성(비어있는 루틴) 후 운동 추가
+            try {
+                RoutineCreateRequest create = new RoutineCreateRequest(
+                    targetDate,
+                    AIChatUtils.formatDateForMessage(targetDate) + " 루틴",
+                    null
+                );
+                routine = routineService.createRoutine(memberId, create);
+            } catch (Exception ignored) {
+                routine = routineService.getRoutineByDate(memberId, targetDate);
+            }
+        }
+        if (routine == null) {
+            return AIChatResponse.builder()
+                .message(AIChatUtils.formatDateForMessage(targetDate) + " 루틴을 찾거나 만들지 못했어요. 먼저 루틴을 만들어주세요.")
+                .intent("WORKOUT")
+                .build();
+        }
+
+        try {
+            // category는 null로 두면(이미 ExerciseType이 존재하면) DB의 ExerciseType을 사용합니다.
+            routineService.addExercise(routine.getId(), new ExerciseAddRequest(exerciseName, null, 3, 10, null));
+        } catch (IllegalArgumentException e) {
+            String msg = e.getMessage() != null && e.getMessage().contains("이미 같은 운동")
+                ? "이미 " + AIChatUtils.formatDateForMessage(targetDate) + " 루틴에 '" + exerciseName + "' 운동이 있어요."
+                : "운동 추가에 실패했어요: " + (e.getMessage() != null ? e.getMessage() : "알 수 없는 오류");
+            return AIChatResponse.builder()
+                .message(msg)
+                .intent("WORKOUT")
+                .data(Map.of("routineUpdated", false))
+                .build();
+        }
+
+        return AIChatResponse.builder()
+            .message(AIChatUtils.formatDateForMessage(targetDate) + " 루틴에 '" + exerciseName + "' 운동을 추가했어요.")
+            .intent("WORKOUT")
+            .data(Map.of("routineUpdated", true, "date", targetDate.toString(), "exerciseName", exerciseName))
+            .build();
+    }
+
+    /**
+     * MODIFY remove_exercise: 특정 날짜(기본 오늘)의 루틴에서 운동을 삭제합니다.
+     */
+    private AIChatResponse handleRemoveExercise(Map<String, Object> entities) {
+        Object nameObj = entities.get("exercise_name");
+        String exerciseName = nameObj != null ? String.valueOf(nameObj).trim() : null;
+        if (exerciseName == null || exerciseName.isEmpty()) {
+            return AIChatResponse.builder()
+                .message("어떤 운동을 빼줄까요? (예: 스쿼트 빼줘, 벤치프레스 삭제해줘)")
+                .intent("WORKOUT")
+                .build();
+        }
+
+        LocalDate targetDate = AIChatUtils.resolveDate(entities.get("date"));
+        Long memberId = currentMemberService.getCurrentMemberOrThrow().getId();
+        RoutineResponse routine = routineService.getRoutineByDate(memberId, targetDate);
+
+        if (routine == null) {
+            return AIChatResponse.builder()
+                .message(AIChatUtils.formatDateForMessage(targetDate) + " 루틴이 없어요.")
+                .intent("WORKOUT")
+                .build();
+        }
+
+        List<ExerciseResponse> exercises = routine.getExercises();
+        if (exercises == null || exercises.isEmpty()) {
+            return AIChatResponse.builder()
+                .message(AIChatUtils.formatDateForMessage(targetDate) + " 루틴에 운동이 없어요.")
+                .intent("WORKOUT")
+                .build();
+        }
+
+        ExerciseResponse toRemove = exercises.stream()
+            .filter(ex -> ex.getName() != null && exerciseName.equals(ex.getName().trim()))
+            .findFirst()
+            .orElse(null);
+
+        if (toRemove == null) {
+            return AIChatResponse.builder()
+                .message(AIChatUtils.formatDateForMessage(targetDate) + " 루틴에 '" + exerciseName + "' 운동이 없어요.")
+                .intent("WORKOUT")
+                .build();
+        }
+
+        routineService.deleteExercise(memberId, routine.getId(), toRemove.getId());
+        return AIChatResponse.builder()
+            .message(AIChatUtils.formatDateForMessage(targetDate) + " 루틴에서 '" + exerciseName + "' 운동을 삭제했어요.")
+            .intent("WORKOUT")
+            .data(Map.of("routineUpdated", true, "date", targetDate.toString(), "exerciseName", exerciseName))
+            .build();
+    }
+
     private AIChatResponse fallbackModifyMessage() {
         return AIChatResponse.builder()
-            .message("요일 맞바꾸기는 \"5일이랑 6일 바꿔줘\"처럼, 통증 수정은 \"허리 아파서 루틴 수정해줘\"처럼 말씀해주세요.")
+            .message("운동 추가는 \"스쿼트 추가해줘\"처럼, 운동 삭제는 \"스쿼트 빼줘\"처럼, 요일 맞바꾸기는 \"5일이랑 6일 바꿔줘\"처럼, 통증 수정은 \"허리 아파서 루틴 수정해줘\"처럼 말씀해주세요.")
             .intent("WORKOUT")
             .build();
     }

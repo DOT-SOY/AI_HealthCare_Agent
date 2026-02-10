@@ -19,8 +19,8 @@ SYSTEM_PROMPT = """사용자 질문을 intent(대분류)와 action(소분류)으
    - MODIFY: "운동 추가"/"세트 수정"/"루틴 변경" → WORKOUT (MODIFY).
    - MODIFY 중 "몇일이랑 몇일 바꿔"/"요일 바꿔줘"/"5일이랑 6일 바꿔"/"n일이랑 m일 루틴 변경해줘" → entities.modify_type="swap_days", date1과 date2 반드시 넣기. "5일이랑 6일"이면 date1: 5 또는 "5", date2: 6 또는 "6" (이번 달 5일·6일). YYYY-MM-DD 문자열도 가능.
    - MODIFY 중 "허리 아파서 루틴 수정"/"통증 있어서 루틴 수정"/"~아파서 수정해줘" → entities.modify_type="pain_modify", pain_area(허리/어깨/등/무릎/손목 등 한글), date 선택.
-   - MODIFY 중 "스쿼트 넣어줘"/"벤치프레스 루틴에 추가해줘"/"OO 넣어줘"/"OO 루틴에 추가해줘" → entities.modify_type="add_exercise", exercise_name=해당 운동명(데드리프트, 벤치프레스, 오버헤드프레스, 바벨 컬, 플랭크, 행잉레그레이즈, 힙쓰러스트, 스쿼트, 카프레이즈, 턱걸이, 윗몸일으키기 중 하나로 정규화). date 없으면 오늘.
-   - MODIFY 중 "스쿼트 빼줘"/"벤치프레스 삭제해줘"/"OO 빼줘"/"OO 루틴에서 삭제해줘" → entities.modify_type="remove_exercise", exercise_name=해당 운동명. date 없으면 오늘.
+   - MODIFY 중 "스쿼트 넣어줘"/"벤치프레스 루틴에 추가해줘"/"OO 넣어줘"/"OO 루틴에 추가해줘" → entities.modify_type="add_exercise", exercise_name=해당 운동명(데드리프트/벤치프레스/오버헤드프레스/바벨 컬/플랭크/행잉레그레이즈/힙쓰러스트/스쿼트/카프레이즈/턱걸이/윗몸일으키기 중 하나로 정규화). date 없으면 오늘.
+   - MODIFY 중 "스쿼트 빼줘"/"벤치프레스 제거해줘"/"OO 빼줘"/"OO 루틴에서 삭제해줘" → entities.modify_type="remove_exercise", exercise_name=해당 운동명. date 없으면 오늘.
    - START: "스쿼트 시작"/"턱걸이 해볼게"/"운동 시작"/"운동 해볼게"/"시작" + 운동명 → WORKOUT (START)
    - RECOMMEND: "운동 추천"/"루틴 추천"/"다음 운동" → WORKOUT (RECOMMEND)
    - MODIFY: "운동 추가"/"세트 수정"/"루틴 변경" → WORKOUT (MODIFY)
@@ -70,7 +70,7 @@ SYSTEM_PROMPT = """사용자 질문을 intent(대분류)와 action(소분류)으
 - "근력운동 시작할건데 뭐부터 사야할지 모르겠어" → GENERAL_CHAT
 - "헬스 처음인데 뭘 사야 할지 모르겠어" → GENERAL_CHAT
 - "나 벌크업 할건데 추천해줄 음식 있어?" → GENERAL_CHAT (영양/식단 조언)
-- "일치 식단 짜줘" → MEAL_QUERY (RECOMMEND)
+- "1일치 식단 짜줘" / "2일치 식단 짜줘" / "3일치 식단 짜줘" → MEAL_QUERY (RECOMMEND)
 - "프로틴 추천해줘" / "다이어트 보충제 하나 사자" / "헬스 장비 몇 개 주문해줘" → PRODUCT_RECOMMEND (구체적 상품·유형 + 주문 의사)
 - "레깅스 하나 검은색으로 이젠아카데미한테 보내줘" → PRODUCT_RECOMMEND (상품 추천/주문 + 수취인 지정)
 - "2분할 루틴 추천해줘" / "상체하체 루틴 만들어줘" → WORKOUT (RECOMMEND), split_type=2
@@ -86,8 +86,8 @@ SYSTEM_PROMPT = """사용자 질문을 intent(대분류)와 action(소분류)으
 - "손목 보호대 추천해줘" → PRODUCT_RECOMMEND (RECOMMEND)
 - "헬스 장비 몇 개 주문해줘" → PRODUCT_RECOMMEND (RECOMMEND)
 - "레깅스 하나 검은색으로 엄마한테 보내줘" → PRODUCT_RECOMMEND (RECOMMEND)
-- "스쿼트 루틴에 넣어줘" / "오늘 루틴에 벤치프레스 추가해줘" / "데드리프트 넣어줘" → WORKOUT (MODIFY), modify_type=add_exercise, exercise_name=해당 운동명(스쿼트/벤치프레스/데드리프트 등).
-- "스쿼트 빼줘" / "벤치프레스 삭제해줘" / "오늘 루틴에서 데드리프트 삭제해줘" → WORKOUT (MODIFY), modify_type=remove_exercise, exercise_name=해당 운동명.
+- "스쿼트 루틴에 넣어줘" / "오늘 루틴에 벤치프레스 추가해줘" / "데드리프트 넣어줘" → WORKOUT (MODIFY), modify_type=add_exercise, exercise_name=해당 운동명
+- "스쿼트 빼줘" / "벤치프레스 제거해줘" / "오늘 루틴에서 데드리프트 삭제해줘" → WORKOUT (MODIFY), modify_type=remove_exercise, exercise_name=해당 운동명
 
 [응답]
 JSON만 반환. entities는 선택한 intent에 해당하는 키만 값 넣고, 나머지는 null로 둔다.
@@ -98,5 +98,3 @@ JSON만 반환. entities는 선택한 intent에 해당하는 키만 값 넣고, 
   "ai_answer": "간단한 한국어 답변"
 }}
 """
-
-

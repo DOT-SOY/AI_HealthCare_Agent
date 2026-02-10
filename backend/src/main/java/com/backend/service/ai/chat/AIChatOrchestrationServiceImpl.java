@@ -10,7 +10,7 @@ import com.backend.dto.response.ImageClassificationResponse;
 import com.backend.dto.response.IntentClassificationResult;
 import com.backend.service.ai.AIIntentService;
 import com.backend.service.ai.ConversationContextService;
-import com.backend.service.meal.MealAiContextService;
+import com.backend.service.meal.context.MealAiContextService;
 import com.backend.dto.meal.MealAiContextDto;
 import com.backend.service.member.CurrentMemberService;
 import lombok.RequiredArgsConstructor;
@@ -65,12 +65,12 @@ public class AIChatOrchestrationServiceImpl implements AIChatOrchestrationServic
     private final BodyChatService bodyChatService;
     private final DeliveryChatService deliveryChatService;
     private final CommerceChatService commerceChatService;
-    private final CurrentMemberService currentMemberService;
     private final ImageClassificationClient imageClassificationClient;
     private final InbodyAnalysisClient inbodyAnalysisClient;
     private final FoodAnalysisClient foodAnalysisClient;
     private final MealAiContextService mealAiContextService;
     private final com.backend.service.meal.MealService mealService;
+    private final CurrentMemberService currentMemberService;
 
     @Override
     public AIChatResponse handleAIChat(AIChatRequest request) {
@@ -89,28 +89,25 @@ public class AIChatOrchestrationServiceImpl implements AIChatOrchestrationServic
         
         // 3. Speech Act 감지 (단순 반응형 발화)
         boolean isSpeechAct = isSpeechActMessage(text);
-
+        
         // 4. Speech Act가 아닌 경우에만 트리거 키워드 감지 (기존 로직)
         boolean isTrigger = !isSpeechAct && isTriggerMessage(text);
 
-
         // commerce 세션 가드: Redis(ai-server)에 세션이 있으면 우선 commerce로 위임하되,
         //      응답의 error 코드(SESSION_EXPIRED/OFF_TOPIC/FLOW_COMPLETED)에 따라 재분류 또는 플로우 종료를 판단한다.
-        boolean triedCommerce = false;
         try {
             Long memberId = currentMemberService.getCurrentMemberOrThrow().getId();
             String sessionId = "commerce_" + memberId;
             boolean inFlow = commerceChatService.isInCommerceFlow(sessionId);
             if (inFlow) {
                 log.info("commerce 세션 가드: in_flow=true, sessionId={}, 우선 commerce로 위임", sessionId);
-                triedCommerce = true;
                 AIChatResponse commerceResponse = commerceChatService.handleCommerceRecommendBySession(sessionId, text);
 
                 // ai-server 응답의 error 코드 확인
                 String commerceError = null;
                 Object data = commerceResponse.getData();
                 if (data instanceof Map<?, ?> dataMap) {
-                    Object errorValue = ((Map<?, ?>) dataMap).get("error");
+                    Object errorValue = dataMap.get("error");
                     if (errorValue instanceof String) {
                         commerceError = (String) errorValue;
                     }
@@ -128,8 +125,7 @@ public class AIChatOrchestrationServiceImpl implements AIChatOrchestrationServic
         } catch (Exception e) {
             // 비로그인 등으로 memberId를 얻지 못하면 가드 건너뛰고 기존 의도 분류 진행
         }
-
-        // 3. 트리거 키워드 감지
+        
         IntentClassificationResult classification;
         
         if (isSpeechAct) {
@@ -139,7 +135,7 @@ public class AIChatOrchestrationServiceImpl implements AIChatOrchestrationServic
                 IntentClassificationResult savedContext = conversationContextService.getContext(email);
                 if (savedContext != null) {
                     // 저장된 컨텍스트가 있으면 재사용 (LLM 호출 없음)
-                    log.info("Speech Act 감지 - 저장된 컨텍스트 재사용: email={}, intent={}, action={}",
+                    log.info("Speech Act 감지 - 저장된 컨텍스트 재사용: email={}, intent={}, action={}", 
                         email, savedContext.getIntent(), savedContext.getAction());
                     classification = savedContext;
                 } else {
@@ -177,17 +173,17 @@ public class AIChatOrchestrationServiceImpl implements AIChatOrchestrationServic
             log.error("의도 분류 결과가 null입니다.");
             return createErrorResponse("의도 분류 중 오류가 발생했습니다.");
         }
-
+        
         // 6. 일반 요청 시 컨텍스트 저장 (Speech Act가 아닌 경우, JWT에서 email 추출)
         if (!isSpeechAct) {
             String email = getEmailIfNeeded();
             if (email != null) {
                 conversationContextService.saveContext(email, classification);
-                log.debug("일반 요청 - 컨텍스트 저장: email={}, intent={}, action={}",
+                log.debug("일반 요청 - 컨텍스트 저장: email={}, intent={}, action={}", 
                     email, classification.getIntent(), classification.getAction());
             }
         }
-
+        
         String intent = classification.getIntent();
         String intentNorm = intent == null ? "GENERAL_CHAT" : intent.trim().toUpperCase();
 
@@ -208,7 +204,7 @@ public class AIChatOrchestrationServiceImpl implements AIChatOrchestrationServic
         } catch (Exception ignored) {
             preCtx = null;
         }
-
+        
         boolean hasMealPending = preCtx != null
                 && preCtx.getPending() != null
                 && preCtx.getPending().getType() != null
@@ -224,7 +220,7 @@ public class AIChatOrchestrationServiceImpl implements AIChatOrchestrationServic
                 return forcedMeal;
             }
         }
-
+        
         // 7. 의도에 따라 적절한 Service 호출
         AIChatResponse response = switch (intentNorm) {
             case "PAIN_REPORT" -> painReportChatService.handlePainReport(classification);
@@ -301,14 +297,14 @@ public class AIChatOrchestrationServiceImpl implements AIChatOrchestrationServic
         if (text == null) {
             return false;
         }
-
+        
         String trimmedText = text.trim();
         String lowerText = trimmedText.toLowerCase();
-
+        
         return SPEECH_ACT_KEYWORDS.stream()
             .anyMatch(keyword -> {
                 String lowerKeyword = keyword.toLowerCase();
-                return lowerText.equals(lowerKeyword) ||
+                return lowerText.equals(lowerKeyword) || 
                        lowerText.startsWith(lowerKeyword + " ");
             });
     }
@@ -335,7 +331,7 @@ public class AIChatOrchestrationServiceImpl implements AIChatOrchestrationServic
     /**
      * JWT claims에서 email을 추출합니다.
      * DB 조회 없이 SecurityContext에서 직접 email을 가져옵니다.
-     *
+     * 
      * @return 사용자 이메일, 조회 실패 시 null
      */
     private String getEmailIfNeeded() {
@@ -344,13 +340,13 @@ public class AIChatOrchestrationServiceImpl implements AIChatOrchestrationServic
             if (authentication == null || !authentication.isAuthenticated()) {
                 return null;
             }
-
+            
             // SecurityContext의 Principal은 email입니다 (JWTCheckFilter에서 설정)
             Object principal = authentication.getPrincipal();
             if (principal instanceof String) {
                 return (String) principal;
             }
-
+            
             return null;
         } catch (Exception e) {
             log.debug("JWT에서 이메일 추출 실패: {}", e.getMessage());

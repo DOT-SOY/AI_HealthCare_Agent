@@ -5,7 +5,7 @@ import com.backend.dto.meal.AiMealVisionFollowupDto;
 import com.backend.domain.member.Member;
 import com.backend.repository.member.MemberRepository;
 import com.backend.service.meal.MealService;
-import com.backend.service.meal.MealAiContextService;
+import com.backend.service.meal.context.MealAiContextService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;

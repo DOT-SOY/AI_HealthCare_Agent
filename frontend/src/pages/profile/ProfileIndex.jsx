@@ -2,6 +2,9 @@ import React, { useState, useEffect } from "react";
 import BasicLayout from "../../components/layout/BasicLayout";
 import { User, Moon, Sun, X, Plus, Edit, Trash2 } from "lucide-react";
 import AddressSearchModal from "../../components/common/AddressSearchModal";
+import OcrInbodyUploadModal from "../../components/profile/ocrInbodyUploadModal";
+import OcrInbodyVerifyModal from "../../components/profile/OcrInbodyVerifyModal";
+import { analyzeInbodyImage, saveVerifiedBodyInfo } from "../../services/ocrInbodyApi";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip,
 } from "recharts";
@@ -23,6 +26,12 @@ const ProfileIndex = () => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editData, setEditData] = useState({});
+
+  // 인바디 OCR 업로드 모달
+  const [isInbodyOcrOpen, setIsInbodyOcrOpen] = useState(false);
+  // 인바디 검증 모달
+  const [isInbodyVerifyOpen, setIsInbodyVerifyOpen] = useState(false);
+  const [inbodyVerifyData, setInbodyVerifyData] = useState(null);
 
   // 배송지 관련 상태
   const [addressList, setAddressList] = useState([]);
@@ -239,6 +248,31 @@ const ProfileIndex = () => {
     }
   };
 
+  const handleAnalyzeInbodyOcr = async (file) => {
+    try {
+      const result = await analyzeInbodyImage(file);
+      // 업로드 모달 닫기 -> 검증 모달 열기
+      setIsInbodyOcrOpen(false);
+      setInbodyVerifyData(result);
+      setIsInbodyVerifyOpen(true);
+    } catch (err) {
+      console.error(err);
+      alert("분석에 실패했습니다.");
+    }
+  };
+
+  const handleSaveVerifiedInbody = async (finalData) => {
+    try {
+      await saveVerifiedBodyInfo(finalData);
+      alert("인바디 정보가 저장되었습니다.");
+      setIsInbodyVerifyOpen(false);
+      await fetchData();
+    } catch (err) {
+      console.error(err);
+      alert("저장에 실패했습니다.");
+    }
+  };
+
   return (
     <BasicLayout containerClassName="page-container dashboard-container">
       <div className="w-full">
@@ -286,7 +320,7 @@ const ProfileIndex = () => {
                 <DataRow label="체수분(L)" value={val(latestInfo?.bodyWater, "L")} />
                 <DataRow label="단백질(kg)" value={val(latestInfo?.protein, "kg")} />
                 <DataRow label="무기질(kg)" value={val(latestInfo?.minerals, "kg")} />
-                <DataRow label="체지방(kg)" value={val(latestInfo?.bodyFatMass, "kg")} />
+                <DataRow label="체지방량(kg)" value={val(latestInfo?.bodyFatMass, "kg")} />
               </div>
             </div>
 
@@ -304,7 +338,13 @@ const ProfileIndex = () => {
           {/* === 우측 패널 (차트) === */}
           <main className="right-content">
             <div className="badge-row">
-              <span className="lime-badge">인바디 자동분석</span>
+              <button
+                type="button"
+                className="lime-badge"
+                onClick={() => setIsInbodyOcrOpen(true)}
+              >
+                인바디 자동분석
+              </button>
             </div>
             <div className="charts-container">
               <ChartRow title="체지방률" value={val(latestInfo?.bodyFatPercent, "%")}
@@ -351,6 +391,21 @@ const ProfileIndex = () => {
             setAddressFormData(prev => ({ ...prev, shipZipcode: addressData.zipcode, shipAddress1: addressData.address1, shipAddress2: addressData.address2 || prev.shipAddress2 }));
             setIsAddressSearchOpen(false);
           }}
+        />
+
+        {/* ✅ 인바디 OCR 업로드 모달 */}
+        <OcrInbodyUploadModal
+          isOpen={isInbodyOcrOpen}
+          onClose={() => setIsInbodyOcrOpen(false)}
+          onAnalyze={handleAnalyzeInbodyOcr}
+        />
+
+        {/* ✅ 인바디 OCR 검증 모달 */}
+        <OcrInbodyVerifyModal
+          isOpen={isInbodyVerifyOpen}
+          data={inbodyVerifyData}
+          onClose={() => setIsInbodyVerifyOpen(false)}
+          onSave={handleSaveVerifiedInbody}
         />
       </div>
     </BasicLayout>
@@ -441,9 +496,10 @@ const BodyInfoModifyModal = ({ data, addressList, onClose, onSave, onAddAddress,
     }}>
       <div className="modal-content" style={{
         backgroundColor: 'white', padding: '30px', borderRadius: '10px', width: '600px',
-        maxHeight: '90vh', overflowY: 'auto', position: 'relative', boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+        maxHeight: '90vh', overflowY: 'auto', position: 'relative', boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+        color: '#333'
       }}>
-        <button onClick={onClose} style={{ position: 'absolute', top: '15px', right: '15px', border: 'none', background: 'none', cursor: 'pointer' }}>
+        <button onClick={onClose} style={{ position: 'absolute', top: '15px', right: '15px', border: 'none', background: 'none', cursor: 'pointer', color: '#333' }}>
           <X size={24} />
         </button>
 
@@ -470,7 +526,9 @@ const BodyInfoModifyModal = ({ data, addressList, onClose, onSave, onAddAddress,
                   padding: '8px',
                   border: '1px solid #ddd',
                   borderRadius: '4px',
-                  fontSize: '14px'
+                  fontSize: '14px',
+                  color: '#333',
+                  backgroundColor: '#fff'
                 }}
               >
                 <option value="">선택해주세요</option>
@@ -513,7 +571,8 @@ const BodyInfoModifyModal = ({ data, addressList, onClose, onSave, onAddAddress,
                   key={addr.id}
                   style={{
                     padding: '12px', border: '1px solid #ddd', borderRadius: '4px',
-                    backgroundColor: addr.isDefault ? '#f0f8ff' : '#fff'
+                    backgroundColor: addr.isDefault ? '#f0f8ff' : '#fff',
+                    color: '#333'
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
@@ -523,7 +582,7 @@ const BodyInfoModifyModal = ({ data, addressList, onClose, onSave, onAddAddress,
                           [기본]
                         </span>
                       )}
-                      <span style={{ fontWeight: '600' }}>{addr.shipToName}</span>
+                      <span style={{ fontWeight: '600', color: '#333' }}>{addr.shipToName}</span>
                       <span style={{ marginLeft: '8px', fontSize: '13px', color: '#666' }}>{addr.shipToPhone}</span>
                     </div>
                     <div style={{ display: 'flex', gap: '4px' }}>
@@ -532,7 +591,7 @@ const BodyInfoModifyModal = ({ data, addressList, onClose, onSave, onAddAddress,
                           type="button"
                           onClick={() => onSetDefaultAddress(addr.id)}
                           style={{
-                            padding: '4px 8px', fontSize: '11px', backgroundColor: '#f0f0f0',
+                            padding: '4px 8px', fontSize: '11px', backgroundColor: '#f0f0f0', color: '#333',
                             border: '1px solid #ccc', borderRadius: '3px', cursor: 'pointer'
                           }}
                         >
@@ -543,7 +602,7 @@ const BodyInfoModifyModal = ({ data, addressList, onClose, onSave, onAddAddress,
                         type="button"
                         onClick={() => onEditAddress(addr)}
                         style={{
-                          padding: '4px 8px', fontSize: '11px', backgroundColor: '#f0f0f0',
+                          padding: '4px 8px', fontSize: '11px', backgroundColor: '#f0f0f0', color: '#333',
                           border: '1px solid #ccc', borderRadius: '3px', cursor: 'pointer'
                         }}
                       >
@@ -553,7 +612,7 @@ const BodyInfoModifyModal = ({ data, addressList, onClose, onSave, onAddAddress,
                         type="button"
                         onClick={() => onDeleteAddress(addr.id)}
                         style={{
-                          padding: '4px 8px', fontSize: '11px', backgroundColor: '#ffebee',
+                          padding: '4px 8px', fontSize: '11px', backgroundColor: '#ffebee', color: '#d32f2f',
                           border: '1px solid #f44336', borderRadius: '3px', cursor: 'pointer'
                         }}
                       >
@@ -597,9 +656,10 @@ const AddressEditModal = ({ data, onChange, onClose, onSave, onAddressSearch }) 
     }}>
       <div className="modal-content" style={{
         backgroundColor: 'white', padding: '25px', borderRadius: '10px', width: '450px',
-        position: 'relative', boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+        position: 'relative', boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+        color: '#333'
       }}>
-        <button onClick={onClose} style={{ position: 'absolute', top: '15px', right: '15px', border: 'none', background: 'none', cursor: 'pointer' }}>
+        <button onClick={onClose} style={{ position: 'absolute', top: '15px', right: '15px', border: 'none', background: 'none', cursor: 'pointer', color: '#333' }}>
           <X size={24} />
         </button>
 
@@ -618,7 +678,8 @@ const AddressEditModal = ({ data, onChange, onClose, onSave, onAddressSearch }) 
                 onChange={handleChange}
                 style={{
                   flex: 1, padding: '8px', border: '1px solid #ddd', borderRadius: '4px',
-                  fontSize:'14px'
+                  fontSize:'14px',
+                  color: '#333', backgroundColor: '#fff'
                 }}
                 placeholder="우편번호"
               />
@@ -643,7 +704,8 @@ const AddressEditModal = ({ data, onChange, onClose, onSave, onAddressSearch }) 
               onChange={handleChange}
               style={{
                 padding: '8px', border: '1px solid #ddd', borderRadius: '4px',
-                fontSize:'14px'
+                fontSize:'14px',
+                color: '#333', backgroundColor: '#fff'
               }}
               placeholder="주소"
             />
@@ -657,7 +719,7 @@ const AddressEditModal = ({ data, onChange, onClose, onSave, onAddressSearch }) 
               checked={data.isDefault || false}
               onChange={(e) => onChange('isDefault', e.target.checked)}
             />
-            <label htmlFor="isDefault" style={{ fontSize: '14px', cursor: 'pointer' }}>
+            <label htmlFor="isDefault" style={{ fontSize: '14px', cursor: 'pointer', color: '#333' }}>
               기본 배송지로 설정
             </label>
           </div>
@@ -683,7 +745,7 @@ const InputGroup = ({ label, name, value, onChange }) => (
       name={name}
       value={value !== null && value !== undefined ? value : ''}
       onChange={onChange}
-      style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize:'14px' }}
+      style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize:'14px', color: '#333', backgroundColor: '#fff' }}
     />
   </div>
 );
