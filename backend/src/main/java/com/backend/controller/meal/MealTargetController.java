@@ -4,7 +4,7 @@ import com.backend.dto.meal.MealCalendarDto;
 import com.backend.dto.meal.MealTargetDto;
 import com.backend.domain.member.Member;
 import com.backend.repository.member.MemberRepository;
-import com.backend.service.meal.MealTargetService;
+import com.backend.service.meal.target.MealTargetService;
 import jakarta.validation.Valid;
 import lombok.Builder;
 import lombok.Getter;

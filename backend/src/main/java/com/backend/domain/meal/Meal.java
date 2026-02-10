@@ -42,6 +42,20 @@ public class Meal {
             this.description = description;
         }
     }
+
+    /**
+     * 내부 상태 코드(사용자에게 직접 노출 X)
+     * - status(SKIPPED 등)의 의미가 "사용자 생략"과 "교체로 밀려난 항목"에서 섞이는 문제를 분리하기 위한 코드
+     */
+    @Getter
+    @AllArgsConstructor
+    public enum MealChanged {
+        NONE("없음"),
+        REPLACED_OUT("교체로 제외됨"),
+        REPLACED_IN("교체로 반영됨");
+
+        private final String description;
+    }
     // =================================================================
 
     @Id
@@ -64,40 +78,13 @@ public class Meal {
     @Builder.Default
     private MealStatus status = MealStatus.PLANNED;
 
-    /**
-     * [계획 버전/활성 플래그]
-     * - 덮어쓰기(replan/overwrite) 시 기존 PLANNED를 삭제하지 않고 inactive로 전환하여 "직전 계획"을 보존합니다.
-     * - UI/집계/겹침검사는 activePlan=true인 PLANNED만 기준으로 삼습니다.
-     *
-     * 정책:
-     * - 끼니(mealTime)별 "직전 1개"만 보관 (더 이전 inactive는 정리)
-     */
-    @Column(name = "plan_version", nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "changed", length = 30)
     @Builder.Default
-    private Integer planVersion = 1;
+    private MealChanged changed = MealChanged.NONE;
 
-    @Column(name = "active_plan", nullable = false)
-    @Builder.Default
-    private Boolean activePlan = true;
-
-    @Column(name = "replaced_at")
-    private Instant replacedAt;
-
-    public void deactivatePlan(Instant replacedAt) {
-        this.activePlan = false;
-        this.replacedAt = replacedAt;
-    }
-
-    /**
-     * 계획 교체 로직에서만 사용하는 최소 Setter (컴파일/캡슐화 균형)
-     */
-    public void setActivePlan(Boolean activePlan) {
-        this.activePlan = activePlan;
-    }
-
-    public void setPlanVersion(Integer planVersion) {
-        this.planVersion = planVersion;
-    }
+    @Column(name = "changed_at")
+    private Instant changedAt;
 
     @Column(name = "is_additional", nullable = false)
     @Builder.Default
@@ -161,6 +148,11 @@ public class Meal {
      */
     public void changeStatus(MealStatus status) {
         this.status = status;
+    }
+
+    public void markChanged(MealChanged changed, Instant at) {
+        this.changed = changed != null ? changed : MealChanged.NONE;
+        this.changedAt = at;
     }
 }
 

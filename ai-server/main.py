@@ -1,10 +1,7 @@
-# Paddle OCR 미사용 (인바디 OCR은 Spring 백엔드 gpt-4o-mini Vision 사용)
-# import os
-# os.environ["FLAGS_use_mkldnn"] = "0"
-
-import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File, Header
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
@@ -32,16 +29,16 @@ from services.routine_recommend_service import (
 )
 from services.commerce import handle_commerce_recommend, state_machine, CommerceState
 from services.embedding_service import load_embedding_model
+import traceback
 
-
+# 앱 시작 시 임베딩 모델 로딩 (RAG)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """앱 시작 시 임베딩 모델 로딩"""
     await asyncio.to_thread(load_embedding_model)
     yield
 
 # Meal(Gemini) 추가
-from services.meal_service import (
+from services.meal.meal_service import (
     analyze_food_image,
     lookup_food_nutrition,
     generate_meal_plan,
@@ -52,11 +49,17 @@ from services.meal_service import (
     pick_foods_for_macros,
     generate_meal_advice,
 )
-from services.meal_command_service import resolve_meal_command
+from services.meal.meal_command_service import resolve_meal_command
 from services.gemini_service import generate_json
-from prompts.meal_vision_followup import SYSTEM_PROMPT as VISION_FOLLOWUP_SYSTEM_PROMPT, get_followup_prompt
+from prompts.meal.meal_vision_followup import SYSTEM_PROMPT as VISION_FOLLOWUP_SYSTEM_PROMPT, get_followup_prompt
+
+# OCR 라우터
+from routes.ocr_inbody import router as ocr_inbody_router
 
 app = FastAPI(title="GrowLog AI Server", lifespan=lifespan)
+
+# 라우터 등록
+app.include_router(ocr_inbody_router)
 
 # CORS 설정
 app.add_middleware(
@@ -189,11 +192,9 @@ async def chat(request: ChatRequest):
     else:
         full_text = request.text
 
-    # 1. 의도 분류
-    intent_result = await asyncio.to_thread(classify_intent, full_text)
-
     # 1. 의도 분류 (intent, action, entities, ai_answer 포함)
-    intent_result = classify_intent(full_text)
+    # - 분류는 모델/규칙 기반이라 CPU를 잡을 수 있어 thread로 실행
+    intent_result = await asyncio.to_thread(classify_intent, full_text)
     intent = intent_result.get("intent", "GENERAL_CHAT")
     action = intent_result.get("action", "CHAT")
     entities = intent_result.get("entities", {}) or {}
@@ -269,37 +270,6 @@ async def classify_image(file: UploadFile = File(...)):
             confidence=0.0,
             error=str(e)
         )
-
-
-@app.post("/inbody/analyze", response_model=InbodyAnalyzeResponse)
-async def analyze_inbody(file: UploadFile = File(...)):
-    """인바디 사진 분석 (나중에 외부 AI 연결)"""
-    # 일단 기본 응답만 반환
-    return InbodyAnalyzeResponse(
-        intent="INBODY_ANALYSIS",
-        message="인바디 분석 준비 중입니다. 곧 연결될 예정입니다.",
-        data=None
-    )
-
-
-# ----- Paddle OCR 주석 처리. 인바디 OCR은 Spring 백엔드(gpt-4o-mini Vision) 사용 -----
-# @app.post("/ocr/extract")
-# async def ocr_extract(file: UploadFile = File(...)):
-#     """Paddle OCR로 인바디 이미지에서 체성분 텍스트 추출 → 프론트 parsed 형식 반환"""
-#     try:
-#         from services.ocr.paddle_ocr_service import extract_inbody_from_image
-#     except ImportError as e:
-#         return {"parsed": {}, "error": f"Paddle OCR 로드 실패: {e}"}
-#     content = await file.read()
-#     if not content:
-#         return {"parsed": {}, "error": "이미지 데이터가 없습니다."}
-#     try:
-#         parsed = extract_inbody_from_image(content)
-#         if not parsed:
-#             return {"parsed": {}, "error": "OCR 파싱 결과가 비었습니다. (ai-server 로그의 [paddle_ocr] 출력 확인 필요)"}
-#         return {"parsed": parsed}
-#     except Exception as e:
-#         return {"parsed": {}, "error": str(e)}
 
 
 @app.post("/food/analyze", response_model=FoodAnalyzeResponse)
@@ -477,12 +447,19 @@ async def commerce_session_check(request: CommerceSessionCheckRequest):
     Commerce 세션 상태 확인 (SSOT).
     Redis에 해당 세션 키가 존재하면 in_flow=True, 없으면 False.
     """
-    session = state_machine.get_session(request.session_id)
-    in_flow = session is not None
-    return {
-        "in_flow": in_flow,
-        "state": session.state.value if session and session.state else None
-    }
+    try:
+        session = state_machine.get_session(request.session_id)
+        in_flow = session is not None
+        payload = {
+            "in_flow": in_flow,
+            "state": session.state.value if session and session.state else None
+        }
+        return JSONResponse(content=jsonable_encoder(payload))
+    except Exception as e:
+        print("[commerce] /commerce/session/check unhandled exception:", repr(e))
+        traceback.print_exc()
+        payload = {"in_flow": False, "state": None, "error": "PROCESSING_ERROR", "detail": str(e)}
+        return JSONResponse(content=jsonable_encoder(payload))
 
 
 @app.post("/commerce/recommend")
@@ -499,14 +476,45 @@ async def commerce_recommend(
     """
     auth_token = authorization  # Header에서 받은 값 그대로 사용 (없으면 None)
 
-    result = handle_commerce_recommend(
-        text=request.text,
-        session_id=request.session_id,
-        auth_token=auth_token
-    )
-
-    return result
-
+    try:
+        print(f"[commerce] /commerce/recommend 요청 수신: session_id={request.session_id}, text={request.text[:50] if request.text else None}")
+        result = handle_commerce_recommend(
+            text=request.text,
+            session_id=request.session_id,
+            auth_token=auth_token
+        )
+        print(f"[commerce] /commerce/recommend 처리 완료: result keys={list(result.keys()) if isinstance(result, dict) else type(result)}")
+        # NOTE: 반환 payload에 비직렬화 타입이 섞이면 FastAPI가 여기 "이후" 단계에서 500을 낼 수 있어,
+        # 여기서 jsonable_encoder로 안전하게 변환 후 JSONResponse로 반환합니다.
+        try:
+            encoded = jsonable_encoder(result)
+            print(f"[commerce] /commerce/recommend 직렬화 완료")
+            return JSONResponse(content=encoded)
+        except Exception as encode_error:
+            print(f"[commerce] /commerce/recommend 직렬화 실패: {repr(encode_error)}")
+            traceback.print_exc()
+            payload = {
+                "state": CommerceState.RECOMMEND.value,
+                "message": "상품 추천 처리 중 오류가 발생했습니다. 다시 시도해주세요.",
+                "error": "SERIALIZATION_ERROR",
+                "error_type": type(encode_error).__name__,
+                "detail": str(encode_error),
+            }
+            return JSONResponse(content=jsonable_encoder(payload))
+    except Exception as e:
+        # NOTE: commerce 플로우 내부 예외가 FastAPI 500으로 터지면, 백엔드가 500을 받고 UX가 깨집니다.
+        # dev 환경에서는 원인 파악을 위해 traceback을 로그로 남기고,
+        # 응답은 200 + error payload로 내려서 백엔드가 graceful 하게 표시할 수 있게 합니다.
+        print("[commerce] /commerce/recommend unhandled exception:", repr(e))
+        traceback.print_exc()
+        payload = {
+            "state": CommerceState.RECOMMEND.value,
+            "message": "상품 추천 처리 중 오류가 발생했습니다. 다시 시도해주세요.",
+            "error": "PROCESSING_ERROR",
+            "error_type": type(e).__name__,
+            "detail": str(e),
+        }
+        return JSONResponse(content=jsonable_encoder(payload))
 
 @app.post("/routine/recommend", response_model=RoutineRecommendResponse)
 async def routine_recommend(request: RoutineRecommendRequest):

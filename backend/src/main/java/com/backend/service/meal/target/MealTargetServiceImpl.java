@@ -1,4 +1,4 @@
-package com.backend.service.meal;
+package com.backend.service.meal.target;
 
 import com.backend.domain.meal.Meal;
 import com.backend.domain.meal.MealTarget;
@@ -113,7 +113,9 @@ public class MealTargetServiceImpl implements MealTargetService {
                 .toList();
 
         boolean hasNonAdditionalSkipped = timeMeals.stream()
-                .anyMatch(m -> m.getStatus() == Meal.MealStatus.SKIPPED && (m.getIsAdditional() == null || !m.getIsAdditional()));
+                .anyMatch(m -> m.getStatus() == Meal.MealStatus.SKIPPED
+                        && (m.getIsAdditional() == null || !m.getIsAdditional())
+                        && m.getChanged() != Meal.MealChanged.REPLACED_OUT);
         boolean hasNonAdditionalPlanned = timeMeals.stream()
                 .anyMatch(m -> m.getStatus() == Meal.MealStatus.PLANNED && (m.getIsAdditional() == null || !m.getIsAdditional()));
 
@@ -126,22 +128,40 @@ public class MealTargetServiceImpl implements MealTargetService {
         boolean mealTimeSkipped = hasNonAdditionalSkipped && !hasNonAdditionalPlanned && !hasAnyEaten;
 
         // UI 정책:
-        // - 끼니 전체 생략 상태면, 해당 끼니의 원래 메뉴(non-additional)를 그대로 보여주되(회색 처리용), 합계는 0으로 표시
-        // - 끼니 전체 생략이 아니면, SKIPPED 항목은 리스트에서 숨김(대체 과정의 잔여 SKIPPED 노이즈 제거)
-        List<MealDto> sectionMeals = timeMeals.stream()
+        // - "사용자 메뉴별 생략"은 리스트에서 사라지면 취소가 불가하므로, SKIPPED라도 화면에 유지해야 합니다.
+        // - 단, 교체(VISION REPLACE)로 밀려난 잔여 항목은 changed=REPLACED_OUT로 마킹되어 화면에서 숨깁니다.
+        // - 합계(칼로리/탄단지)는 SKIPPED 항목을 제외하고 계산합니다.
+        List<Meal> visibleMeals = timeMeals.stream()
+                .filter(m -> m.getChanged() != Meal.MealChanged.REPLACED_OUT)
                 .filter(m -> {
                     if (mealTimeSkipped) {
+                        // 끼니 전체 생략 상태면, non-additional 메뉴만 노출(회색 처리용)
                         return (m.getIsAdditional() == null || !m.getIsAdditional());
                     }
-                    return m.getStatus() != Meal.MealStatus.SKIPPED;
+                    return true;
                 })
+                .toList();
+
+        List<MealDto> sectionMeals = visibleMeals.stream()
                 .map(MealDto::fromEntity)
                 .collect(Collectors.toList());
 
-        int sCal = mealTimeSkipped ? 0 : sectionMeals.stream().mapToInt(m -> m.getCalories() != null ? m.getCalories() : 0).sum();
-        int sCarb = mealTimeSkipped ? 0 : sectionMeals.stream().mapToInt(m -> m.getCarbs() != null ? m.getCarbs() : 0).sum();
-        int sProt = mealTimeSkipped ? 0 : sectionMeals.stream().mapToInt(m -> m.getProtein() != null ? m.getProtein() : 0).sum();
-        int sFat = mealTimeSkipped ? 0 : sectionMeals.stream().mapToInt(m -> m.getFat() != null ? m.getFat() : 0).sum();
+        int sCal = mealTimeSkipped ? 0 : visibleMeals.stream()
+                .filter(m -> m.getStatus() != Meal.MealStatus.SKIPPED)
+                .mapToInt(m -> m.getCalories() != null ? m.getCalories() : 0)
+                .sum();
+        int sCarb = mealTimeSkipped ? 0 : visibleMeals.stream()
+                .filter(m -> m.getStatus() != Meal.MealStatus.SKIPPED)
+                .mapToInt(m -> m.getCarbs() != null ? m.getCarbs() : 0)
+                .sum();
+        int sProt = mealTimeSkipped ? 0 : visibleMeals.stream()
+                .filter(m -> m.getStatus() != Meal.MealStatus.SKIPPED)
+                .mapToInt(m -> m.getProtein() != null ? m.getProtein() : 0)
+                .sum();
+        int sFat = mealTimeSkipped ? 0 : visibleMeals.stream()
+                .filter(m -> m.getStatus() != Meal.MealStatus.SKIPPED)
+                .mapToInt(m -> m.getFat() != null ? m.getFat() : 0)
+                .sum();
 
         return MealDashboardDto.MealTimeSection.builder()
                 .skipped(mealTimeSkipped)
@@ -271,6 +291,7 @@ public class MealTargetServiceImpl implements MealTargetService {
 
         List<Meal> skippedMeals = dayMeals.stream()
                 .filter(m -> m.getStatus() == Meal.MealStatus.SKIPPED)
+                .filter(m -> m.getChanged() != Meal.MealChanged.REPLACED_OUT)
                 .filter(m -> m.getMealTime() != null && !eatenTimes.contains(m.getMealTime()))
                 .toList();
 
