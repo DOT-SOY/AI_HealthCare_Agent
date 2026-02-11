@@ -2,17 +2,18 @@ package com.backend.service.ai.chat;
 
 import com.backend.client.FoodAnalysisClient;
 import com.backend.client.ImageClassificationClient;
-import com.backend.client.InbodyAnalysisClient;
 import com.backend.dto.request.AIChatRequest;
 import com.backend.dto.request.ChatMessage;
 import com.backend.dto.response.AIChatResponse;
 import com.backend.dto.response.ImageClassificationResponse;
 import com.backend.dto.response.IntentClassificationResult;
+import com.backend.dto.memberinfo.MemberInfoBodyDTO;
 import com.backend.service.ai.AIIntentService;
 import com.backend.service.ai.ConversationContextService;
 import com.backend.service.meal.context.MealAiContextService;
 import com.backend.dto.meal.MealAiContextDto;
 import com.backend.service.member.CurrentMemberService;
+import com.backend.service.ocr.ocrInbodyService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
@@ -66,7 +67,7 @@ public class AIChatOrchestrationServiceImpl implements AIChatOrchestrationServic
     private final DeliveryChatService deliveryChatService;
     private final CommerceChatService commerceChatService;
     private final ImageClassificationClient imageClassificationClient;
-    private final InbodyAnalysisClient inbodyAnalysisClient;
+    private final ocrInbodyService ocrInbodyService;
     private final FoodAnalysisClient foodAnalysisClient;
     private final MealAiContextService mealAiContextService;
     private final com.backend.service.meal.MealService mealService;
@@ -256,7 +257,13 @@ public class AIChatOrchestrationServiceImpl implements AIChatOrchestrationServic
             // 분류 결과에 따라 라우팅
             if ("inbody".equals(imageType)) {
                 log.info("인바디 분석으로 라우팅: filename={}", image.getOriginalFilename());
-                return inbodyAnalysisClient.analyzeInbody(image);
+                String email = currentMemberService.getCurrentMemberOrThrow().getEmail();
+                MemberInfoBodyDTO dto = ocrInbodyService.extractData(email, image);
+                return AIChatResponse.builder()
+                        .intent("INBODY_ANALYSIS")
+                        .message("인바디 분석이 완료되었습니다. 내용을 확인 후 저장해주세요.")
+                        .data(dto)
+                        .build();
             } else {
                 // food 또는 unknown 모두 음식 분석으로 라우팅
                 log.info("음식 분석으로 라우팅: filename={}", image.getOriginalFilename());

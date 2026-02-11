@@ -15,8 +15,9 @@ import { useSTT } from '../hooks/useSTT';
 import { useWebSocket } from '../hooks/useWebSocket';
 import RoutineRecommendModal from '../components/ai/RoutineRecommendModal';
 import PainModifyModal from '../components/ai/PainModifyModal';
-import { mealApi } from '../api/mealApi';
+import OcrInbodyVerifyModal from '../components/profile/OcrInbodyVerifyModal';
 import { aiApi } from '../api/aiApi';
+import { saveVerifiedBodyInfo } from '../services/ocrInbodyApi';
 import ExerciseRecognitionModal from '../components/exercise/ExerciseRecognitionModal';
 
 export default function AIChatOverlay() {
@@ -48,6 +49,8 @@ export default function AIChatOverlay() {
   const [isExerciseModalOpen, setIsExerciseModalOpen] = useState(false);
   const [exerciseName, setExerciseName] = useState(null);
   const [exerciseData, setExerciseData] = useState(null);
+  const [isInbodyVerifyOpen, setIsInbodyVerifyOpen] = useState(false);
+  const [inbodyVerifyData, setInbodyVerifyData] = useState(null);
 
   // v2 animation states
   const [isLeaving, setIsLeaving] = useState(false);
@@ -96,6 +99,22 @@ export default function AIChatOverlay() {
     setIsExerciseModalOpen(false);
     setExerciseName(null);
     setExerciseData(null);
+  };
+
+  const handleSaveVerifiedInbodyFromChat = async (finalData) => {
+    try {
+      await saveVerifiedBodyInfo(finalData);
+      setIsInbodyVerifyOpen(false);
+      setInbodyVerifyData(null);
+      if (!dedupeWithin1s('인바디 정보가 저장되었습니다.')) {
+        dispatch(addMessage({ role: 'assistant', content: '인바디 정보가 저장되었습니다.' }));
+      }
+    } catch (err) {
+      console.error('인바디 저장 실패:', err);
+      if (!dedupeWithin1s('저장에 실패했습니다.')) {
+        dispatch(addMessage({ role: 'assistant', content: '저장에 실패했습니다. 다시 시도해주세요.' }));
+      }
+    }
   };
 
   // ---------- websocket subscriptions ----------
@@ -369,23 +388,23 @@ export default function AIChatOverlay() {
       dispatch(setLoading(true));
 
       // /api/ai/chat 엔드포인트로 이미지 전송 (이미지 분류 후 음식/인바디 라우팅)
-      // 백엔드는 이미지 분류 후 mealService.asyncVisionAnalysis를 호출하고,
-      // 실제 결과는 WebSocket(/topic/meal/vision/{userId})로 옴
-      visionPendingRef.current = true;
-      await aiApi.sendMessage(null, file, null);
+      const response = await aiApi.sendMessage(null, file, null);
 
-      // 1) 식단 비전 파이프라인 우선: mealApi(백엔드 식단 비전) 호출
-      // - 백엔드는 202 ACCEPTED만 반환하고, 실제 결과는 WebSocket(/topic/meal/vision/{userId})로 옴
-      // 2) 실패 시 fallback: 기존 /ai/chat 업로드(서버에서 이미지 분류 후 라우팅)
-//       visionPendingRef.current = true;
-//       try {
-//         const base64 = dataUrl.split(',')[1] || '';
-//         await mealApi.analyzeVision(base64);
-//       } catch (e) {
-//         await aiApi.sendMessage(null, file, null);
-//       }
-
-      dispatch(addMessage({ role: 'assistant', content: '이미지 분석을 시작했어요. 잠시만 기다려주세요...' }));
+      if (response?.intent === 'INBODY_ANALYSIS' && response?.data) {
+        visionPendingRef.current = false;
+        dispatch(setLoading(false));
+        setInbodyVerifyData(response.data);
+        setIsInbodyVerifyOpen(true);
+        const msg = response.message || '인바디 분석이 완료되었습니다. 내용을 확인한 뒤 저장해주세요.';
+        if (!dedupeWithin1s(msg)) {
+          dispatch(addMessage({ role: 'assistant', content: msg }));
+        }
+      } else {
+        // 식단 등: 백엔드가 MEAL_QUERY로 비동기 분석 시작, 결과는 WebSocket으로 옴
+        visionPendingRef.current = true;
+        const msg = response?.message || '이미지 분석을 시작했어요. 잠시만 기다려주세요...';
+        dispatch(addMessage({ role: 'assistant', content: msg }));
+      }
     } catch (err) {
       console.error('이미지 분석 실패:', err);
       visionPendingRef.current = false;
@@ -424,6 +443,15 @@ export default function AIChatOverlay() {
         painArea={painModifyPayload.painArea}
         routineTitle={painModifyPayload.routineTitle}
         replacements={painModifyPayload.replacements}
+      />
+      <OcrInbodyVerifyModal
+        isOpen={isInbodyVerifyOpen}
+        onClose={() => {
+          setIsInbodyVerifyOpen(false);
+          setInbodyVerifyData(null);
+        }}
+        data={inbodyVerifyData}
+        onSave={handleSaveVerifiedInbodyFromChat}
       />
       {/* 플로팅 버튼 */}
       {!isChatOpen && (
@@ -657,7 +685,7 @@ export default function AIChatOverlay() {
                 </button>
               </div>
 
-              {isDragging && <p className="text-xs mt-2 text-center text-primary-500 font-medium">이미지를 놓아주세요...</p>}
+              {isDragging && <p/>}
               {isListening && <p className="text-[10px] mt-1 text-primary-500 font-medium animate-pulse">음성 인식 활성화 중...</p>}
             </div>
           </div>
