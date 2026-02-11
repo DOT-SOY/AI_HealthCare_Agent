@@ -5,10 +5,21 @@ import { useTheme } from '../../contexts/ThemeContext';
 
 export default function VolumeChart() {
   const { theme } = useTheme();
-  const isDark = theme === 'dark';
   const [period, setPeriod] = useState('month'); // 'month' or 'week'
   const [data, setData] = useState({ current: [], previous: [] });
   const [loading, setLoading] = useState(true);
+
+  // 테마에 따른 색상 설정
+  const colors = {
+    primary: theme === 'light' ? '#8FCC00' : '#B6FF00', // 연두색 (라이트: 더 어두운 색상)
+    secondary: theme === 'light' ? '#737373' : '#e5e5e5', // 흰색/검정 (라이트: text-muted로 더 연하게)
+    grid: theme === 'light' ? '#d4d4d4' : '#404040', // 그리드 색상
+    axis: theme === 'light' ? '#525252' : '#a3a3a3', // 축 색상
+    tooltipBg: theme === 'light' ? '#ffffff' : '#1a1a1a', // 툴팁 배경
+    tooltipBorder: theme === 'light' ? '#e5e5e5' : '#404040', // 툴팁 테두리
+    tooltipText: theme === 'light' ? '#171717' : '#e5e5e5', // 툴팁 텍스트
+    legend: theme === 'light' ? '#171717' : '#e5e5e5', // 범례 색상
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -139,7 +150,7 @@ export default function VolumeChart() {
           className={`px-4 py-1 rounded-token text-sm font-medium transition-colors ${
             period === 'month'
               ? 'bg-primary-500 text-bg-root'
-              : 'bg-bg-surface text-text-main hover:bg-bg-card border border-border-default'
+              : 'bg-gray-100 text-text-main hover:bg-gray-200'
           }`}
         >
           월별
@@ -149,7 +160,7 @@ export default function VolumeChart() {
           className={`px-4 py-1 rounded-token text-sm font-medium transition-colors ${
             period === 'week'
               ? 'bg-primary-500 text-bg-root'
-              : 'bg-bg-surface text-text-main hover:bg-bg-card border border-border-default'
+              : 'bg-gray-100 text-text-main hover:bg-gray-200'
           }`}
         >
           주별
@@ -167,13 +178,10 @@ export default function VolumeChart() {
             data={chartData}
             margin={{ top: 5, right: 20, left: 10, bottom: -20 }}
           >
-            <CartesianGrid 
-              strokeDasharray="3 3" 
-              stroke={isDark ? '#404040' : '#d4d4d4'} 
-            />
+            <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
             <XAxis 
               dataKey="name" 
-              stroke={isDark ? '#a3a3a3' : '#525252'}
+              stroke={colors.axis}
               style={{ fontSize: '11px' }}
               angle={period === 'month' ? -45 : 0}
               textAnchor={period === 'month' ? 'end' : 'middle'}
@@ -181,45 +189,38 @@ export default function VolumeChart() {
               interval={period === 'month' ? 0 : 0} // 모든 레이블 표시
             />
             <YAxis 
-              stroke={isDark ? '#a3a3a3' : '#525252'}
+              stroke={colors.axis}
               style={{ fontSize: '12px' }}
             />
             <Tooltip 
               contentStyle={{ 
-                backgroundColor: isDark ? '#1a1a1a' : '#ffffff', 
-                border: isDark ? '1px solid #404040' : '1px solid #e5e5e5',
+                backgroundColor: colors.tooltipBg, 
+                border: `1px solid ${colors.tooltipBorder}`,
                 borderRadius: '8px',
-                color: isDark ? '#e5e5e5' : '#171717'
+                color: colors.tooltipText
               }}
             />
             <Legend 
-              wrapperStyle={{ 
-                color: isDark ? '#e5e5e5' : '#171717', 
-                paddingTop: '0px', 
-                marginTop: '-15px', 
-                display: 'flex', 
-                gap: '20px', 
-                justifyContent: 'center' 
-              }}
+              wrapperStyle={{ color: colors.legend, paddingTop: '0px', marginTop: '-15px', display: 'flex', gap: '20px', justifyContent: 'center' }}
               verticalAlign="bottom"
               iconSize={12}
             />
             <Line 
               type="monotone" 
               dataKey="current" 
-              stroke={isDark ? '#B6FF00' : '#8FCC00'} 
+              stroke={colors.primary} 
               strokeWidth={2}
               name={period === 'month' ? '이번 달' : '이번 주'}
-              dot={{ fill: isDark ? '#B6FF00' : '#8FCC00', r: 4 }}
+              dot={{ fill: colors.primary, r: 4 }}
               connectNulls={false}
             />
             <Line 
               type="monotone" 
               dataKey="previous" 
-              stroke={isDark ? '#a3a3a3' : '#525252'} 
+              stroke={colors.secondary} 
               strokeWidth={2}
               name={period === 'month' ? '저번 달' : '저번 주'}
-              dot={{ fill: isDark ? '#a3a3a3' : '#525252', r: 4 }}
+              dot={{ fill: colors.secondary, r: 4 }}
               connectNulls={false}
             />
           </LineChart>

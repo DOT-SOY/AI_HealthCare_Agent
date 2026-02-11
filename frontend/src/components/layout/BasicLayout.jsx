@@ -2,7 +2,7 @@ import { useState } from "react";
 import BasicMenu from "../menu/BasicMenu";
 import { Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { Lock, LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Lock, LogOut, Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { logout } from "../../slices/loginSlice";
 import AIChatOverlay from '../../pages/AIChatOverlay';
 import ResetStyles from '../common/ResetStyles';
@@ -12,6 +12,7 @@ const BasicLayout = ({ children, containerClassName = "page-container" }) => {
   const loginState = useSelector((state) => state.loginSlice);
   const isLogin = !!loginState?.email;
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleClickLogout = async () => {
     await dispatch(logout());
@@ -21,7 +22,11 @@ const BasicLayout = ({ children, containerClassName = "page-container" }) => {
 
   return (
     <>
-      <BasicMenu isSidebarOpen={isSidebarOpen} />
+      <BasicMenu
+        isSidebarOpen={isSidebarOpen}
+        isMobileMenuOpen={isMobileMenuOpen}
+        onCloseMobileMenu={() => setMobileMenuOpen(false)}
+      />
       <div
         className={`transition-[margin-left] duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${
           isSidebarOpen ? "lg:ml-64" : "lg:ml-0"
@@ -30,7 +35,21 @@ const BasicLayout = ({ children, containerClassName = "page-container" }) => {
         {/* 상단 헤더 */}
         <header className="sticky top-0 z-40 bg-bg-root border-b border-border-default">
           <div className="h-14 px-4 flex items-center">
-            {/* 왼쪽: 사이드바 토글 버튼 (데스크톱 전용) */}
+            {/* 테블릿/모바일: 메뉴 트리거 (Welcome 왼쪽) */}
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              className="lg:hidden p-2 -ml-2 mr-2 rounded-token-sm text-text-sub hover:text-primary-500 hover:bg-bg-surface/50 transition-colors"
+              aria-label={isMobileMenuOpen ? "메뉴 닫기" : "메뉴 열기"}
+            >
+              {isMobileMenuOpen ? (
+                <X className="w-6 h-6" strokeWidth={2} />
+              ) : (
+                <Menu className="w-6 h-6" strokeWidth={2} />
+              )}
+            </button>
+
+            {/* 데스크톱: 사이드바 토글 버튼 */}
             <button
               type="button"
               onClick={toggleSidebar}

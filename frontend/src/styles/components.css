@@ -671,18 +671,32 @@
   pointer-events: none;
 }
 
+/* 모바일: 풀스크린 슬라이드업 (translateY 100% -> 0) */
 .ai-chat-panel {
   opacity: 0;
-  transform: translateY(20px) scale(0.97);
+  transform: translateY(100%);
   transition: opacity 0.25s var(--ease-out-expo), transform 0.25s var(--ease-out-expo);
 }
 .ai-chat-panel[data-visible="true"] {
   opacity: 1;
-  transform: translateY(0) scale(1);
+  transform: translateY(0);
 }
 .ai-chat-panel[data-leaving="true"] {
   opacity: 0;
-  transform: translateY(20px) scale(0.97);
+  transform: translateY(100%);
+}
+
+/* 데스크톱 (md+): 기존 scale + translateY 유지 */
+@media (min-width: 768px) {
+  .ai-chat-panel {
+    transform: translateY(20px) scale(0.97);
+  }
+  .ai-chat-panel[data-visible="true"] {
+    transform: translateY(0) scale(1);
+  }
+  .ai-chat-panel[data-leaving="true"] {
+    transform: translateY(20px) scale(0.97);
+  }
 }
 
 /* FAB 등장 애니메이션 (채팅 닫을 때 버튼이 나타남) */

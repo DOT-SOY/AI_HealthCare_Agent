@@ -1,12 +1,13 @@
 export default function WeeklyCalendar({ routines = [], selectedDate, onDateChange }) {
   const days = ['일', '월', '화', '수', '목', '금', '토'];
   const today = new Date();
+  const baseDate = selectedDate || today;
   
-  // 이전 3일 + 오늘 + 앞으로 3일 (총 7일)
+  // 이전 3일 + 기준일 + 앞으로 3일 (총 7일)
   const weekDates = [];
   for (let i = -3; i <= 3; i++) {
-    const date = new Date(today);
-    date.setDate(date.getDate() + i);
+    const date = new Date(baseDate);
+    date.setDate(baseDate.getDate() + i);
     weekDates.push(date);
   }
 
@@ -20,13 +21,24 @@ export default function WeeklyCalendar({ routines = [], selectedDate, onDateChan
   };
 
   const getRoutineForDate = (date) => {
-    const dateStr = date.toISOString().split('T')[0];
-    return routines.find(r => {
+    // 로컬 기준 YYYY-MM-DD 문자열로 통일해서 비교 (UTC 변환으로 인한 1일 차이 방지)
+    const toLocalDateKey = (d) => {
+      const dd = d instanceof Date ? d : new Date(d);
+      const y = dd.getFullYear();
+      const m = String(dd.getMonth() + 1).padStart(2, '0');
+      const day = String(dd.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+
+    const dateKey = toLocalDateKey(date);
+
+    return routines.find((r) => {
       if (!r.date) return false;
-      const routineDateStr = typeof r.date === 'string' 
-        ? r.date 
-        : new Date(r.date).toISOString().split('T')[0];
-      return routineDateStr === dateStr;
+      const routineKey =
+        typeof r.date === 'string'
+          ? (r.date.includes('T') ? r.date.split('T')[0] : r.date)
+          : toLocalDateKey(r.date);
+      return routineKey === dateKey;
     });
   };
 

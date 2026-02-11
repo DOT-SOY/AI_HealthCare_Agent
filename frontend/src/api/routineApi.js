@@ -36,11 +36,21 @@ export const routineApi = {
   },
   
   getByDate: async (date) => {
-    // 주간 루틴에서 해당 날짜 찾기
-    const response = await jwtAxios.get(`/routines/weekly`);
-    const routines = response.data;
-    const targetDate = new Date(date).toISOString().split('T')[0];
-    return routines.find(r => r.date === targetDate) || null;
+    // 날짜 문자열로 변환 (YYYY-MM-DD)
+    const dateStr =
+      typeof date === 'string'
+        ? date
+        : new Date(date).toISOString().split('T')[0];
+
+    try {
+      const response = await jwtAxios.get('/routines/by-date', {
+        params: { date: dateStr },
+      });
+      return response.data;
+    } catch (error) {
+      console.error('날짜별 루틴 조회 실패:', error);
+      return null;
+    }
   },
   
   create: async (date, title, summary) => {
@@ -60,6 +70,16 @@ export const routineApi = {
   /** AI 루틴 추천 모달에서 "루틴 생성하기" 시 오늘부터 N일치 루틴 저장 */
   createFromRecommendation: async (payload) => {
     const response = await jwtAxios.post('/routines/from-recommendation', payload);
+    return response.data;
+  },
+
+  /** 메인 화면 볼륨 차트용 총 볼륨 통계 조회
+   *  - period: 'month' | 'week'
+   */
+  getVolumeStats: async (period = 'month') => {
+    const response = await jwtAxios.get('/routines/volume-stats', {
+      params: { period },
+    });
     return response.data;
   },
 

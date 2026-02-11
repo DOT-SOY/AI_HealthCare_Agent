@@ -204,31 +204,29 @@ public class RoutineServiceImpl implements RoutineService {
     @Override
     @Transactional(readOnly = true)
     public List<RoutineResponse> getHistory(Long memberId, String bodyPart) {
-        // 완료된 운동이 있는 루틴만 조회
+        // 최근 3개월 과거 ~ 3개월 미래까지의 루틴 조회 (완료 여부 및 예정 여부 무관)
         List<Routine> routines = routineRepository.findByMemberIdAndDateBetween(
-            memberId, 
-            LocalDate.now().minusMonths(3), 
-            LocalDate.now()
+            memberId,
+            LocalDate.now().minusMonths(3),
+            LocalDate.now().plusMonths(3)
         );
         
         log.info("기록 조회: memberId={}, bodyPart={}, 전체 루틴 수={}", memberId, bodyPart, routines.size());
         
         // JOIN FETCH로 이미 로드되었으므로 추가 쿼리 없음
-        // 완료된 운동이 있는 루틴만 필터링
-        List<Routine> routinesWithCompletedExercises = routines.stream()
-            .filter(routine -> routine.getExercises().stream()
-                .anyMatch(Exercise::isCompleted))
+        // 운동이 있는 루틴만 필터링 (완료 여부 무관)
+        List<Routine> routinesWithExercises = routines.stream()
+            .filter(routine -> routine.getExercises() != null && !routine.getExercises().isEmpty())
             .collect(Collectors.toList());
         
         // bodyPart 필터링 (메인 타겟 또는 서브 타겟 포함)
         if (bodyPart != null && !bodyPart.isEmpty() && !bodyPart.equals("전체")) {
             ExerciseCategory targetCategory = mapBodyPartToCategory(bodyPart);
             if (targetCategory != null) {
-                routinesWithCompletedExercises = routinesWithCompletedExercises.stream()
+                routinesWithExercises = routinesWithExercises.stream()
                     .filter(routine -> routine.getExercises().stream()
                         .anyMatch(ex -> {
-                            if (!ex.isCompleted()) return false;
-                            // 메인 타겟 또는 서브 타겟에 포함되는지 확인
+                            // 메인 타겟 또는 서브 타겟에 포함되는지 확인 (완료 여부 무관)
                             ExerciseType exerciseType = ex.getExerciseType();
                             if (exerciseType != null) {
                                 boolean matchesMain = exerciseType.getMainTarget() == targetCategory;
@@ -243,9 +241,9 @@ public class RoutineServiceImpl implements RoutineService {
             }
         }
         
-        log.info("완료된 운동이 있는 루틴 수: {}", routinesWithCompletedExercises.size());
+        log.info("운동이 있는 루틴 수: {}", routinesWithExercises.size());
         
-        return routinesWithCompletedExercises.stream()
+        return routinesWithExercises.stream()
             .map(routine -> toRoutineResponse(routine, routine.getDate().equals(LocalDate.now())))
             .sorted(Comparator.comparing(RoutineResponse::getDate).reversed())
             .collect(Collectors.toList());

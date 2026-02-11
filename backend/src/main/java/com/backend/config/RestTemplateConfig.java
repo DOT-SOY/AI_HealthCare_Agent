@@ -15,12 +15,11 @@ public class RestTemplateConfig {
     public RestTemplate restTemplate(RestTemplateBuilder builder) {
         // 타임아웃을 명시적으로 설정하여 AI 서버 지연/다운 시 무한 대기를 방지
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(5000); // 연결 타임아웃 5초
-        factory.setReadTimeout(60000);   // 읽기 타임아웃 60초
+        factory.setConnectTimeout(10000); // 연결 타임아웃 10초
+        factory.setReadTimeout(120000);   // 읽기 타임아웃 120초 (OCR 분할 분석 등 시간 소요 대비)
         
         return builder
             .requestFactory(() -> factory)
             .build();
     }
 }
-
