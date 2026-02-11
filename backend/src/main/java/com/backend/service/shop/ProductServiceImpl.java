@@ -25,6 +25,7 @@ import com.backend.repository.shop.*;
 import com.backend.service.file.FileStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.support.PageableExecutionUtils;
 import org.springframework.security.core.Authentication;
@@ -59,11 +60,16 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional
     public ProductResponse create(ProductCreateRequest request, Long createdBy) {
+        if (createdBy == null) {
+            // 인증되지 않은 생성자는 허용하지 않는다.
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
         if (productRepository.existsByName(request.getName())) {
             throw new BusinessException(ErrorCode.SHOP_PRODUCT_ALREADY_EXISTS);
         }
 
-        Member member = memberRepository.findById(createdBy != null ? createdBy : 1L)
+        Member member = memberRepository.findById(createdBy)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, createdBy));
 
         Product product = Product.builder()
@@ -74,17 +80,28 @@ public class ProductServiceImpl implements ProductService {
                 .createdBy(member)
                 .build();
 
+        // 연관 엔티티는 엔티티 그래프만 구성하고, save 시점에 한 번에 persist 되도록 처리
         replaceImages(product, request.getImageFilePaths());
         replaceVariants(product, request.getVariants());
-        Product saved = productRepository.save(product);
-        log.info("Product created: id={}, name={}", saved.getId(), saved.getName());
-        List<Long> categoryIds = resolveCategoryIds(request.getCategoryTypes(), request.getCategoryIds());
-        if (categoryIds != null) {
-            replaceCategories(saved, categoryIds);
+
+        try {
+            Product saved = productRepository.saveAndFlush(product);
+            log.info("Product created: id={}, name={}", saved.getId(), saved.getName());
+
+            List<Long> categoryIds = resolveCategoryIds(request.getCategoryTypes(), request.getCategoryIds());
+            if (categoryIds != null && !categoryIds.isEmpty()) {
+                replaceCategories(saved, categoryIds);
+            }
+
+            // 방금 구성한 연관 컬렉션을 그대로 사용하여 불필요한 재조회 방지
+            List<ProductImage> images = saved.getImages();
+            List<ProductVariant> variants = saved.getVariants();
+            return toFullResponse(saved, images, variants);
+        } catch (DataIntegrityViolationException e) {
+            // DB 유니크 제약(상품명 등) 위반 시 중복 상품 에러로 매핑
+            log.warn("Product create constraint violation (possibly duplicate name): name={}", request.getName(), e);
+            throw new BusinessException(ErrorCode.SHOP_PRODUCT_ALREADY_EXISTS);
         }
-        List<ProductImage> images = productImageRepository.findByProductIdAndDeletedAtIsNull(saved.getId());
-        List<ProductVariant> variants = productVariantRepository.findByProductId(saved.getId());
-        return toFullResponse(saved, images, variants);
     }
 
     @Override
