@@ -54,13 +54,44 @@ const ProfileIndex = () => {
       if (data && data.length > 0) {
         setHistoryData(data);
         
-        // 최신 정보 찾기: createdAt 또는 id 기준으로 가장 최근 것 선택
-        // (회원정보 수정 레코드도 최신이면 선택되도록)
-        const latest = data.reduce((prev, current) => {
+        // 기본 정보(키, 몸무게, 운동목적)는 최신 레코드에서 가져오기
+        const latestBasic = data.reduce((prev, current) => {
           const prevCreated = prev?.createdAt ? new Date(prev.createdAt).getTime() : (prev?.id || 0);
           const currentCreated = current?.createdAt ? new Date(current.createdAt).getTime() : (current?.id || 0);
           return currentCreated > prevCreated ? current : prev;
         }, data[0]);
+        
+        // 각 건강정보 항목별로 가장 최근에 측정된 값 찾기
+        const findLatestValue = (fieldName) => {
+          // 해당 필드가 null이 아닌 레코드 중에서 가장 최근 것 찾기
+          const candidates = data.filter(item => item[fieldName] != null);
+          if (candidates.length === 0) return null;
+          
+          return candidates.reduce((prev, current) => {
+            // measuredTime이 있으면 그것을 우선, 없으면 createdAt 기준
+            const prevTime = prev?.measuredTime ? new Date(prev.measuredTime).getTime() : 
+                            (prev?.createdAt ? new Date(prev.createdAt).getTime() : (prev?.id || 0));
+            const currentTime = current?.measuredTime ? new Date(current.measuredTime).getTime() : 
+                               (current?.createdAt ? new Date(current.createdAt).getTime() : (current?.id || 0));
+            return currentTime > prevTime ? current : prev;
+          });
+        };
+        
+        // 최신 정보 조합: 기본 정보 + 각 항목별 최신 건강정보
+        const latest = {
+          ...latestBasic,
+          // 건강정보는 각 항목별로 가장 최근 측정값 사용
+          bodyWater: findLatestValue('bodyWater')?.bodyWater ?? latestBasic?.bodyWater,
+          protein: findLatestValue('protein')?.protein ?? latestBasic?.protein,
+          minerals: findLatestValue('minerals')?.minerals ?? latestBasic?.minerals,
+          bodyFatMass: findLatestValue('bodyFatMass')?.bodyFatMass ?? latestBasic?.bodyFatMass,
+          bodyFatPercent: findLatestValue('bodyFatPercent')?.bodyFatPercent ?? latestBasic?.bodyFatPercent,
+          skeletalMuscleMass: findLatestValue('skeletalMuscleMass')?.skeletalMuscleMass ?? latestBasic?.skeletalMuscleMass,
+          targetWeight: findLatestValue('targetWeight')?.targetWeight ?? latestBasic?.targetWeight,
+          weightControl: findLatestValue('weightControl')?.weightControl ?? latestBasic?.weightControl,
+          fatControl: findLatestValue('fatControl')?.fatControl ?? latestBasic?.fatControl,
+          muscleControl: findLatestValue('muscleControl')?.muscleControl ?? latestBasic?.muscleControl,
+        };
         
         setLatestInfo(latest);
         console.log("[ProfileIndex] 최신 정보 업데이트:", latest);
