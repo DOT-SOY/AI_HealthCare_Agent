@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import {
@@ -15,8 +15,9 @@ import { useSTT } from '../hooks/useSTT';
 import { useWebSocket } from '../hooks/useWebSocket';
 import RoutineRecommendModal from '../components/ai/RoutineRecommendModal';
 import PainModifyModal from '../components/ai/PainModifyModal';
-import { mealApi } from '../api/mealApi';
+import OcrInbodyVerifyModal from '../components/profile/OcrInbodyVerifyModal';
 import { aiApi } from '../api/aiApi';
+import { saveVerifiedBodyInfo } from '../services/ocrInbodyApi';
 import ExerciseRecognitionModal from '../components/exercise/ExerciseRecognitionModal';
 
 export default function AIChatOverlay() {
@@ -48,6 +49,8 @@ export default function AIChatOverlay() {
   const [isExerciseModalOpen, setIsExerciseModalOpen] = useState(false);
   const [exerciseName, setExerciseName] = useState(null);
   const [exerciseData, setExerciseData] = useState(null);
+  const [isInbodyVerifyOpen, setIsInbodyVerifyOpen] = useState(false);
+  const [inbodyVerifyData, setInbodyVerifyData] = useState(null);
 
   // v2 animation states
   const [isLeaving, setIsLeaving] = useState(false);
@@ -69,6 +72,14 @@ export default function AIChatOverlay() {
   const subscriptionInitializedRef = useRef(false);
   const lastSentTranscriptRef = useRef('');
   const visionPendingRef = useRef(false);
+  /** 채팅 열림 시 스크롤 위치 복원용 */
+  const chatOpenScrollYRef = useRef(0);
+  /** 모바일 드래그로 내릴 때 시작 Y */
+  const panelDragStartYRef = useRef(0);
+  /** 드래그로 인식할 최소 이동(px), 이하면 탭으로 간주해 닫기 버튼 등 동작 */
+  const panelDragActiveRef = useRef(false);
+
+  const [panelDragOffsetY, setPanelDragOffsetY] = useState(0);
 
   // ---------- helpers ----------
   const dedupeWithin1s = (content) => {
@@ -89,13 +100,84 @@ export default function AIChatOverlay() {
   };
 
   const handleClose = () => {
-    if (isChatOpen && !isLeaving) setIsLeaving(true);
+    if (isChatOpen && !isLeaving) {
+      setPanelDragOffsetY(0);
+      setIsLeaving(true);
+    }
+  };
+
+  const DRAG_CLOSE_THRESHOLD = 80;
+
+  const endPanelDrag = useCallback((currentOffset) => {
+    setPanelDragOffsetY(0);
+    if (currentOffset > DRAG_CLOSE_THRESHOLD && isChatOpen && !isLeaving) {
+      setIsLeaving(true);
+    }
+  }, [isChatOpen, isLeaving]);
+
+  const DRAG_ACTIVATE_THRESHOLD = 10;
+
+  const handlePanelTouchStart = (e) => {
+    panelDragStartYRef.current = e.touches[0].clientY;
+    panelDragActiveRef.current = false;
+    setPanelDragOffsetY(0);
+  };
+  const handlePanelTouchMove = (e) => {
+    const delta = e.touches[0].clientY - panelDragStartYRef.current;
+    if (!panelDragActiveRef.current && delta > DRAG_ACTIVATE_THRESHOLD) panelDragActiveRef.current = true;
+    if (panelDragActiveRef.current) setPanelDragOffsetY(Math.max(0, delta));
+  };
+  const handlePanelTouchEnd = () => {
+    panelDragActiveRef.current = false;
+    setPanelDragOffsetY((prev) => {
+      endPanelDrag(prev);
+      return 0;
+    });
+  };
+
+  const handlePanelMouseDown = (e) => {
+    e.preventDefault();
+    panelDragStartYRef.current = e.clientY;
+    panelDragActiveRef.current = false;
+    setPanelDragOffsetY(0);
+    const onMouseMove = (moveEvent) => {
+      const delta = moveEvent.clientY - panelDragStartYRef.current;
+      if (!panelDragActiveRef.current && delta > DRAG_ACTIVATE_THRESHOLD) panelDragActiveRef.current = true;
+      if (panelDragActiveRef.current) setPanelDragOffsetY(Math.max(0, delta));
+    };
+    const onMouseUp = () => {
+      panelDragActiveRef.current = false;
+      setPanelDragOffsetY((prev) => {
+        endPanelDrag(prev);
+        return 0;
+      });
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
   };
 
   const handleExerciseModalClose = () => {
     setIsExerciseModalOpen(false);
     setExerciseName(null);
     setExerciseData(null);
+  };
+
+  const handleSaveVerifiedInbodyFromChat = async (finalData) => {
+    try {
+      await saveVerifiedBodyInfo(finalData);
+      setIsInbodyVerifyOpen(false);
+      setInbodyVerifyData(null);
+      if (!dedupeWithin1s('인바디 정보가 저장되었습니다.')) {
+        dispatch(addMessage({ role: 'assistant', content: '인바디 정보가 저장되었습니다.' }));
+      }
+    } catch (err) {
+      console.error('인바디 저장 실패:', err);
+      if (!dedupeWithin1s('저장에 실패했습니다.')) {
+        dispatch(addMessage({ role: 'assistant', content: '저장에 실패했습니다. 다시 시도해주세요.' }));
+      }
+    }
   };
 
   // ---------- websocket subscriptions ----------
@@ -262,6 +344,31 @@ export default function AIChatOverlay() {
     if (!isChatOpen && !isLeaving) setEnterDone(false);
   }, [isChatOpen, isLeaving]);
 
+  // 채팅 패널 열림 시 배경 스크롤 잠금 (모바일 포함)
+  const chatPanelVisible = isChatOpen || isLeaving;
+  useEffect(() => {
+    if (chatPanelVisible) {
+      chatOpenScrollYRef.current = window.scrollY;
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${chatOpenScrollYRef.current}px`;
+      document.body.style.left = '0';
+      document.body.style.right = '0';
+    } else {
+      const y = chatOpenScrollYRef.current;
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      window.scrollTo(0, y);
+    }
+    return () => {
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+    };
+  }, [chatPanelVisible]);
+
   useEffect(() => {
     if (!isLeaving) return;
     const t = setTimeout(() => {
@@ -368,18 +475,24 @@ export default function AIChatOverlay() {
 
       dispatch(setLoading(true));
 
-      // 1) 식단 비전 파이프라인 우선: mealApi(백엔드 식단 비전) 호출
-      // - 백엔드는 202 ACCEPTED만 반환하고, 실제 결과는 WebSocket(/topic/meal/vision/{userId})로 옴
-      // 2) 실패 시 fallback: 기존 /ai/chat 업로드(서버에서 이미지 분류 후 라우팅)
-      visionPendingRef.current = true;
-      try {
-        const base64 = dataUrl.split(',')[1] || '';
-        await mealApi.analyzeVision(base64);
-      } catch (e) {
-        await aiApi.sendMessage(null, file, null);
-      }
+      // /api/ai/chat 엔드포인트로 이미지 전송 (이미지 분류 후 음식/인바디 라우팅)
+      const response = await aiApi.sendMessage(null, file, null);
 
-      dispatch(addMessage({ role: 'assistant', content: '이미지 분석을 시작했어요. 잠시만 기다려주세요...' }));
+      if (response?.intent === 'INBODY_ANALYSIS' && response?.data) {
+        visionPendingRef.current = false;
+        dispatch(setLoading(false));
+        setInbodyVerifyData(response.data);
+        setIsInbodyVerifyOpen(true);
+        const msg = response.message || '인바디 분석이 완료되었습니다. 내용을 확인한 뒤 저장해주세요.';
+        if (!dedupeWithin1s(msg)) {
+          dispatch(addMessage({ role: 'assistant', content: msg }));
+        }
+      } else {
+        // 식단 등: 백엔드가 MEAL_QUERY로 비동기 분석 시작, 결과는 WebSocket으로 옴
+        visionPendingRef.current = true;
+        const msg = response?.message || '이미지 분석을 시작했어요. 잠시만 기다려주세요...';
+        dispatch(addMessage({ role: 'assistant', content: msg }));
+      }
     } catch (err) {
       console.error('이미지 분석 실패:', err);
       visionPendingRef.current = false;
@@ -419,6 +532,15 @@ export default function AIChatOverlay() {
         routineTitle={painModifyPayload.routineTitle}
         replacements={painModifyPayload.replacements}
       />
+      <OcrInbodyVerifyModal
+        isOpen={isInbodyVerifyOpen}
+        onClose={() => {
+          setIsInbodyVerifyOpen(false);
+          setInbodyVerifyData(null);
+        }}
+        data={inbodyVerifyData}
+        onSave={handleSaveVerifiedInbodyFromChat}
+      />
       {/* 플로팅 버튼 */}
       {!isChatOpen && (
         <div className="fixed bottom-8 right-8 z-50">
@@ -453,18 +575,23 @@ export default function AIChatOverlay() {
       {/* 채팅 패널 (열림 or leave 애니메이션 중) */}
       {(isChatOpen || isLeaving) && (
         <>
-          {/* 배경 오버레이 */}
+          {/* 배경 오버레이 (드래그 시 opacity·블러 줄어들어 뒤 배경이 선명히 보임) */}
           <div
-            className="ai-chat-overlay fixed inset-0 z-40 bg-bg-root/60 backdrop-blur-sm"
+            className="ai-chat-overlay fixed inset-0 z-40 bg-bg-root/60"
             data-visible={enterDone && !isLeaving}
             data-leaving={isLeaving}
             onClick={handleClose}
             aria-hidden
+            style={{
+              backdropFilter: `blur(${Math.max(600, 1200 - (panelDragOffsetY / 220) * 24)}px)`,
+              WebkitBackdropFilter: `blur(${Math.max(600, 1200 - (panelDragOffsetY / 220) * 24)}px)`,
+              ...(panelDragOffsetY > 0 ? { opacity: Math.max(0.2, 1 - panelDragOffsetY / 120) } : {}),
+            }}
           />
 
-          {/* 채팅 패널 */}
+          {/* 채팅 패널: 모바일 풀스크린 슬라이드업 / 데스크톱 우하단 고정 */}
           <div
-            className="ai-chat-panel card-token fixed bottom-8 right-8 w-[500px] h-[600px] rounded-token shadow-card flex flex-col z-50 overflow-hidden"
+            className="ai-chat-panel card-token fixed inset-0 md:inset-auto md:bottom-8 md:right-8 md:left-auto md:w-[500px] md:h-[600px] rounded-t-2xl md:rounded-token shadow-card flex flex-col z-50 overflow-hidden bg-bg-surface"
             data-visible={enterDone && !isLeaving}
             data-leaving={isLeaving}
             onClick={(e) => e.stopPropagation()}
@@ -481,20 +608,39 @@ export default function AIChatOverlay() {
               setIsDragging(false);
               handleImageDrop(e);
             }}
-            style={isDragging ? { borderColor: 'var(--primary-500)', borderWidth: '2px', borderStyle: 'dashed' } : {}}
+            style={{
+              ...(isDragging ? { borderColor: 'var(--primary-500)', borderWidth: '2px', borderStyle: 'dashed' } : {}),
+              ...(panelDragOffsetY > 0 ? { backgroundColor: 'transparent' } : {}),
+            }}
           >
-            {/* 헤더 */}
-            <div className="flex items-center justify-between p-4 border-b border-border-default bg-bg-surface">
-              <h2 className="text-lg font-semibold text-text-main">AI 코치</h2>
-              <button
-                onClick={handleClose}
-                className="text-text-sub hover:text-text-main transition-colors p-1 rounded-token-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
-                aria-label="채팅 닫기"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+            <div
+              className="flex flex-col flex-1 min-h-0"
+              style={panelDragOffsetY ? { transform: `translateY(${panelDragOffsetY}px)` } : undefined}
+            >
+            {/* 모바일: 핸들 + 헤더까지 드래그 영역 (아래로 당기면 닫힘) */}
+            <div
+              className="md:hidden touch-none cursor-grab active:cursor-grabbing select-none"
+              onTouchStart={handlePanelTouchStart}
+              onTouchMove={handlePanelTouchMove}
+              onTouchEnd={handlePanelTouchEnd}
+              onMouseDown={handlePanelMouseDown}
+            >
+              <div className="flex justify-center pt-2 pb-1" aria-hidden>
+                <div className="w-10 h-1 rounded-full bg-gray-300/60" />
+              </div>
+              <div className="flex items-center justify-between p-4 border-b border-border-default bg-bg-surface">
+                <h2 className="text-lg font-semibold text-text-main">AI 코치</h2>
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="p-1 rounded-token-sm text-text-sub hover:text-text-main transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 cursor-pointer touch-auto"
+                  aria-label="채팅 닫기"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             {/* 메시지 */}
@@ -651,8 +797,9 @@ export default function AIChatOverlay() {
                 </button>
               </div>
 
-              {isDragging && <p className="text-xs mt-2 text-center text-primary-500 font-medium">이미지를 놓아주세요...</p>}
+              {isDragging && <p/>}
               {isListening && <p className="text-[10px] mt-1 text-primary-500 font-medium animate-pulse">음성 인식 활성화 중...</p>}
+            </div>
             </div>
           </div>
         </>

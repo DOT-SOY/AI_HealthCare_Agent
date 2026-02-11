@@ -81,10 +81,14 @@ const AdminIcon = ({ className }) => (
   </svg>
 );
 
-const BasicMenu = ({ isSidebarOpen = true }) => {
+const BasicMenu = ({
+  isSidebarOpen = true,
+  isMobileMenuOpen: isMobileMenuOpenProp = null,
+  onCloseMobileMenu = null,
+}) => {
   const location = useLocation();
   const { theme, setTheme } = useTheme();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [internalMobileOpen, setInternalMobileOpen] = useState(false);
   const [shopDropdownOpen, setShopDropdownOpen] = useState(false);
   const [shopMobileOpen, setShopMobileOpen] = useState(false);
   const loginState = useSelector((state) => state.loginSlice);
@@ -93,10 +97,15 @@ const BasicMenu = ({ isSidebarOpen = true }) => {
     Array.isArray(loginState?.roleNames) &&
     loginState.roleNames.some((r) => r === "ADMIN" || r === "ROLE_ADMIN");
 
-  const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
+  const isMobileMenuOpen = onCloseMobileMenu != null ? isMobileMenuOpenProp : internalMobileOpen;
   const closeMobileMenu = () => {
-    setIsMobileMenuOpen(false);
-    setShopMobileOpen(false);
+    if (onCloseMobileMenu) {
+      onCloseMobileMenu();
+      setShopMobileOpen(false);
+    } else {
+      setInternalMobileOpen(false);
+      setShopMobileOpen(false);
+    }
   };
 
   const menuItems = [
@@ -265,23 +274,7 @@ const BasicMenu = ({ isSidebarOpen = true }) => {
         </div>
       </aside>
 
-      {/* 모바일 햄버거 버튼 */}
-      <button
-        onClick={toggleMobileMenu}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2.5 bg-bg-card rounded-token border border-border-default shadow-card text-text-main hover:border-primary-500 hover:text-primary-500 transition-all duration-200"
-        aria-label="메뉴 열기"
-      >
-        {isMobileMenuOpen ? (
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        ) : (
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        )}
-      </button>
-
+      {/* 테블릿/모바일: 배경 딤 (드롭다운 열림 시) */}
       {isMobileMenuOpen && (
         <div
           className="lg:hidden fixed inset-0 bg-bg-root/80 z-40"
@@ -290,22 +283,14 @@ const BasicMenu = ({ isSidebarOpen = true }) => {
         />
       )}
 
-      {/* 모바일 사이드바 */}
-      <aside
-        className={`lg:hidden fixed left-0 top-0 h-full w-64 bg-bg-card border-r border-border-default shadow-card z-50 transform transition-transform duration-300 ease-out-quart flex flex-col ${
-          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+      {/* 테블릿/모바일: 헤더 아래 드롭다운 메뉴 */}
+      <div
+        className={`lg:hidden fixed left-0 right-0 top-14 z-50 w-full max-w-[100vw] min-w-0 bg-bg-card border-b border-border-default shadow-card overflow-x-hidden overflow-y-auto transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${
+          isMobileMenuOpen ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"
         }`}
+        style={{ maxHeight: "70vh" }}
       >
-        <div className="p-5 border-b border-border-default">
-          <Link to="/" className="flex items-center gap-3" onClick={closeMobileMenu}>
-            <img src="/logo.png" alt="ALGORHYGYM" className="w-10 h-10 flex-shrink-0 object-contain" />
-            <span className="font-display text-xl tracking-tight text-text-main uppercase">
-              ALGORHYGYM
-            </span>
-          </Link>
-        </div>
-
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+        <nav className="p-3 space-y-1 overflow-x-hidden overflow-y-auto max-h-[70vh] min-w-0">
           {menuItems.map((item) => {
             const Icon = item.icon;
             if (item.children) {
@@ -356,7 +341,7 @@ const BasicMenu = ({ isSidebarOpen = true }) => {
           })}
         </nav>
 
-        {/* 테마 토글 (모바일 사이드바) — 아이콘만 표시 */}
+        {/* 테마 토글 (드롭다운 하단) */}
         <div className="p-3 border-t border-border-default">
           <div
             className="relative flex w-full rounded-full border border-border-default bg-bg-surface p-0.5"
@@ -396,7 +381,7 @@ const BasicMenu = ({ isSidebarOpen = true }) => {
             </button>
           </div>
         </div>
-      </aside>
+      </div>
     </>
   );
 };
