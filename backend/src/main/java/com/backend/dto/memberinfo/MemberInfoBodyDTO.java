@@ -86,7 +86,9 @@ public class MemberInfoBodyDTO {
                 .fatControl(this.fatControl)
                 .muscleControl(this.muscleControl)
                 .exercisePurpose(this.exercisePurpose)
-                .measuredTime(this.measuredTime != null ? this.measuredTime : Instant.now())
+                // measuredTime이 null이면 null로 저장 (회원정보 수정 시)
+                // measuredTime이 있으면 그대로 사용 (OCR 저장 시)
+                .measuredTime(this.measuredTime)
                 .build();
     }
 }

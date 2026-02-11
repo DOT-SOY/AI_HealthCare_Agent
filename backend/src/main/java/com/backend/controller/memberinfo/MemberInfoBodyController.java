@@ -3,7 +3,6 @@ package com.backend.controller.memberinfo;
 import com.backend.domain.member.Member;
 import com.backend.dto.memberinfo.MemberInfoBodyDTO;
 import com.backend.dto.memberinfo.MemberInfoBodyResponseDTO;
-import com.backend.domain.memberinfo.MemberInfoBody;
 import com.backend.repository.member.MemberRepository;
 import com.backend.service.memberinfo.MemberInfoBodyService;
 import jakarta.validation.Valid;
@@ -32,8 +31,11 @@ public class MemberInfoBodyController {
     public ResponseEntity<Long> create(
             @AuthenticationPrincipal String email,
             @Valid @RequestBody MemberInfoBodyDTO requestDto) {
+        log.info("[Controller] 신체 정보 생성 요청 - email: {}, requestDto: {}", email, requestDto);
         Long memberId = resolveUserId(email);
+        log.info("[Controller] memberId: {}", memberId);
         Long id = memberInfoBodyService.create(memberId, requestDto);
+        log.info("[Controller] 생성 완료 - 반환할 id: {}", id);
         return ResponseEntity.status(HttpStatus.CREATED).body(id);
     }
 

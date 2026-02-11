@@ -2,10 +2,8 @@ package com.backend.service.ocr;
 
 import com.backend.client.ocr.ocrInbodyAiClient;
 import com.backend.domain.member.Member;
-import com.backend.domain.memberinfo.MemberInfoBody;
 import com.backend.dto.memberinfo.MemberInfoBodyDTO;
 import com.backend.repository.member.MemberRepository;
-import com.backend.repository.memberinfo.MemberInfoBodyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -13,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
 @Slf4j
@@ -21,7 +21,6 @@ import java.util.Map;
 public class ocrInbodyServiceImpl implements ocrInbodyService {
 
     private final ocrInbodyAiClient ocrInbodyAiClient;
-    private final MemberInfoBodyRepository memberInfoBodyRepository;
     private final MemberRepository memberRepository;
 
     @Override
@@ -32,40 +31,26 @@ public class ocrInbodyServiceImpl implements ocrInbodyService {
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + email));
         Long memberId = member.getId();
 
-        // 2. 가장 최근 신체 정보 조회 (병합용)
-        MemberInfoBody latest = memberInfoBodyRepository
-                .findByMemberIdAndNotDeletedOrderByMeasuredTimeDesc(memberId)
-                .stream().findFirst().orElse(null);
-
-        // 3. AI 서버로 OCR 분석 요청
+        // 2. AI 서버로 OCR 분석 요청
         Map<String, Object> ocrResult = ocrInbodyAiClient.callAnalyzeApi(file);
         log.info("[OCR Service] 분석 결과: {}", ocrResult);
 
-        // 4. DTO 빌드 (기존 값 + OCR 값)
-        // 저장은 하지 않으므로 Entity를 만들지 않고 DTO를 바로 만듭니다.
+        // 3. DTO 빌드 (OCR 결과만 사용, 기존 데이터 병합하지 않음)
+        // measuredTime 파싱: OCR 결과에서 날짜 추출
+        log.info("[OCR Service] OCR 결과에서 measuredTime 추출 시도: {}", ocrResult.get("measuredTime"));
+        Instant measuredTime = parseMeasuredDate(ocrResult);
+        if (measuredTime == null) {
+            log.warn("[OCR Service] measuredTime 파싱 실패, 현재 시간 사용");
+            measuredTime = Instant.now(); // 파싱 실패 시 현재 시간 사용
+        } else {
+            log.info("[OCR Service] measuredTime 파싱 성공: {}", measuredTime);
+        }
+        
         MemberInfoBodyDTO.MemberInfoBodyDTOBuilder dtoBuilder = MemberInfoBodyDTO.builder()
                 .memberId(memberId)
-                .measuredTime(Instant.now());
+                .measuredTime(measuredTime);
 
-        if (latest != null) {
-            // 기존 값 복사 (누락 방지)
-            dtoBuilder
-                    .height(latest.getHeight())
-                    .weight(latest.getWeight())
-                    .skeletalMuscleMass(latest.getSkeletalMuscleMass())
-                    .bodyFatPercent(latest.getBodyFatPercent())
-                    .bodyWater(latest.getBodyWater())
-                    .protein(latest.getProtein())
-                    .minerals(latest.getMinerals())
-                    .bodyFatMass(latest.getBodyFatMass())
-                    .targetWeight(latest.getTargetWeight())
-                    .weightControl(latest.getWeightControl())
-                    .fatControl(latest.getFatControl())
-                    .muscleControl(latest.getMuscleControl())
-                    .exercisePurpose(latest.getExercisePurpose());
-        }
-
-        // 5. OCR 결과 덮어쓰기
+        // 4. OCR 결과만 적용 (기존 데이터 병합하지 않음)
         applyOcrValues(dtoBuilder, ocrResult);
 
         return dtoBuilder.build();
@@ -127,5 +112,51 @@ public class ocrInbodyServiceImpl implements ocrInbodyService {
 
         Double mc = getDouble.apply("muscleControl");
         if (mc != null) builder.muscleControl(mc);
+    }
+
+    /**
+     * OCR 결과에서 measuredTime을 파싱하여 Instant로 변환
+     * 형식: "2025.04.11 21:27" 또는 "2025.04.11. 21:27"
+     */
+    private Instant parseMeasuredDate(Map<String, Object> ocrResult) {
+        if (ocrResult == null) return null;
+        
+        // measuredTime 또는 measuredDate 모두 지원 (GPT가 measuredDate로 반환할 수 있음)
+        Object measuredTimeObj = ocrResult.get("measuredTime");
+        if (measuredTimeObj == null) {
+            measuredTimeObj = ocrResult.get("measuredDate");
+        }
+        if (measuredTimeObj == null) return null;
+        
+        String measuredTimeStr = measuredTimeObj.toString().trim();
+        if (measuredTimeStr.isEmpty()) return null;
+        
+        try {
+            // "2025.04.11 21:27" 또는 "2025.04.11. 21:27" 형식 파싱
+            // 점(.)을 하이픈(-)으로 변환하고 공백으로 날짜/시간 분리
+            String normalized = measuredTimeStr.replace(".", "-");
+            // 마지막 점 제거 (예: "2025-04-11- 21:27" -> "2025-04-11 21:27")
+            normalized = normalized.replaceAll("-\\s+", " ");
+            String[] parts = normalized.split("\\s+");
+            
+            if (parts.length >= 1) {
+                // 날짜 부분만 파싱 (시간은 무시)
+                String datePart = parts[0];
+                // 마지막 하이픈 제거 (예: "2025-04-11-" -> "2025-04-11")
+                if (datePart.endsWith("-")) {
+                    datePart = datePart.substring(0, datePart.length() - 1);
+                }
+                // "2025-04-11" 형식으로 변환
+                if (datePart.matches("\\d{4}-\\d{1,2}-\\d{1,2}")) {
+                    LocalDateTime dateTime = LocalDateTime.parse(datePart + "T00:00:00", 
+                        DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+                    return dateTime.atZone(java.time.ZoneId.systemDefault()).toInstant();
+                }
+            }
+        } catch (Exception e) {
+            log.warn("[OCR Service] measuredTime 파싱 실패: {}", measuredTimeStr, e);
+        }
+        
+        return null;
     }
 }
