@@ -6,7 +6,7 @@ import { X, ImagePlus } from "lucide-react";
  * - 드래그&드랍
  * - 클릭 → 파일 선택
  */
-const OcrInbodyUploadModal = ({ isOpen, onClose, onAnalyze }) => {
+const OcrInbodyUploadModal = ({ isOpen, onClose, onAnalyze, isDark = true }) => {
   const inputRef = useRef(null);
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -68,12 +68,28 @@ const OcrInbodyUploadModal = ({ isOpen, onClose, onAnalyze }) => {
     }
   };
 
+  // 테마별 스타일
+  const overlayBg = isDark ? "rgba(0,0,0,0.55)" : "rgba(0,0,0,0.4)";
+  const modalBg = isDark ? "#1f1f1f" : "#ffffff";
+  const modalColor = isDark ? "#fff" : "#000";
+  const modalBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.1)";
+  const modalShadow = isDark ? "0 10px 30px rgba(0,0,0,0.45)" : "0 10px 30px rgba(0,0,0,0.15)";
+  const closeBtnColor = isDark ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.6)";
+  const textColor = isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.7)";
+  const uploadAreaBg = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.02)";
+  const uploadAreaBorder = isDark ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.2)";
+  const uploadAreaBorderHover = isDark ? "rgba(204,255,0,0.9)" : "rgba(76, 144, 226, 0.8)";
+  const previewBorder = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)";
+  const iconColor = isDark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.5)";
+  const titleColor = isDark ? "rgba(255,255,255,0.75)" : "rgba(0,0,0,0.8)";
+  const subtitleColor = isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.6)";
+
   return (
     <div
       style={{
         position: "fixed",
         inset: 0,
-        backgroundColor: "rgba(0,0,0,0.55)",
+        backgroundColor: overlayBg,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -88,11 +104,11 @@ const OcrInbodyUploadModal = ({ isOpen, onClose, onAnalyze }) => {
         style={{
           width: 560,
           maxWidth: "92vw",
-          background: "#1f1f1f",
-          color: "#fff",
+          background: modalBg,
+          color: modalColor,
           borderRadius: 12,
-          border: "1px solid rgba(255,255,255,0.08)",
-          boxShadow: "0 10px 30px rgba(0,0,0,0.45)",
+          border: `1px solid ${modalBorder}`,
+          boxShadow: modalShadow,
           position: "relative",
           padding: 22,
         }}
@@ -107,15 +123,15 @@ const OcrInbodyUploadModal = ({ isOpen, onClose, onAnalyze }) => {
             border: "none",
             background: "transparent",
             cursor: "pointer",
-            color: "rgba(255,255,255,0.7)",
+            color: closeBtnColor,
           }}
           aria-label="닫기"
         >
           <X size={18} />
         </button>
 
-        <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 8 }}>인바디 이미지 업로드</div>
-        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", marginBottom: 14 }}>
+        <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 8, color: modalColor }}>인바디 이미지 업로드</div>
+        <div style={{ fontSize: 12, color: textColor, marginBottom: 14 }}>
           인바디 이미지 한 장을 넣어주세요. 이전 기록이 있으면 비교 분석합니다.
         </div>
 
@@ -145,8 +161,8 @@ const OcrInbodyUploadModal = ({ isOpen, onClose, onAnalyze }) => {
           style={{
             height: 150,
             borderRadius: 12,
-            border: `2px dashed ${dragOver ? "rgba(204,255,0,0.9)" : "rgba(255,255,255,0.18)"}`,
-            background: "rgba(255,255,255,0.04)",
+            border: `2px dashed ${dragOver ? uploadAreaBorderHover : uploadAreaBorder}`,
+            background: uploadAreaBg,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -165,21 +181,21 @@ const OcrInbodyUploadModal = ({ isOpen, onClose, onAnalyze }) => {
                   height: 90,
                   objectFit: "cover",
                   borderRadius: 10,
-                  border: "1px solid rgba(255,255,255,0.12)",
+                  border: `1px solid ${previewBorder}`,
                 }}
               />
               <div>
-                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>{file?.name}</div>
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)" }}>클릭해서 다른 이미지로 변경</div>
+                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4, color: modalColor }}>{file?.name}</div>
+                <div style={{ fontSize: 12, color: textColor }}>클릭해서 다른 이미지로 변경</div>
               </div>
             </div>
           ) : (
             <div style={{ textAlign: "center" }}>
-              <div style={{ display: "flex", justifyContent: "center", marginBottom: 8, color: "rgba(255,255,255,0.6)" }}>
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: 8, color: iconColor }}>
                 <ImagePlus size={26} />
               </div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.75)" }}>이미지 추가</div>
-              <div style={{ fontSize: 11, marginTop: 6, color: "rgba(255,255,255,0.5)" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: titleColor }}>이미지 추가</div>
+              <div style={{ fontSize: 11, marginTop: 6, color: subtitleColor }}>
                 드래그&드랍 또는 클릭해서 업로드
               </div>
             </div>

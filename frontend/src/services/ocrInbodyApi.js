@@ -23,7 +23,16 @@ export const analyzeInbodyImage = async (file) => {
  * @param {object} data MemberInfoBodyDTO
  */
 export const saveVerifiedBodyInfo = async (data) => {
-  // member-body-info 엔드포인트에 POST하면 생성됨
-  const res = await jwtAxios.post(BASE_URL, data);
-  return res.data;
+  console.log("[OCR API] 저장 요청 시작:", data);
+  try {
+    // member-body-info 엔드포인트에 POST하면 생성됨
+    const res = await jwtAxios.post(BASE_URL, data);
+    console.log("[OCR API] 저장 성공 - 응답 상태:", res.status, "응답 데이터:", res.data);
+    return res.data;
+  } catch (error) {
+    console.error("[OCR API] 저장 실패:", error);
+    console.error("[OCR API] 에러 응답:", error.response?.data);
+    console.error("[OCR API] 에러 상태 코드:", error.response?.status);
+    throw error;
+  }
 };
