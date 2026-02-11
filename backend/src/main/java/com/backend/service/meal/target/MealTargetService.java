@@ -1,4 +1,4 @@
-package com.backend.service.meal;
+package com.backend.service.meal.target;
 
 import com.backend.dto.meal.MealTargetDto;
 import com.backend.dto.meal.MealDashboardDto;

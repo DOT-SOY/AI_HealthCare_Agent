@@ -1,4 +1,4 @@
-package com.backend.service.meal;
+package com.backend.service.meal.context;
 
 import com.backend.dto.meal.MealAiContextDto;
 import com.fasterxml.jackson.databind.ObjectMapper;

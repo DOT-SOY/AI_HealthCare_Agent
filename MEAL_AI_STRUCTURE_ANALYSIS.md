@@ -34,7 +34,7 @@ Backend: AIGatewayController.handleAIChat()
 - **출력**: `MealCommandResponseDto`
   - `operation`: GENERATE, GENERATE_OVERWRITE, GENERATE_FILL_MISSING, REPLAN, VISION_ADD, VISION_REPLACE, VISION_CANCEL, MEALTIME_COMPLETE_TOGGLE, MEALTIME_SKIP_TOGGLE, ITEM_COMPLETE_TOGGLE, ITEM_SKIP_TOGGLE, ASK_CLARIFY
   - `startDate`, `periodDays`, `goalType`, `targetDate`, `mealTime`, `foodName`, `alsoReplan`, `clarifyingQuestion`, `confidence`
-- **구현**: `services/meal_command_service.py`
+- **구현**: `services/meal/meal_command_service.py`
   - Fast-path: pending 기반 짧은 후속응답은 규칙으로 우선 처리
   - LLM: Gemini JSON 모드로 구조화된 명령 생성
   - 검증: Pydantic으로 타입/범위 강제
@@ -42,18 +42,18 @@ Backend: AIGatewayController.handleAIChat()
 ### `/api/meal/analyze`
 - **역할**: 식단 생성/재정비/조언/이미지 분석
 - **requestType**: ANALYZE_IMAGE, GENERATE, GENERATE_WEEK, GENERATE_MONTH, GENERATE_DAYS, REPLAN, ADVICE
-- **구현**: `services/meal_service.py`
+- **구현**: `services/meal/meal_service.py`
   - Gemini Vision: 음식 이미지 분석
   - Gemini JSON: 식단 생성/재정비/조언
   - Qdrant: 음식 영양정보 조회 (meal_foods 컬렉션)
 
 ### `/api/meal/lookup`
 - **역할**: 음식명 기반 영양정보 조회
-- **구현**: `services/meal_service.py` → `lookup_food_nutrition()`
+- **구현**: `services/meal/meal_service.py` → `lookup_food_nutrition()`
 
 ### `/api/meal/vision/followup`
 - **역할**: 이미지 분석 후 사용자 후속 지시 해석
-- **구현**: `prompts/meal_vision_followup.py` + Gemini JSON
+- **구현**: `prompts/meal/meal_vision_followup.py` + Gemini JSON
 
 ## 2. Backend (Java) - 식단 관련 컴포넌트
 

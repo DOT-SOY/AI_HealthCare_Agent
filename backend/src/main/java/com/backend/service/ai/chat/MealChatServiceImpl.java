@@ -9,7 +9,7 @@ import com.backend.dto.request.AIChatRequest;
 import com.backend.dto.response.AIChatResponse;
 import com.backend.dto.response.IntentClassificationResult;
 import com.backend.repository.meal.MealSearch;
-import com.backend.service.meal.MealAiContextService;
+import com.backend.service.meal.context.MealAiContextService;
 import com.backend.service.meal.MealService;
 import com.backend.service.member.CurrentMemberService;
 import com.backend.util.AIChatUtils;

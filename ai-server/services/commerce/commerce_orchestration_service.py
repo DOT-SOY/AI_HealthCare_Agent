@@ -1004,7 +1004,7 @@ def handle_recommend_state(
         return {
             "state": CommerceState.CONFIRM_PRODUCT.value,
             "message": message,
-            "products": [selected_product],
+            "products": _trim_recommended_products([selected_product]),
             "recommendation_condition": condition.to_dict(),
             "recommendation_id": rec_id,
             "order_draft": order_draft,
