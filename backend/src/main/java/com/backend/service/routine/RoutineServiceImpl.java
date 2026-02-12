@@ -204,11 +204,11 @@ public class RoutineServiceImpl implements RoutineService {
     @Override
     @Transactional(readOnly = true)
     public List<RoutineResponse> getHistory(Long memberId, String bodyPart) {
-        // 운동 정보가 있는 루틴 조회 (완료 여부 무관)
+        // 최근 3개월 과거 ~ 3개월 미래까지의 루틴 조회 (완료 여부 및 예정 여부 무관)
         List<Routine> routines = routineRepository.findByMemberIdAndDateBetween(
-            memberId, 
-            LocalDate.now().minusMonths(3), 
-            LocalDate.now()
+            memberId,
+            LocalDate.now().minusMonths(3),
+            LocalDate.now().plusMonths(3)
         );
         
         log.info("기록 조회: memberId={}, bodyPart={}, 전체 루틴 수={}", memberId, bodyPart, routines.size());

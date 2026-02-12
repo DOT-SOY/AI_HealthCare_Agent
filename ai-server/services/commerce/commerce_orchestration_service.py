@@ -1082,6 +1082,66 @@ def handle_confirm_product_state(
     negative_responses = ["아니", "안돼", "싫어", "안 할래", "취소"]
     is_positive = any(pos in text_lower for pos in positive_responses)
     is_negative = any(neg in text_lower for neg in negative_responses)
+    products_list = session.recommended_products or []
+    if text_stripped and products_list:
+        first_product = products_list[0]
+        variants = first_product.get("availableVariants") or []
+        if len(variants) > 1 and not is_positive and not is_negative:
+            chosen_variant = None
+            number_match = re.search(r"(\d+)", text_stripped)
+            if number_match:
+                try:
+                    idx = int(number_match.group(1)) - 1
+                except ValueError:
+                    idx = -1
+                if 0 <= idx < len(variants):
+                    chosen_variant = variants[idx]
+            if chosen_variant is None:
+                picked_id = _pick_variant_id(variants, text_stripped)
+                if picked_id is not None:
+                    for v in variants:
+                        if v.get("variantId") == picked_id:
+                            chosen_variant = v
+                            break
+            if chosen_variant is not None:
+                option_name = chosen_variant.get("name", "")
+                state_machine.update_session(
+                    session_id,
+                    selected_variant_id=chosen_variant.get("variantId"),
+                    variant_option=option_name or text_stripped,
+                    awaiting_since=datetime.now(),
+                )
+                option_label = option_name or "선택한"
+                return {
+                    "state": CommerceState.CONFIRM_PRODUCT.value,
+                    "message": f"{option_label} 옵션으로 진행할까요? (예 / 아니오)",
+                    "products": products_list[:1],
+                }
+    extracted_slots = {}
+    if text_stripped:
+        try:
+            extracted = extract_commerce_intent_and_slots(text_stripped)
+            extracted_slots = _apply_slot_policy(extracted)
+        except Exception as e:
+            print(f"[commerce] CONFIRM_PRODUCT extract_commerce_intent_and_slots failed: {e}")
+            extracted_slots = {}
+    pending_action = (extracted_slots.get("pending_action") or "").strip().upper()
+    address_mode = (extracted_slots.get("address_mode") or "").strip().upper() if extracted_slots.get("address_mode") else None
+    recipient_name = extracted_slots.get("recipient_name")
+    has_delivery_hint = bool(address_mode or recipient_name)
+    wants_payment = pending_action == "PAYMENT"
+    if not is_negative and not is_positive and (has_delivery_hint or wants_payment):
+        update_kw: Dict[str, Any] = {}
+        if address_mode:
+            update_kw["address_mode"] = address_mode
+        if recipient_name:
+            update_kw["recipient_name"] = recipient_name
+        if wants_payment:
+            update_kw["pending_action"] = "PAYMENT"
+        if update_kw:
+            state_machine.update_session(session_id, **update_kw)
+        state_machine.transition_state(session_id, CommerceState.ADD_TO_CART)
+        return handle_add_to_cart_state(session_id, auth_token)
     if is_positive:
         state_machine.transition_state(session_id, CommerceState.ADD_TO_CART)
         return handle_add_to_cart_state(session_id, auth_token)
@@ -1274,6 +1334,11 @@ def handle_confirm_address_state(
             address_display = f"{ship_to_name} {address_text}"
         else:
             address_display = address_text
+
+        if not text and address_mode != "NEW" and (address_mode == "DEFAULT" or recipient_address is not None):
+            state_machine.update_session(session_id, address_id=candidate_address.get("id"))
+            state_machine.transition_state(session_id, CommerceState.PAYMENT_READY)
+            return handle_payment_ready_state(session_id, auth_token)
 
         if text:
             text_stripped = text.strip()

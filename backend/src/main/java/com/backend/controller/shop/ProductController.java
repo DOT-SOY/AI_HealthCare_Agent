@@ -28,7 +28,6 @@ public class ProductController {
     private final CurrentMemberService currentMemberService;
 
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ProductResponse> create(
             @Valid @RequestBody ProductCreateRequest request) {
