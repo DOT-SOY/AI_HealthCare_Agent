@@ -23,7 +23,7 @@
 ---
 
 # 📆 개발 기간
-25.12.17(수) ~ 26.01.15(목)
+26.01.19(월) ~ 26.02.20(금)
 
 
 ---
@@ -56,17 +56,23 @@
 - **Local Inference First**: MediaPipe 등을 활용하여 서버 전송 없이 로컬 기기에서 비전 인식 및 임베딩을 처리, 속도 최적화 및 개인정보 보호
 - **Hands-free Control**: 운동 중 터치가 어려운 환경을 고려한 STT(음성 인식) 기반 제어 및 능동형 피드백 시스템
 
-### 5. 비전 AI 식단 및 건강 데이터 OCR (Vision & OCR)
+### 5. 식단 관리 시스템 (Meal Management System)
+- **Nutrient Dashboard Visualization** : 일일 영양소 목표 달성률 시각화, 끼니별 카드 UI, 식사 완료/생략 토글.
+- **Auto-Rebalancing Logic** : 끼니 생략 시 남은 끼니에 영양소를 자동으로 재분배하는 로직 구현.
+- **Real-Time Synchronization** : WebSocket을 도입하여 식단 변동 내역 및 수정 사항 실시간 반영.
+- **Context-Aware AI Planning** : 사용자 프로필(신체정보, 운동목적) 기반 맞춤형 식단 자동 생성 및 컨텍스트 리셋.
+
+### 6. 비전 AI 식단 및 건강 데이터 OCR (Vision & OCR)
 - **Food Lens**: 음식 사진 촬영 시 Vision AI가 종류와 영양소를 분석하여 자동 등록하며, 끼니 누락 시 남은 끼니에 영양소를 재분배(Rebalancing)
 - **High-Precision OCR**: GPT-4o Vision과 Tight Cropping을 결합하여 InBody 결과지를 정밀 분석하고, 검증 플로우를 거쳐 구조화된 데이터로 저장
 
-### 6. RAG 기반 대화형 AI 커머스 (RAG-based Conversational Commerce)
+### 7. RAG 기반 대화형 AI 커머스 (RAG-based Conversational Commerce)
 - **Safe AI Shopping Assistant**: 상품 정보, 구매 정책, 주의사항을 RAG(검색 증강 생성)로 조회하여 할루시네이션 없이 신뢰도 높은 상품 추천 및 결제 안내 제공
 - **Conversational Commerce UX**: 상품 추천부터 장바구니 담기, 결제 유도까지 모든 과정이 대화 흐름 안에서 자연스럽게 이루어지는 AI 커머스 경험 제공
 - **Full-Cycle Commerce Integration**: 대화형 인터페이스 내에서 상품 검색(QueryDSL), 주문 상태 머신, 배송 관리, 실시간 랭킹(Redis) 등 쇼핑몰 핵심 비즈니스 로직을 유기적으로 연결
 
 
-### 7. 보안 인증 및 인프라 (Security & Infrastructure)
+### 8. 보안 인증 및 인프라 (Security & Infrastructure)
 - **Robust Security**: JWT 기반 인증/인가 및 Redis를 활용한 RTR(Refresh Token Rotation) 정책으로 토큰 탈취 방지
 - **Account Protection**: 로그인 실패 시 Redis TTL을 활용한 계정 잠금(Lock) 정책을 적용하여 무차별 대입(Brute-Force) 공격 차단
 - **Scalable Architecture**: 도메인별 모듈화 설계 및 WebSocket을 통한 실시간 양방향 통신 인프라 구축
@@ -88,7 +94,7 @@
 - **Global AI Architecture & Routing** : 의도(Intent) 분석 및 CLIP 기반 멀티모달 라우팅을 통해 업로드된 이미지가 음식인지 InBody 결과지인지 임베딩으로 판별하여 적절한 AI 서비스로 연결
 - **Edge AI & Vision** : MediaPipe 기반 로컬 비전 인식 시스템 구축 및 서버 부하를 최소화한 온디바이스(On-Device) 로직 구현
 - **운동 분석 로직** : 운동 볼륨(Weight × Reps) 비교 분석 알고리즘 및 통증 로그와 연계된 운동 추천 RAG 설계
-- **인터랙티브 UX** : WebSocket을 활용해 AI가 먼저 말을 거는(Proactive) 대화형 UX 및 STT 핸즈프리 제어 기능 개
+- **인터랙티브 UX** : WebSocket을 활용해 AI가 먼저 말을 거는(Proactive) 대화형 UX 및 STT 핸즈프리 제어 기능 개발
 
 
 ---
@@ -113,7 +119,6 @@
 - **건강 데이터 시각화**: Recharts를 활용한 체성분(골격근, 체지방 등) 시계열 데이터 정규화 및 반응형 차트 구현
 - **OCR 사용자 플로우**: 이미지 업로드부터 데이터 분석, 검증, 저장까지 이어지는 멀티 모달(Multi-Modal) UX 설계
 - **프로필 및 배송 관리**: 신체 정보 수정과 배송지 CRUD가 통합된 복합 모달 인터페이스 및 데이터 동기화 로직 구현
-- **프론트엔드 데이터 처리**: 날짜별 최신 데이터 필터링 및 대시보드 UI 상태 관리 최적화
 ---
 
 ### 📚 사용 스택
@@ -203,11 +208,11 @@
 
 # ERD 구조
 
-<img width="1389" height="964" alt="Image" src="" />
+<img width="8192" height="7897" alt="ERD" src="https://github.com/user-attachments/assets/1dc5772c-ea44-4d6a-b655-9eb37ab739c7" />
 
 # 계층구조
 
-![Image]()
+![계층구조](https://github.com/user-attachments/assets/08d7ecaf-c42a-4031-82e0-e97b83fc7045)
 
 
 ---
@@ -246,44 +251,42 @@
 
 ---
 
-## 구현 기능
+## 🎬 서비스 주요 기능 (GIF)
 
-### 반응형
-![Image](https://github.com/user-attachments/assets/d3c5daf2-54ba-4726-9b58-85943d2b44b1)
+## 📱 메인 페이지 반응형 UI & 실시간 채팅
 
+![메인 페이지 및 반응형](https://github.com/user-attachments/assets/0f178bd1-f56f-48c7-927e-3baeff4bf741)
 
-## 로그인 & 소셜로그인 & 보안
+## 🔐 인증 시스템
 
-![Image](https://github.com/user-attachments/assets/8e8fc266-5de4-46aa-8e06-85aac73362bd)
+![로그인   소셜 로그인](https://github.com/user-attachments/assets/7a590231-e7de-4d0f-84c7-bd20bc47b6ef)
 
-## 얼굴 인식 로그인(임베딩)
+## 🤖 대화형 AI 채팅
 
-![Image](https://github.com/user-attachments/assets/6acc6508-b79d-402f-8205-a4df925c2cf8)
+![전역 ai](https://github.com/user-attachments/assets/fd022017-f5c8-46f5-a06a-7f56ba7ba20f)
 
-## Chat·AI
+## 🏋️ 운동 분석 & 관리
 
-![Image](https://github.com/user-attachments/assets/b47646bc-d3ce-4a71-816c-ee2633445cc7)
-
-
----
-
-## AI·RAG·FileSearch
-
-![Image](https://github.com/user-attachments/assets/68306e79-1fce-4c53-a139-2eb74b4820f5)
+https://github.com/user-attachments/assets/cd1458fe-ca19-4111-839d-79da8ab9e326
 
 
----
+## 🗂️ 기록 & 루틴 관리
 
-## 댓글, 대댓글, 수정 및 삭제 (CRUD) 및 STT(음성 to 텍스트)
+![루틴 페이지](https://github.com/user-attachments/assets/16cb23a6-5182-4e2d-80ac-5e3135627531)
 
-![Image](https://github.com/user-attachments/assets/12765adb-a50c-448b-a1bf-f964e2b795f1)
+![기록 페이지](https://github.com/user-attachments/assets/7a716824-69b8-4870-b8ff-72365388e9a6)
 
 
----
+## 🍽️ 식단 관리
 
-## 회의록 PDF 자동변환
+![식단 페이지](https://github.com/user-attachments/assets/8b3b6851-9b6a-461d-999e-8df6d7055132)
 
-![Image](https://github.com/user-attachments/assets/0fbc3b61-f3a0-4e37-8c45-0fa9031ae369)
+
+## 👤 마이페이지
+
+![마이 페이지( 인바디, 배송지 수정 )](https://github.com/user-attachments/assets/52e810fe-acc4-4e09-978e-130dfefe3ed6)
+
+## 🛒 AI 커머스
 
 
 ---
