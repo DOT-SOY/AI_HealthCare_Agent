@@ -18,6 +18,9 @@ public interface MealRepository extends JpaRepository<Meal, Long> {
     // 용도: 수정/삭제 시 아침,저녁 다 불러올 필요 없이 얘만 딱 불러오려고 사용함. (성능 최적화)
     Optional<Meal> findByUserIdAndMealDateAndMealTime(Long userId, LocalDate mealDate, Meal.MealTime mealTime);
 
+    // 2-1. 같은 조건으로 복수 건 조회 (더미데이터 생성 등에서 중복 시 NonUniqueResultException 방지)
+    List<Meal> findAllByUserIdAndMealDateAndMealTime(Long userId, LocalDate mealDate, Meal.MealTime mealTime);
+
     // 3. 회원 탈퇴 시 전체 삭제 (기존 유지)
     void deleteByUserId(Long userId);
 

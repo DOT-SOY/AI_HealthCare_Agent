@@ -188,8 +188,8 @@ class MealDummyDataGeneratorTest {
             Meal.MealTime mealTime = mealTimes[i];
             int calories = mealCalories[i];
             
-            // 이미 존재하는지 확인
-            if (mealRepository.findByUserIdAndMealDateAndMealTime(userId, mealDate, mealTime).isPresent()) {
+            // 이미 존재하는지 확인 (동일 조건 복수 건 있어도 NonUniqueResultException 방지)
+            if (!mealRepository.findAllByUserIdAndMealDateAndMealTime(userId, mealDate, mealTime).isEmpty()) {
                 continue; // 이미 있으면 스킵
             }
 

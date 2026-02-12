@@ -575,16 +575,16 @@ export default function AIChatOverlay() {
       {/* 채팅 패널 (열림 or leave 애니메이션 중) */}
       {(isChatOpen || isLeaving) && (
         <>
-          {/* 배경 오버레이 (드래그 시 opacity·블러 줄어들어 뒤 배경이 선명히 보임) */}
+          {/* 배경 오버레이: 살짝 블러 + 반투명으로 뒤 배경이 보이도록 */}
           <div
-            className="ai-chat-overlay fixed inset-0 z-40 bg-bg-root/60"
+            className="ai-chat-overlay fixed inset-0 z-40 bg-bg-root/40"
             data-visible={enterDone && !isLeaving}
             data-leaving={isLeaving}
             onClick={handleClose}
             aria-hidden
             style={{
-              backdropFilter: `blur(${Math.max(600, 1200 - (panelDragOffsetY / 220) * 24)}px)`,
-              WebkitBackdropFilter: `blur(${Math.max(600, 1200 - (panelDragOffsetY / 220) * 24)}px)`,
+              backdropFilter: `blur(${Math.max(6, 12 - (panelDragOffsetY / 220) * 2)}px)`,
+              WebkitBackdropFilter: `blur(${Math.max(6, 12 - (panelDragOffsetY / 220) * 2)}px)`,
               ...(panelDragOffsetY > 0 ? { opacity: Math.max(0.2, 1 - panelDragOffsetY / 120) } : {}),
             }}
           />
