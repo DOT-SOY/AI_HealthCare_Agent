@@ -31,18 +31,28 @@ public class MemberInfoBodyServiceImpl implements MemberInfoBodyService {
 
     @Override
     public Long create(Long memberId, MemberInfoBodyDTO dto) {
-        log.info("신체 정보 생성 요청: memberId={}", memberId);
-
+        log.info("신체 정보 생성 요청: memberId={}, dto={}", memberId, dto);
+        
+        // 새 레코드 생성이므로 id는 null로 명시적 설정
+        dto.setId(null);
+        
         MemberInfoBody entity = dto.toEntity(memberId);
+        log.info("생성할 엔티티 - id: {}, memberId: {}, measuredTime: {}", 
+                entity.getId(), entity.getMemberId(), entity.getMeasuredTime());
+        
         MemberInfoBody saved = memberInfoBodyRepository.save(entity);
-
-        log.info("신체 정보 생성 완료: id={}", saved.getId());
+        
+        // 즉시 flush하여 DB에 반영
+        memberInfoBodyRepository.flush();
+        
+        log.info("신체 정보 생성 완료: id={}, memberId={}, measuredTime={}", 
+                saved.getId(), saved.getMemberId(), saved.getMeasuredTime());
         return saved.getId();
     }
 
     @Override
     public MemberInfoBodyResponseDTO update(Long id, MemberInfoBodyDTO dto) {
-        log.info("신체 정보 수정 요청: id={}", id);
+        log.info("신체 정보 수정 요청: id={}, dto={}", id, dto);
 
         MemberInfoBody existingEntity = memberInfoBodyRepository.findByIdAndNotDeleted(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, id));
@@ -52,12 +62,22 @@ public class MemberInfoBodyServiceImpl implements MemberInfoBodyService {
         // 기존 레코드는 그대로 두고, 새로운 레코드 생성 (히스토리 보존)
         // DTO의 id를 null로 설정하여 새 레코드로 생성되도록 함
         dto.setId(null);
-        // 새 레코드 생성 시 measuredTime을 현재 시간으로 명시적으로 설정 (최신 정보 보장)
-        dto.setMeasuredTime(Instant.now());
+        
+        // 회원정보 수정(키, 몸무게, 운동목적만 수정)인 경우 measuredTime은 null로 유지
+        // OCR로 측정된 값이 아니므로 그래프에 포함되지 않도록 함
+        // measuredTime이 명시적으로 null이면 null로 유지, 아니면 현재 시간 설정
+        if (dto.getMeasuredTime() == null) {
+            // measuredTime이 null이면 null로 유지 (회원정보 수정)
+            dto.setMeasuredTime(null);
+        } else {
+            // measuredTime이 있으면 그대로 사용 (OCR 저장 등)
+        }
+        
         MemberInfoBody newEntity = dto.toEntity(memberId);
         
         MemberInfoBody saved = memberInfoBodyRepository.save(newEntity);
-        log.info("신체 정보 새 레코드 생성 완료: id={}, memberId={}", saved.getId(), memberId);
+        log.info("신체 정보 새 레코드 생성 완료: id={}, memberId={}, measuredTime={}", 
+                saved.getId(), memberId, saved.getMeasuredTime());
 
         // Member 정보 조회
         Member member = memberRepository.findById(memberId).orElse(null);

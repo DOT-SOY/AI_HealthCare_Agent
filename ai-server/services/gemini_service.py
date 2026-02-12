@@ -18,17 +18,16 @@ import os
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from typing import Any, Dict, Optional
 
-from google import genai
-from google.genai import types
+from google.genai import Client, types
 
 _EXECUTOR = ThreadPoolExecutor(max_workers=4)
 
 
-def _get_client() -> genai.Client:
+def _get_client() -> Client:
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY is not set")
-    return genai.Client(api_key=api_key)
+    return Client(api_key=api_key)
 
 
 def _default_model() -> str:
