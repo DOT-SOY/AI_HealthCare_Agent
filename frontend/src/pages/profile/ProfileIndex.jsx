@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import BasicLayout from "../../components/layout/BasicLayout";
 import { User, Moon, Sun, X, Plus, Edit, Trash2 } from "lucide-react";
+import { useTheme } from "../../contexts/ThemeContext";
 import AddressSearchModal from "../../components/common/AddressSearchModal";
 import OcrInbodyUploadModal from "../../components/profile/ocrInbodyUploadModal";
 import OcrInbodyVerifyModal from "../../components/profile/OcrInbodyVerifyModal";
@@ -21,8 +22,9 @@ const ProfileIndex = () => {
   const [historyData, setHistoryData] = useState([]);
   const [latestInfo, setLatestInfo] = useState(null);
 
-  // 대시보드 차트/레이아웃에서 사용할 다크 모드 플래그
-  const isDark = true;
+  // 테마 가져오기
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editData, setEditData] = useState({});
@@ -51,12 +53,57 @@ const ProfileIndex = () => {
       const data = await getMyBodyInfoHistory();
       if (data && data.length > 0) {
         setHistoryData(data);
-        // ✅ 백엔드에서 이미 최신순으로 정렬해서 반환하므로 첫 번째가 최신
-        setLatestInfo(data[0]);
+        
+        // 기본 정보(키, 몸무게, 운동목적)는 최신 레코드에서 가져오기
+        const latestBasic = data.reduce((prev, current) => {
+          const prevCreated = prev?.createdAt ? new Date(prev.createdAt).getTime() : (prev?.id || 0);
+          const currentCreated = current?.createdAt ? new Date(current.createdAt).getTime() : (current?.id || 0);
+          return currentCreated > prevCreated ? current : prev;
+        }, data[0]);
+        
+        // 각 건강정보 항목별로 가장 최근에 측정된 값 찾기
+        const findLatestValue = (fieldName) => {
+          // 해당 필드가 null이 아닌 레코드 중에서 가장 최근 것 찾기
+          const candidates = data.filter(item => item[fieldName] != null);
+          if (candidates.length === 0) return null;
+          
+          return candidates.reduce((prev, current) => {
+            // measuredTime이 있으면 그것을 우선, 없으면 createdAt 기준
+            const prevTime = prev?.measuredTime ? new Date(prev.measuredTime).getTime() : 
+                            (prev?.createdAt ? new Date(prev.createdAt).getTime() : (prev?.id || 0));
+            const currentTime = current?.measuredTime ? new Date(current.measuredTime).getTime() : 
+                               (current?.createdAt ? new Date(current.createdAt).getTime() : (current?.id || 0));
+            return currentTime > prevTime ? current : prev;
+          });
+        };
+        
+        // 최신 정보 조합: 기본 정보 + 각 항목별 최신 건강정보
+        const latest = {
+          ...latestBasic,
+          // 건강정보는 각 항목별로 가장 최근 측정값 사용
+          bodyWater: findLatestValue('bodyWater')?.bodyWater ?? latestBasic?.bodyWater,
+          protein: findLatestValue('protein')?.protein ?? latestBasic?.protein,
+          minerals: findLatestValue('minerals')?.minerals ?? latestBasic?.minerals,
+          bodyFatMass: findLatestValue('bodyFatMass')?.bodyFatMass ?? latestBasic?.bodyFatMass,
+          bodyFatPercent: findLatestValue('bodyFatPercent')?.bodyFatPercent ?? latestBasic?.bodyFatPercent,
+          skeletalMuscleMass: findLatestValue('skeletalMuscleMass')?.skeletalMuscleMass ?? latestBasic?.skeletalMuscleMass,
+          targetWeight: findLatestValue('targetWeight')?.targetWeight ?? latestBasic?.targetWeight,
+          weightControl: findLatestValue('weightControl')?.weightControl ?? latestBasic?.weightControl,
+          fatControl: findLatestValue('fatControl')?.fatControl ?? latestBasic?.fatControl,
+          muscleControl: findLatestValue('muscleControl')?.muscleControl ?? latestBasic?.muscleControl,
+        };
+        
+        setLatestInfo(latest);
+        console.log("[ProfileIndex] 최신 정보 업데이트:", latest);
+        
         // 배송지 목록도 함께 조회
-        if (data[0]?.memberId) {
-          fetchAddressList(data[0].memberId);
+        if (latest?.memberId) {
+          fetchAddressList(latest.memberId);
         }
+      } else {
+        // 데이터가 없으면 초기화
+        setHistoryData([]);
+        setLatestInfo(null);
       }
     } catch (error) {
       console.error("데이터 로딩 실패:", error);
@@ -99,30 +146,19 @@ const ProfileIndex = () => {
 
   const handleSave = async (updatedData) => {
     try {
+      // 회원정보 수정: 키, 몸무게, 운동목적만 저장
+      // 건강정보 관련 컬럼들은 저장하지 않음 (OCR로 측정된 값만 그래프에 표시)
       const payload = {
-        ...latestInfo,
-        ...updatedData
+        id: latestInfo?.id, // 기존 레코드 ID (업데이트용)
+        height: Number(updatedData.height) || 0,
+        weight: Number(updatedData.weight) || 0,
+        exercisePurpose: updatedData.exercisePurpose || null,
+        // measuredTime은 null로 설정 (OCR로 측정된 것이 아니므로 그래프에 포함되지 않음)
+        measuredTime: null,
+        // 건강정보 컬럼들은 명시적으로 제외 (null로 저장되지 않도록)
       };
 
-      // 불필요한 BaseEntity 필드 제거
-      delete payload.regDate;
-      delete payload.modDate;
-
-      // 숫자로 변환
-      payload.height = Number(payload.height);
-      payload.weight = Number(payload.weight);
-      payload.skeletalMuscleMass = Number(payload.skeletalMuscleMass);
-      payload.bodyFatPercent = Number(payload.bodyFatPercent);
-      payload.bodyWater = Number(payload.bodyWater);
-      payload.protein = Number(payload.protein);
-      payload.minerals = Number(payload.minerals);
-      payload.bodyFatMass = Number(payload.bodyFatMass);
-      payload.targetWeight = Number(payload.targetWeight);
-      payload.weightControl = Number(payload.weightControl);
-      payload.fatControl = Number(payload.fatControl);
-      payload.muscleControl = Number(payload.muscleControl);
-
-      console.log("🚀 최종 전송 Payload:", payload);
+      console.log("🚀 회원정보 수정 Payload:", payload);
 
       await updateBodyInfo(payload.id, payload);
 
@@ -146,26 +182,121 @@ const ProfileIndex = () => {
     return `${year}-${month}-${day}`;
   };
 
-  const dailyLatestMap = new Map();
-  for (const item of historyData) {
-    const dateKey = getDateKey(item.measuredTime);
-    if (!dateKey) continue;
-    const current = dailyLatestMap.get(dateKey);
-    const currentTime = current?.measuredTime ? new Date(current.measuredTime).getTime() : 0;
-    const itemTime = item.measuredTime ? new Date(item.measuredTime).getTime() : 0;
-    if (!current || itemTime >= currentTime) {
-      dailyLatestMap.set(dateKey, item);
+  // 각 항목별로 별도의 차트 데이터 생성 (각 항목의 measured_time 기준 마지막 측정날짜까지만 표시)
+  const chartDataFatRate = React.useMemo(() => {
+    if (!historyData || historyData.length === 0) return [];
+    
+    const dailyLatestMap = new Map();
+    for (const item of historyData) {
+      // measured_time이 없으면 제외
+      if (!item.measuredTime) continue;
+      // bodyFatPercent가 null/undefined가 아닌 항목만 포함
+      if (item.bodyFatPercent == null) continue;
+      
+      const dateKey = getDateKey(item.measuredTime);
+      if (!dateKey) continue;
+      const current = dailyLatestMap.get(dateKey);
+      const currentTime = current?.measuredTime ? new Date(current.measuredTime).getTime() : 0;
+      const itemTime = item.measuredTime ? new Date(item.measuredTime).getTime() : 0;
+      
+      // measuredTime 비교
+      if (!current || itemTime > currentTime) {
+        dailyLatestMap.set(dateKey, item);
+      } else if (itemTime === currentTime) {
+        // measuredTime이 같으면 createdAt으로 비교 (더 최신 것 선택)
+        const currentCreated = current?.createdAt ? new Date(current.createdAt).getTime() : (current?.id || 0);
+        const itemCreated = item?.createdAt ? new Date(item.createdAt).getTime() : (item?.id || 0);
+        if (itemCreated > currentCreated) {
+          dailyLatestMap.set(dateKey, item);
+        }
+      }
     }
-  }
 
-  const chartData = Array.from(dailyLatestMap.entries())
-    .sort((a, b) => (a[0] > b[0] ? 1 : -1))
-    .map(([dateKey, item]) => ({
-      name: dateKey,
-      fatRate: item.bodyFatPercent,
-      muscle: item.skeletalMuscleMass,
-      weight: item.weight,
-    }));
+    return Array.from(dailyLatestMap.entries())
+      .sort((a, b) => (a[0] > b[0] ? 1 : -1))
+      .map(([dateKey, item]) => ({
+        name: dateKey,
+        fatRate: item.bodyFatPercent,
+      }));
+  }, [historyData]);
+
+  const chartDataMuscle = React.useMemo(() => {
+    if (!historyData || historyData.length === 0) return [];
+    
+    const dailyLatestMap = new Map();
+    for (const item of historyData) {
+      // measured_time이 없으면 제외
+      if (!item.measuredTime) continue;
+      // skeletalMuscleMass가 null/undefined가 아닌 항목만 포함
+      if (item.skeletalMuscleMass == null) continue;
+      
+      const dateKey = getDateKey(item.measuredTime);
+      if (!dateKey) continue;
+      const current = dailyLatestMap.get(dateKey);
+      const currentTime = current?.measuredTime ? new Date(current.measuredTime).getTime() : 0;
+      const itemTime = item.measuredTime ? new Date(item.measuredTime).getTime() : 0;
+      
+      // measuredTime 비교
+      if (!current || itemTime > currentTime) {
+        dailyLatestMap.set(dateKey, item);
+      } else if (itemTime === currentTime) {
+        // measuredTime이 같으면 createdAt으로 비교 (더 최신 것 선택)
+        const currentCreated = current?.createdAt ? new Date(current.createdAt).getTime() : (current?.id || 0);
+        const itemCreated = item?.createdAt ? new Date(item.createdAt).getTime() : (item?.id || 0);
+        if (itemCreated > currentCreated) {
+          dailyLatestMap.set(dateKey, item);
+        }
+      }
+    }
+
+    return Array.from(dailyLatestMap.entries())
+      .sort((a, b) => (a[0] > b[0] ? 1 : -1))
+      .map(([dateKey, item]) => ({
+        name: dateKey,
+        muscle: item.skeletalMuscleMass,
+      }));
+  }, [historyData]);
+
+  const chartDataWeight = React.useMemo(() => {
+    if (!historyData || historyData.length === 0) return [];
+    
+    const dailyLatestMap = new Map();
+    for (const item of historyData) {
+      // weight가 null/undefined가 아닌 항목만 포함
+      if (item.weight == null) continue;
+      
+      // measuredTime이 있으면 measuredTime 기준으로 날짜 키 생성
+      // measuredTime이 없으면 createdAt 기준으로 날짜 키 생성 (회원정보 수정 레코드)
+      let dateKey = "";
+      if (item.measuredTime) {
+        dateKey = getDateKey(item.measuredTime);
+      } else if (item.createdAt) {
+        dateKey = getDateKey(item.createdAt);
+      }
+      
+      if (!dateKey) continue;
+      
+      const current = dailyLatestMap.get(dateKey);
+      
+      if (!current) {
+        dailyLatestMap.set(dateKey, item);
+      } else {
+        // 같은 날짜에 여러 레코드가 있으면 더 최신 것 선택
+        const currentCreated = current?.createdAt ? new Date(current.createdAt).getTime() : (current?.id || 0);
+        const itemCreated = item?.createdAt ? new Date(item.createdAt).getTime() : (item?.id || 0);
+        if (itemCreated > currentCreated) {
+          dailyLatestMap.set(dateKey, item);
+        }
+      }
+    }
+
+    return Array.from(dailyLatestMap.entries())
+      .sort((a, b) => (a[0] > b[0] ? 1 : -1))
+      .map(([dateKey, item]) => ({
+        name: dateKey,
+        weight: item.weight,
+      }));
+  }, [historyData]);
 
   const val = (v, unit = "") => (v !== null && v !== undefined ? `${v} ${unit}` : "-");
 
@@ -262,14 +393,23 @@ const ProfileIndex = () => {
   };
 
   const handleSaveVerifiedInbody = async (finalData) => {
+    console.log("[ProfileIndex] 저장 시작 - finalData:", finalData);
     try {
-      await saveVerifiedBodyInfo(finalData);
-      alert("인바디 정보가 저장되었습니다.");
+      const result = await saveVerifiedBodyInfo(finalData);
+      console.log("[ProfileIndex] 저장 성공 - result:", result);
+      
+      // 모달 먼저 닫기
       setIsInbodyVerifyOpen(false);
+      
+      // 데이터 즉시 갱신 (새로고침 불필요)
       await fetchData();
+      
+      // 성공 메시지 (데이터 갱신 후 표시)
+      alert("인바디 정보가 저장되었습니다.");
     } catch (err) {
-      console.error(err);
-      alert("저장에 실패했습니다.");
+      console.error("[ProfileIndex] 저장 실패:", err);
+      console.error("[ProfileIndex] 에러 상세:", err.response?.data || err.message);
+      alert(`저장에 실패했습니다: ${err.response?.data?.message || err.message || "알 수 없는 오류"}`);
     }
   };
 
@@ -348,11 +488,11 @@ const ProfileIndex = () => {
             </div>
             <div className="charts-container">
               <ChartRow title="체지방률" value={val(latestInfo?.bodyFatPercent, "%")}
-                        chartTitle="체지방률 변화" data={chartData} dataKey="fatRate" strokeColor="#4A90E2" isDark={isDark} />
+                        chartTitle="체지방률 변화" data={chartDataFatRate} dataKey="fatRate" strokeColor="#4A90E2" isDark={isDark} />
               <ChartRow title="골격근량" value={val(latestInfo?.skeletalMuscleMass, "kg")}
-                        chartTitle="골격근량 변화" data={chartData} dataKey="muscle" strokeColor="#D0021B" isDark={isDark} />
+                        chartTitle="골격근량 변화" data={chartDataMuscle} dataKey="muscle" strokeColor="#D0021B" isDark={isDark} />
               <ChartRow title="체중" value={val(latestInfo?.weight, "kg")}
-                        chartTitle="체중 변화" data={chartData} dataKey="weight" strokeColor="#7ED321" isDark={isDark} />
+                        chartTitle="체중 변화" data={chartDataWeight} dataKey="weight" strokeColor="#7ED321" isDark={isDark} />
             </div>
           </main>
         </div>
@@ -369,6 +509,7 @@ const ProfileIndex = () => {
             onDeleteAddress={handleDeleteAddress}
             onSetDefaultAddress={handleSetDefaultAddress}
             onRefreshAddress={() => latestInfo?.memberId && fetchAddressList(latestInfo.memberId)}
+            isDark={isDark}
           />
         )}
 
@@ -380,6 +521,7 @@ const ProfileIndex = () => {
             onClose={() => setIsAddressModalOpen(false)}
             onSave={handleAddressSave}
             onAddressSearch={() => setIsAddressSearchOpen(true)}
+            isDark={isDark}
           />
           )}
 
@@ -398,6 +540,7 @@ const ProfileIndex = () => {
           isOpen={isInbodyOcrOpen}
           onClose={() => setIsInbodyOcrOpen(false)}
           onAnalyze={handleAnalyzeInbodyOcr}
+          isDark={isDark}
         />
 
         {/* ✅ 인바디 OCR 검증 모달 */}
@@ -406,6 +549,7 @@ const ProfileIndex = () => {
           data={inbodyVerifyData}
           onClose={() => setIsInbodyVerifyOpen(false)}
           onSave={handleSaveVerifiedInbody}
+          isDark={isDark}
         />
       </div>
     </BasicLayout>
@@ -469,7 +613,7 @@ function SimpleLineChart({ data, dataKey, stroke, isDark }) {
 }
 
 // ✅ 신체 정보 수정 모달 (배송지 관리 포함)
-const BodyInfoModifyModal = ({ data, addressList, onClose, onSave, onAddAddress, onEditAddress, onDeleteAddress, onSetDefaultAddress, onRefreshAddress }) => {
+const BodyInfoModifyModal = ({ data, addressList, onClose, onSave, onAddAddress, onEditAddress, onDeleteAddress, onSetDefaultAddress, onRefreshAddress, isDark = true }) => {
   const [formData, setFormData] = useState({
     height: data?.height || '',
     weight: data?.weight || '',
@@ -489,52 +633,80 @@ const BodyInfoModifyModal = ({ data, addressList, onClose, onSave, onAddAddress,
     onSave(formData);
   };
 
+  // 테마별 스타일
+  const overlayBg = isDark ? "rgba(0,0,0,0.7)" : "rgba(0,0,0,0.4)";
+  const modalBg = isDark ? "#1a1a1a" : "#ffffff";
+  const modalColor = isDark ? "#fff" : "#000";
+  const modalShadow = isDark ? "0 10px 40px rgba(0,0,0,0.5)" : "0 10px 40px rgba(0,0,0,0.15)";
+  const closeBtnColor = isDark ? "#666" : "#999";
+  const borderColor = isDark ? "#333" : "#e0e0e0";
+  const sectionTitleColor = isDark ? "#aaa" : "#666";
+  const labelColor = isDark ? "#aaa" : "#666";
+  const inputBg = isDark ? "#222" : "#f5f5f5";
+  const inputBorder = isDark ? "#444" : "#ddd";
+  const inputColor = isDark ? "#fff" : "#000";
+  const selectBg = isDark ? "#222" : "#fff";
+  const selectBorder = isDark ? "#444" : "#ddd";
+  const selectColor = isDark ? "#fff" : "#000";
+  const optionBg = isDark ? "#222" : "#fff";
+  const optionColor = isDark ? "#fff" : "#000";
+  const addressItemBorder = isDark ? "#444" : "#ddd";
+  const addressItemColor = isDark ? "#fff" : "#000";
+  const addressTextColor = isDark ? "#aaa" : "#666";
+  const emptyTextColor = isDark ? "#888" : "#999";
+  const btnDefaultBg = isDark ? "#333" : "#e0e0e0";
+  const btnDefaultColor = isDark ? "#ccc" : "#666";
+  const btnDefaultBorder = isDark ? "#444" : "#ddd";
+  const btnDeleteBg = isDark ? "#4a1a1a" : "#ffe0e0";
+  const btnDeleteColor = isDark ? "#ff6b6b" : "#d32f2f";
+  const btnDeleteBorder = isDark ? "#ff4444" : "#f44336";
+
   return (
     <div className="modal-overlay" style={{
       position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-      backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999
+      backgroundColor: overlayBg, display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999
     }}>
       <div className="modal-content" style={{
-        backgroundColor: 'white', padding: '30px', borderRadius: '10px', width: '600px',
-        maxHeight: '90vh', overflowY: 'auto', position: 'relative', boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-        color: '#333'
+        backgroundColor: modalBg, padding: '30px', borderRadius: '12px', width: '600px',
+        maxHeight: '90vh', overflowY: 'auto', position: 'relative', boxShadow: modalShadow,
+        color: modalColor
       }}>
-        <button onClick={onClose} style={{ position: 'absolute', top: '15px', right: '15px', border: 'none', background: 'none', cursor: 'pointer', color: '#333' }}>
+        <button onClick={onClose} style={{ position: 'absolute', top: '15px', right: '15px', border: 'none', background: 'none', cursor: 'pointer', color: closeBtnColor }}>
           <X size={24} />
         </button>
 
-        <h2 style={{ marginBottom: '20px', textAlign: 'center', color: '#333' }}>신체 정보 수정</h2>
+        <h2 style={{ marginBottom: '20px', textAlign: 'center', color: modalColor }}>신체 정보 수정</h2>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           <div className="form-section">
-            <h4 style={{borderBottom:'1px solid #ddd', paddingBottom:'5px', marginBottom:'10px', color: '#666'}}>기본 정보</h4>
+            <h4 style={{borderBottom: `1px solid ${borderColor}`, paddingBottom:'5px', marginBottom:'10px', color: sectionTitleColor}}>기본 정보</h4>
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px'}}>
-              <InputGroup label="키 (cm)" name="height" value={formData.height} onChange={handleChange} />
-              <InputGroup label="몸무게 (kg)" name="weight" value={formData.weight} onChange={handleChange} />
+              <InputGroup label="키 (cm)" name="height" value={formData.height} onChange={handleChange} isDark={isDark} />
+              <InputGroup label="몸무게 (kg)" name="weight" value={formData.weight} onChange={handleChange} isDark={isDark} />
             </div>
           </div>
 
           <div className="form-section">
-            <h4 style={{borderBottom:'1px solid #ddd', paddingBottom:'5px', marginBottom:'10px', color: '#666'}}>운동 목적</h4>
+            <h4 style={{borderBottom: `1px solid ${borderColor}`, paddingBottom:'5px', marginBottom:'10px', color: sectionTitleColor}}>운동 목적</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <label style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>운동 목적 선택</label>
+              <label style={{ fontSize: '12px', color: labelColor, fontWeight: 'bold' }}>운동 목적 선택</label>
               <select
                 name="exercisePurpose"
                 value={formData.exercisePurpose || ''}
                 onChange={handleChange}
                 style={{
                   padding: '8px',
-                  border: '1px solid #ddd',
+                  border: `1px solid ${selectBorder}`,
                   borderRadius: '4px',
                   fontSize: '14px',
-                  color: '#333',
-                  backgroundColor: '#fff'
+                  color: selectColor,
+                  backgroundColor: selectBg
                 }}
               >
-                <option value="">선택해주세요</option>
-                <option value="DIET">다이어트</option>
-                <option value="MAINTAIN">유지</option>
-                <option value="BULK_UP">벌크업</option>
+                <option value="" style={{ backgroundColor: optionBg, color: optionColor }}>선택해주세요</option>
+                <option value="DIET" style={{ backgroundColor: optionBg, color: optionColor }}>다이어트</option>
+                <option value="MAINTAIN" style={{ backgroundColor: optionBg, color: optionColor }}>유지</option>
+                <option value="BULK_UP" style={{ backgroundColor: optionBg, color: optionColor }}>벌크업</option>
               </select>
             </div>
           </div>
@@ -548,9 +720,9 @@ const BodyInfoModifyModal = ({ data, addressList, onClose, onSave, onAddAddress,
         </form>
 
         {/* 배송지 목록 섹션 */}
-        <div style={{ marginTop: '30px', paddingTop: '20px', borderTop: '2px solid #ddd' }}>
+        <div style={{ marginTop: '30px', paddingTop: '20px', borderTop: `1px solid ${borderColor}` }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-            <h4 style={{ margin: 0, color: '#666' }}>배송지 목록</h4>
+            <h4 style={{ margin: 0, color: sectionTitleColor }}>배송지 목록</h4>
             <button
               type="button"
               onClick={onAddAddress}
@@ -570,9 +742,9 @@ const BodyInfoModifyModal = ({ data, addressList, onClose, onSave, onAddAddress,
                 <div
                   key={addr.id}
                   style={{
-                    padding: '12px', border: '1px solid #ddd', borderRadius: '4px',
-                    backgroundColor: addr.isDefault ? '#f0f8ff' : '#fff',
-                    color: '#333'
+                    padding: '12px', border: `1px solid ${addressItemBorder}`, borderRadius: '4px',
+                    backgroundColor: isDark ? (addr.isDefault ? '#2a2a2a' : '#222') : (addr.isDefault ? '#f0f0f0' : '#fff'),
+                    color: addressItemColor
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
@@ -582,8 +754,8 @@ const BodyInfoModifyModal = ({ data, addressList, onClose, onSave, onAddAddress,
                           [기본]
                         </span>
                       )}
-                      <span style={{ fontWeight: '600', color: '#333' }}>{addr.shipToName}</span>
-                      <span style={{ marginLeft: '8px', fontSize: '13px', color: '#666' }}>{addr.shipToPhone}</span>
+                      <span style={{ fontWeight: '600', color: addressItemColor }}>{addr.shipToName}</span>
+                      <span style={{ marginLeft: '8px', fontSize: '13px', color: addressTextColor }}>{addr.shipToPhone}</span>
                     </div>
                     <div style={{ display: 'flex', gap: '4px' }}>
                       {!addr.isDefault && (
@@ -591,8 +763,8 @@ const BodyInfoModifyModal = ({ data, addressList, onClose, onSave, onAddAddress,
                           type="button"
                           onClick={() => onSetDefaultAddress(addr.id)}
                           style={{
-                            padding: '4px 8px', fontSize: '11px', backgroundColor: '#f0f0f0', color: '#333',
-                            border: '1px solid #ccc', borderRadius: '3px', cursor: 'pointer'
+                            padding: '4px 8px', fontSize: '11px', backgroundColor: btnDefaultBg, color: btnDefaultColor,
+                            border: `1px solid ${btnDefaultBorder}`, borderRadius: '3px', cursor: 'pointer'
                           }}
                         >
                           기본설정
@@ -602,8 +774,8 @@ const BodyInfoModifyModal = ({ data, addressList, onClose, onSave, onAddAddress,
                         type="button"
                         onClick={() => onEditAddress(addr)}
                         style={{
-                          padding: '4px 8px', fontSize: '11px', backgroundColor: '#f0f0f0', color: '#333',
-                          border: '1px solid #ccc', borderRadius: '3px', cursor: 'pointer'
+                          padding: '4px 8px', fontSize: '11px', backgroundColor: btnDefaultBg, color: btnDefaultColor,
+                          border: `1px solid ${btnDefaultBorder}`, borderRadius: '3px', cursor: 'pointer'
                         }}
                       >
                         <Edit size={12} />
@@ -612,21 +784,21 @@ const BodyInfoModifyModal = ({ data, addressList, onClose, onSave, onAddAddress,
                         type="button"
                         onClick={() => onDeleteAddress(addr.id)}
                         style={{
-                          padding: '4px 8px', fontSize: '11px', backgroundColor: '#ffebee', color: '#d32f2f',
-                          border: '1px solid #f44336', borderRadius: '3px', cursor: 'pointer'
+                          padding: '4px 8px', fontSize: '11px', backgroundColor: btnDeleteBg, color: btnDeleteColor,
+                          border: `1px solid ${btnDeleteBorder}`, borderRadius: '3px', cursor: 'pointer'
                         }}
                       >
                         <Trash2 size={12} />
                       </button>
                     </div>
                   </div>
-                  <div style={{ fontSize: '13px', color: '#666', lineHeight: '1.5' }}>
+                  <div style={{ fontSize: '13px', color: addressTextColor, lineHeight: '1.5' }}>
                     [{addr.shipZipcode}] {addr.shipAddress1} {addr.shipAddress2}
                   </div>
                 </div>
               ))
             ) : (
-              <div style={{ padding: '20px', textAlign: 'center', color: '#999', fontSize: '14px' }}>
+              <div style={{ padding: '20px', textAlign: 'center', color: emptyTextColor, fontSize: '14px' }}>
                 등록된 배송지가 없습니다.
               </div>
             )}
@@ -638,7 +810,7 @@ const BodyInfoModifyModal = ({ data, addressList, onClose, onSave, onAddAddress,
 };
 
 // ✅ 배송지 추가/수정 모달
-const AddressEditModal = ({ data, onChange, onClose, onSave, onAddressSearch }) => {
+const AddressEditModal = ({ data, onChange, onClose, onSave, onAddressSearch, isDark = true }) => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     onChange(name, value);
@@ -649,27 +821,39 @@ const AddressEditModal = ({ data, onChange, onClose, onSave, onAddressSearch }) 
     onSave();
   };
 
+  // 테마별 스타일
+  const overlayBg = isDark ? "rgba(0,0,0,0.7)" : "rgba(0,0,0,0.4)";
+  const modalBg = isDark ? "#1a1a1a" : "#ffffff";
+  const modalColor = isDark ? "#fff" : "#000";
+  const modalShadow = isDark ? "0 10px 40px rgba(0,0,0,0.5)" : "0 10px 40px rgba(0,0,0,0.15)";
+  const closeBtnColor = isDark ? "#666" : "#999";
+  const labelColor = isDark ? "#aaa" : "#666";
+  const inputBg = isDark ? "#222" : "#f5f5f5";
+  const inputBorder = isDark ? "#444" : "#ddd";
+  const inputColor = isDark ? "#fff" : "#000";
+  const checkboxLabelColor = isDark ? "#fff" : "#000";
+
   return (
     <div className="modal-overlay" style={{
       position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-      backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10000
+      backgroundColor: overlayBg, display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10000
     }}>
       <div className="modal-content" style={{
-        backgroundColor: 'white', padding: '25px', borderRadius: '10px', width: '450px',
-        position: 'relative', boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-        color: '#333'
+        backgroundColor: modalBg, padding: '25px', borderRadius: '12px', width: '450px',
+        position: 'relative', boxShadow: modalShadow,
+        color: modalColor
       }}>
-        <button onClick={onClose} style={{ position: 'absolute', top: '15px', right: '15px', border: 'none', background: 'none', cursor: 'pointer', color: '#333' }}>
+        <button onClick={onClose} style={{ position: 'absolute', top: '15px', right: '15px', border: 'none', background: 'none', cursor: 'pointer', color: closeBtnColor }}>
           <X size={24} />
         </button>
 
-        <h3 style={{ marginBottom: '20px', textAlign: 'center', color: '#333' }}>배송지 {data.id ? '수정' : '추가'}</h3>
+        <h3 style={{ marginBottom: '20px', textAlign: 'center', color: modalColor }}>배송지 {data.id ? '수정' : '추가'}</h3>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <InputGroup label="받는 분" name="shipToName" value={data.shipToName || ''} onChange={handleChange} />
-          <InputGroup label="연락처" name="shipToPhone" value={data.shipToPhone || ''} onChange={handleChange} />
+          <InputGroup label="받는 분" name="shipToName" value={data.shipToName || ''} onChange={handleChange} isDark={isDark} />
+          <InputGroup label="연락처" name="shipToPhone" value={data.shipToPhone || ''} onChange={handleChange} isDark={isDark} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-            <label style={{ fontSize: '12px', color: '#666', fontWeight:'bold' }}>우편번호</label>
+            <label style={{ fontSize: '12px', color: labelColor, fontWeight:'bold' }}>우편번호</label>
             <div style={{ display: 'flex', gap: '8px' }}>
               <input
                 type="text"
@@ -677,9 +861,9 @@ const AddressEditModal = ({ data, onChange, onClose, onSave, onAddressSearch }) 
                 value={data.shipZipcode || ''}
                 onChange={handleChange}
                 style={{
-                  flex: 1, padding: '8px', border: '1px solid #ddd', borderRadius: '4px',
+                  flex: 1, padding: '8px', border: `1px solid ${inputBorder}`, borderRadius: '4px',
                   fontSize:'14px',
-                  color: '#333', backgroundColor: '#fff'
+                  color: inputColor, backgroundColor: inputBg
                 }}
                 placeholder="우편번호"
               />
@@ -696,21 +880,21 @@ const AddressEditModal = ({ data, onChange, onClose, onSave, onAddressSearch }) 
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-            <label style={{ fontSize: '12px', color: '#666', fontWeight:'bold' }}>주소</label>
+            <label style={{ fontSize: '12px', color: labelColor, fontWeight:'bold' }}>주소</label>
             <input
               type="text"
               name="shipAddress1"
               value={data.shipAddress1 || ''}
               onChange={handleChange}
               style={{
-                padding: '8px', border: '1px solid #ddd', borderRadius: '4px',
+                padding: '8px', border: `1px solid ${inputBorder}`, borderRadius: '4px',
                 fontSize:'14px',
-                color: '#333', backgroundColor: '#fff'
+                color: inputColor, backgroundColor: inputBg
               }}
               placeholder="주소"
             />
           </div>
-          <InputGroup label="상세주소" name="shipAddress2" value={data.shipAddress2 || ''} onChange={handleChange} />
+          <InputGroup label="상세주소" name="shipAddress2" value={data.shipAddress2 || ''} onChange={handleChange} isDark={isDark} />
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <input
@@ -718,8 +902,12 @@ const AddressEditModal = ({ data, onChange, onClose, onSave, onAddressSearch }) 
               id="isDefault"
               checked={data.isDefault || false}
               onChange={(e) => onChange('isDefault', e.target.checked)}
+              style={{
+                accentColor: '#ccff00',
+                cursor: 'pointer'
+              }}
             />
-            <label htmlFor="isDefault" style={{ fontSize: '14px', cursor: 'pointer', color: '#333' }}>
+            <label htmlFor="isDefault" style={{ fontSize: '14px', cursor: 'pointer', color: checkboxLabelColor }}>
               기본 배송지로 설정
             </label>
           </div>
@@ -736,18 +924,25 @@ const AddressEditModal = ({ data, onChange, onClose, onSave, onAddressSearch }) 
   );
 };
 
-const InputGroup = ({ label, name, value, onChange }) => (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-    <label style={{ fontSize: '12px', color: '#666', fontWeight:'bold' }}>{label}</label>
-    <input
-      type={name.includes('Name') || name.includes('Address') || name.includes('Phone') || name.includes('Zipcode') ? "text" : "number"}
-      step="0.1"
-      name={name}
-      value={value !== null && value !== undefined ? value : ''}
-      onChange={onChange}
-      style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize:'14px', color: '#333', backgroundColor: '#fff' }}
-    />
-  </div>
-);
+const InputGroup = ({ label, name, value, onChange, isDark = true }) => {
+  const labelColor = isDark ? "#aaa" : "#666";
+  const inputBg = isDark ? "#222" : "#f5f5f5";
+  const inputBorder = isDark ? "#444" : "#ddd";
+  const inputColor = isDark ? "#fff" : "#000";
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+      <label style={{ fontSize: '12px', color: labelColor, fontWeight:'bold' }}>{label}</label>
+      <input
+        type={name.includes('Name') || name.includes('Address') || name.includes('Phone') || name.includes('Zipcode') ? "text" : "number"}
+        step="0.1"
+        name={name}
+        value={value !== null && value !== undefined ? value : ''}
+        onChange={onChange}
+        style={{ padding: '8px', border: `1px solid ${inputBorder}`, borderRadius: '4px', fontSize:'14px', color: inputColor, backgroundColor: inputBg }}
+      />
+    </div>
+  );
+};
 
 export default ProfileIndex;

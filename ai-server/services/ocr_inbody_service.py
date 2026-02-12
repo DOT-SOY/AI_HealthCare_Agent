@@ -43,18 +43,22 @@ SYSTEM_PROMPT_TOP = """
 
 입력 이미지:
 - 이미지 1: 상단(1~3) 전체 구역
-- 이미지 2: 체성분 분석 표의 **체수분(bodyWater) 측정치 숫자만** 초타이트 크롭
+- 이미지 2: 상단 헤더의 **신장/키(height) 숫자만** 타이트 크롭
+- 이미지 3: 상단 헤더의 **검사일시(measuredTime) 숫자와 시간만** 타이트 크롭
+- 이미지 4: 체성분 분석 표의 **체수분(bodyWater) 측정치 숫자만** 타이트 크롭
 
 중요:
-- bodyWater는 **반드시 이미지 2에서만** 읽어.
-- bodyWater 외 나머지 값은 **이미지 1에서만** 읽어.
+- height는 **반드시 이미지 2에서만** 읽어.
+- measuredTime은 **반드시 이미지 3에서만** 읽어.
+- bodyWater는 **반드시 이미지 4에서만** 읽어.
+- 나머지 값(protein, minerals, bodyFatMass, weight, skeletalMuscleMass)은 **이미지 1에서만** 읽어.
 
 [1번: 상단 정보(Header)]
-- height: 신장/키
-- measuredDate: 검사일시 (YYYY.MM.DD HH:mm)
+- height: 신장/키 (cm 단위 제거, 숫자만)
+- measuredTime: 검사일시 (YYYY.MM.DD HH:mm 형식, 예: "2025.04.11 21:27")
 
 [2번: 체성분 분석(Body Composition Analysis) 표]
-- bodyWater: 체수분
+- bodyWater: 체수분 (L 단위 제거, 숫자만)
 - protein: 단백질
 - minerals: 무기질
 - bodyFatMass: 체지방량
@@ -72,6 +76,7 @@ SYSTEM_PROMPT_TOP = """
 
 규칙:
 1) 단위(kg, cm, %, L)는 제거하고 숫자만(검사일시는 문자열).
+2) measuredTime은 "YYYY.MM.DD HH:mm" 형식으로 반환 (예: "2025.04.11 21:27")
 3) 안 보이면 null.
 4) JSON 형식 외에는 아무 말도 하지 마.
 """
@@ -80,8 +85,16 @@ SYSTEM_PROMPT_BOTTOM = """
 너는 인바디(InBody) 결과지의 **4~5번 구역(비만진단/체중조절)**을 분석하는 OCR 전문가야.
 사용자가 표시한 순서대로 필요한 값만 JSON으로 반환해.
 
+입력 이미지:
+- 이미지 1: 하단(4~5) 전체 구역
+- 이미지 2: 비만진단 섹션의 **체지방률(bodyFatPercent) 숫자만** 타이트 크롭
+
+중요:
+- bodyFatPercent는 **반드시 이미지 2에서만** 읽어.
+- 나머지 값(targetWeight, weightControl, fatControl, muscleControl)은 **이미지 1에서만** 읽어.
+
 [4번: 비만 진단(Obesity Analysis)]
-- bodyFatPercent: 체지방률(%)
+- bodyFatPercent: 체지방률(%) - **이미지 2에서만 읽어**
 
 [5번: 체중 조절(Weight Control)]
 - targetWeight: 적정체중
@@ -176,8 +189,8 @@ async def analyze_inbody_image(image_bytes: bytes) -> Dict[str, Any]:
             mf_img = _downscale_if_needed(mf_img, OCR_CROP_MAX_WIDTH)
             mf_img = _upscale_for_readability(mf_img, target_width=1600)
 
-            # 비만진단(체지방률) 미세 영역 fallback
-            ob_img = full_image.crop((0, int(h * 0.50), int(w * 0.60), int(h * 0.70)))
+            # 비만진단(체지방률) 미세 영역 fallback - 용지의 체지방률 위치에 맞게 조정
+            ob_img = full_image.crop((0, int(h * 0.55), int(w * 0.65), int(h * 0.75)))
             ob_img = _downscale_if_needed(ob_img, OCR_CROP_MAX_WIDTH)
             ob_img = _upscale_for_readability(ob_img, target_width=1400)
 
@@ -188,6 +201,28 @@ async def analyze_inbody_image(image_bytes: bytes) -> Dict[str, Any]:
             bc_b64 = _image_to_base64(bc_img)
             mf_b64 = _image_to_base64(mf_img)
             ob_b64 = _image_to_base64(ob_img)
+
+            # 키(height) 타이트 크롭 - 상단 헤더의 "신장" 부분
+            height_b64 = None
+            try:
+                height_src = _load_image_minimal(image_bytes)
+                height_img = _crop_height_tight(height_src)
+                height_img = _downscale_if_needed(height_img, OCR_CROP_MAX_WIDTH)
+                height_img = _upscale_for_readability_soft(height_img, target_width=1200)
+                height_b64 = _image_to_base64_png(height_img)
+            except Exception as e:
+                logger.warning(f"[OCR] height tight crop failed. fallback to top result. err={e}")
+
+            # 측정날짜(measuredTime) 타이트 크롭 - 상단 헤더의 "검사일시" 부분
+            date_b64 = None
+            try:
+                date_src = _load_image_minimal(image_bytes)
+                date_img = _crop_measured_date_tight(date_src)
+                date_img = _downscale_if_needed(date_img, OCR_CROP_MAX_WIDTH)
+                date_img = _upscale_for_readability_soft(date_img, target_width=1400)
+                date_b64 = _image_to_base64_png(date_img)
+            except Exception as e:
+                logger.warning(f"[OCR] measuredTime tight crop failed. fallback to top result. err={e}")
 
             # 체수분(bodyWater) 초타이트 크롭(범위(~)가 보이지 않도록 숫자 칸 위주)
             bw_b64 = None
@@ -203,26 +238,62 @@ async def analyze_inbody_image(image_bytes: bytes) -> Dict[str, Any]:
                 except Exception as e:
                     logger.warning(f"[OCR] bodyWater tight crop failed. fallback to top result. err={e}")
 
-            logger.info(f"[OCR] Crops ready. top={len(top_b64)}b bottom={len(bottom_b64)}b wc={len(wc_b64)}b")
+            # 체지방률(bodyFatPercent) 타이트 크롭 - 비만진단 섹션의 체지방률 숫자만
+            bfp_b64 = None
+            try:
+                bfp_src = _load_image_minimal(image_bytes)
+                bfp_img = _crop_body_fat_percent_tight(bfp_src)
+                bfp_img = _downscale_if_needed(bfp_img, OCR_CROP_MAX_WIDTH)
+                bfp_img = _upscale_for_readability_soft(bfp_img, target_width=1400)
+                bfp_b64 = _image_to_base64_png(bfp_img)
+            except Exception as e:
+                logger.warning(f"[OCR] bodyFatPercent tight crop failed. fallback to bottom result. err={e}")
+
+            logger.info(f"[OCR] Crops ready. top={len(top_b64)}b bottom={len(bottom_b64)}b wc={len(wc_b64)}b height={len(height_b64) if height_b64 else 0}b date={len(date_b64) if date_b64 else 0}b bfp={len(bfp_b64) if bfp_b64 else 0}b")
             
         except Exception as e:
             logger.error(f"[OCR] Image Processing Failed: {e}")
             return {"error": "이미지 처리 중 오류가 발생했습니다."}
 
         # 3. 병렬 요청 (상단/하단/체중조절 동시 실행)
+        # 키, 측정날짜, 체수분을 위한 타이트 크롭 이미지들을 포함
+        top_images = [{"b64": top_b64, "mime": "image/jpeg", "hint": "이미지 1 (TopCrop): 상단(1~3) 전체 구역"}]
+        
+        if height_b64:
+            top_images.append({"b64": height_b64, "mime": "image/png", "hint": "이미지 2 (HeightCrop): 상단 헤더의 신장/키 숫자만"})
+        
+        if date_b64:
+            top_images.append({"b64": date_b64, "mime": "image/png", "hint": "이미지 3 (DateCrop): 상단 헤더의 검사일시 숫자와 시간만"})
+        
         if bw_b64:
+            top_images.append({"b64": bw_b64, "mime": "image/png", "hint": "이미지 4 (BodyWaterCrop): 체수분 측정치 숫자만(괄호/범위값/그래프 없음)"})
+        
+        if len(top_images) > 1:
             task_top = _call_gpt_vision_multi(
                 client,
-                images=[
-                    {"b64": top_b64, "mime": "image/jpeg", "hint": "이미지 1 (TopCrop): 상단(1~3) 전체 구역"},
-                    {"b64": bw_b64, "mime": "image/png", "hint": "이미지 2 (BodyWaterCrop): 체수분 측정치 숫자만(괄호/범위값/그래프 없음)"},
-                ],
+                images=top_images,
                 system_prompt=SYSTEM_PROMPT_TOP,
-                label="TopCrop+BodyWater",
+                label="TopCrop+Height+Date+BodyWater",
             )
         else:
             task_top = _call_gpt_vision(client, top_b64, SYSTEM_PROMPT_TOP, "TopCrop")
-        task_bottom = _call_gpt_vision(client, bottom_b64, SYSTEM_PROMPT_BOTTOM, "BottomCrop")
+        
+        # 하단 이미지: 체지방률 타이트 크롭 포함
+        bottom_images = [{"b64": bottom_b64, "mime": "image/jpeg", "hint": "이미지 1 (BottomCrop): 하단(4~5) 전체 구역"}]
+        
+        if bfp_b64:
+            bottom_images.append({"b64": bfp_b64, "mime": "image/png", "hint": "이미지 2 (BodyFatPercentCrop): 비만진단 섹션의 체지방률 숫자만"})
+        
+        if len(bottom_images) > 1:
+            task_bottom = _call_gpt_vision_multi(
+                client,
+                images=bottom_images,
+                system_prompt=SYSTEM_PROMPT_BOTTOM,
+                label="BottomCrop+BodyFatPercent",
+            )
+        else:
+            task_bottom = _call_gpt_vision(client, bottom_b64, SYSTEM_PROMPT_BOTTOM, "BottomCrop")
+        
         task_wc = _call_gpt_vision(client, wc_b64, SYSTEM_PROMPT_WEIGHT_CONTROL, "WeightControlCrop")
         data_top, data_bottom, data_wc = await asyncio.gather(task_top, task_bottom, task_wc)
         data_top = data_top or {}
@@ -480,6 +551,70 @@ def _load_image_minimal(image_bytes: bytes) -> Image.Image:
     img = Image.open(BytesIO(image_bytes))
     return ImageOps.exif_transpose(img).convert("RGB")
 
+def _crop_height_tight(img: Image.Image) -> Image.Image:
+    """
+    상단 헤더의 '신장/키' 숫자만 타이트하게 포함하도록 크롭.
+    """
+    w, h = img.size
+
+    # 상단 헤더 영역 (InBody 370S 포맷 기준)
+    # 헤더는 상단 0~10% 정도에 위치
+    header_x1 = 0
+    header_y1 = 0
+    header_x2 = int(w * 0.50)  # 좌측 절반
+    header_y2 = int(h * 0.10)
+    header_w = max(1, header_x2 - header_x1)
+    header_h = max(1, header_y2 - header_y1)
+
+    # 신장/키 숫자 위치 (173 cm)
+    # - x축: "신장" 라벨 오른쪽의 숫자 부분
+    # - y축: 헤더 중간 부분
+    x1 = int(header_x1 + header_w * 0.25)
+    x2 = int(header_x1 + header_w * 0.45)
+    y1 = int(header_y1 + header_h * 0.30)
+    y2 = int(header_y1 + header_h * 0.70)
+
+    # clamp
+    x1 = max(0, min(x1, w - 1))
+    y1 = max(0, min(y1, h - 1))
+    x2 = max(x1 + 1, min(x2, w))
+    y2 = max(y1 + 1, min(y2, h))
+
+    return img.crop((x1, y1, x2, y2))
+
+def _crop_measured_date_tight(img: Image.Image) -> Image.Image:
+    """
+    상단 헤더의 '검사일시' 숫자와 시간만 타이트하게 포함하도록 크롭.
+    용지 기준: "검사일시: 2025.04.11. 21:27" 위치
+    """
+    w, h = img.size
+
+    # 상단 헤더 영역 (InBody 370S 포맷 기준)
+    # 헤더는 상단 0~12% 정도에 위치 (여유 있게)
+    header_x1 = int(w * 0.50)  # 우측 절반
+    header_y1 = 0
+    header_x2 = w
+    header_y2 = int(h * 0.12)  # 10% -> 12%로 여유 확보
+    header_w = max(1, header_x2 - header_x1)
+    header_h = max(1, header_y2 - header_y1)
+
+    # 검사일시 숫자 위치 (2025.04.11. 21:27)
+    # 사진 기준: "검사일시" 라벨 오른쪽의 날짜/시간 부분만 타이트하게
+    # x축: "검사일시" 라벨 이후부터 날짜/시간 끝까지
+    # y축: 헤더 중간 부분 (약간 위쪽으로 조정)
+    x1 = int(header_x1 + header_w * 0.15)  # 20% -> 15% (더 왼쪽부터, "검사일시" 라벨 포함)
+    x2 = int(header_x1 + header_w * 0.95)  # 90% -> 95% (더 오른쪽까지)
+    y1 = int(header_y1 + header_h * 0.25)  # 30% -> 25% (위쪽으로 조정)
+    y2 = int(header_y1 + header_h * 0.75)  # 70% -> 75% (아래쪽으로 조정)
+
+    # clamp
+    x1 = max(0, min(x1, w - 1))
+    y1 = max(0, min(y1, h - 1))
+    x2 = max(x1 + 1, min(x2, w))
+    y2 = max(y1 + 1, min(y2, h))
+
+    return img.crop((x1, y1, x2, y2))
+
 def _crop_body_water_tight(img: Image.Image) -> Image.Image:
     """
     체성분분석 표의 '체수분 측정치' 숫자만 최대한 타이트하게 포함하도록 크롭.
@@ -499,10 +634,44 @@ def _crop_body_water_tight(img: Image.Image) -> Image.Image:
     # 빨간 박스 위치(체수분 측정치 43.9) 기준으로:
     # - x축: 라벨(체수분) 오른쪽의 '측정치 숫자' 박스만 포함
     # - y축: 첫 행의 '측정치 숫자'만 포함하고, 아래쪽 '(표준범위 ...~...)'는 제외
-    x1 = int(bc_x1 + bc_w * 0.30)
-    x2 = int(bc_x1 + bc_w * 0.52)
-    y1 = int(bc_y1 + bc_h * 0.20)
-    y2 = int(bc_y1 + bc_h * 0.40)
+    # 좌표를 더 정확하게 조정
+    x1 = int(bc_x1 + bc_w * 0.28)
+    x2 = int(bc_x1 + bc_w * 0.50)
+    y1 = int(bc_y1 + bc_h * 0.15)
+    y2 = int(bc_y1 + bc_h * 0.35)
+
+    # clamp
+    x1 = max(0, min(x1, w - 1))
+    y1 = max(0, min(y1, h - 1))
+    x2 = max(x1 + 1, min(x2, w))
+    y2 = max(y1 + 1, min(y2, h))
+
+    return img.crop((x1, y1, x2, y2))
+
+def _crop_body_fat_percent_tight(img: Image.Image) -> Image.Image:
+    """
+    비만진단 섹션의 '체지방률' 숫자만 타이트하게 포함하도록 크롭.
+    용지 기준: "체지방률 (Percent Body Fat): 18.5 %" 위치
+    """
+    w, h = img.size
+
+    # 비만진단 섹션 영역 (InBody 370S 포맷 기준)
+    # 체지방률은 용지 중간~하단 부분에 위치 (사진 기준)
+    ob_x1 = 0
+    ob_y1 = int(h * 0.50)  # 중간부터
+    ob_x2 = int(w * 0.75)  # 좌측 75%까지
+    ob_y2 = int(h * 0.70)  # 70%까지 (체지방률이 있는 위치)
+    ob_w = max(1, ob_x2 - ob_x1)
+    ob_h = max(1, ob_y2 - ob_y1)
+
+    # 체지방률 숫자 위치 (18.5 %)
+    # 사진 기준: "체지방률" 라벨 오른쪽의 숫자 부분
+    # x축: 좌측에서 약 35%~65% 위치
+    # y축: 비만진단 섹션 중간 부분
+    x1 = int(ob_x1 + ob_w * 0.35)
+    x2 = int(ob_x1 + ob_w * 0.65)
+    y1 = int(ob_y1 + ob_h * 0.20)
+    y2 = int(ob_y1 + ob_h * 0.70)
 
     # clamp
     x1 = max(0, min(x1, w - 1))
@@ -594,7 +763,7 @@ def normalize_inbody_data(data: Dict[str, Any]) -> Dict[str, Any]:
 
         normalized[field] = None
 
-    # 검사일시는 문자열 그대로
-    normalized["measuredDate"] = data.get("measuredDate")
+    # 검사일시는 문자열 그대로 (measuredTime 또는 measuredDate 모두 지원)
+    normalized["measuredTime"] = data.get("measuredTime") or data.get("measuredDate")
 
     return normalized
