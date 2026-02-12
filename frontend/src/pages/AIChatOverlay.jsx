@@ -583,8 +583,6 @@ export default function AIChatOverlay() {
             onClick={handleClose}
             aria-hidden
             style={{
-              backdropFilter: `blur(${Math.max(600, 1200 - (panelDragOffsetY / 220) * 24)}px)`,
-              WebkitBackdropFilter: `blur(${Math.max(600, 1200 - (panelDragOffsetY / 220) * 24)}px)`,
               ...(panelDragOffsetY > 0 ? { opacity: Math.max(0.2, 1 - panelDragOffsetY / 120) } : {}),
             }}
           />
