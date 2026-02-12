@@ -1082,6 +1082,31 @@ def handle_confirm_product_state(
     negative_responses = ["아니", "안돼", "싫어", "안 할래", "취소"]
     is_positive = any(pos in text_lower for pos in positive_responses)
     is_negative = any(neg in text_lower for neg in negative_responses)
+    extracted_slots = {}
+    if text_stripped:
+        try:
+            extracted = extract_commerce_intent_and_slots(text_stripped)
+            extracted_slots = _apply_slot_policy(extracted)
+        except Exception as e:
+            print(f"[commerce] CONFIRM_PRODUCT extract_commerce_intent_and_slots failed: {e}")
+            extracted_slots = {}
+    pending_action = (extracted_slots.get("pending_action") or "").strip().upper()
+    address_mode = (extracted_slots.get("address_mode") or "").strip().upper() if extracted_slots.get("address_mode") else None
+    recipient_name = extracted_slots.get("recipient_name")
+    has_delivery_hint = bool(address_mode or recipient_name)
+    wants_payment = pending_action == "PAYMENT"
+    if not is_negative and not is_positive and (has_delivery_hint or wants_payment):
+        update_kw: Dict[str, Any] = {}
+        if address_mode:
+            update_kw["address_mode"] = address_mode
+        if recipient_name:
+            update_kw["recipient_name"] = recipient_name
+        if wants_payment:
+            update_kw["pending_action"] = "PAYMENT"
+        if update_kw:
+            state_machine.update_session(session_id, **update_kw)
+        state_machine.transition_state(session_id, CommerceState.ADD_TO_CART)
+        return handle_add_to_cart_state(session_id, auth_token)
     if is_positive:
         state_machine.transition_state(session_id, CommerceState.ADD_TO_CART)
         return handle_add_to_cart_state(session_id, auth_token)
@@ -1274,6 +1299,11 @@ def handle_confirm_address_state(
             address_display = f"{ship_to_name} {address_text}"
         else:
             address_display = address_text
+
+        if not text and address_mode != "NEW" and (address_mode == "DEFAULT" or recipient_address is not None):
+            state_machine.update_session(session_id, address_id=candidate_address.get("id"))
+            state_machine.transition_state(session_id, CommerceState.PAYMENT_READY)
+            return handle_payment_ready_state(session_id, auth_token)
 
         if text:
             text_stripped = text.strip()
