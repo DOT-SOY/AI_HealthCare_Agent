@@ -202,7 +202,7 @@
 
 ---
 
-## 🎥 [유튜브 시연영상 링크 바로보기](https://youtu.be/jOqhvynaRwQ)
+## 🎥 [유튜브 시연영상 링크 바로보기](https://youtu.be/BuGlxz3XMa8?si=u5EC4rfaLf9PgRS7)
 
 ## 📋 [Fullstack PDF 바로 보기](https://dot-soy.github.io/woometan/fullstack_pdf.html)
 ## 📋 [AI PDF 바로 보기](https://dot-soy.github.io/woometan/fullstack_pdf_ai.html)
