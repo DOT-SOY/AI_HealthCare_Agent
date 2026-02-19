@@ -23,7 +23,7 @@
 ---
 
 # 📆 개발 기간
-26.01.19(월) ~ 26.02.20(금)
+26.01.19(월) ~ 26.02.13(금)
 
 
 ---
@@ -202,9 +202,10 @@
 
 ---
 
-## 🎥 [유튜브 시연영상 링크 바로보기]()
+## 🎥 [유튜브 시연영상 링크 바로보기](https://youtu.be/jOqhvynaRwQ)
 
-## 📋 [PDF 보기 링크 바로 보기]()
+## 📋 [Fullstack PDF 바로 보기](https://dot-soy.github.io/woometan/fullstack_pdf.html)
+## 📋 [AI PDF 바로 보기](https://dot-soy.github.io/woometan/fullstack_pdf_ai.html)
 
 # ERD 구조
 
@@ -287,6 +288,9 @@ https://github.com/user-attachments/assets/cd1458fe-ca19-4111-839d-79da8ab9e326
 ![마이 페이지( 인바디, 배송지 수정 )](https://github.com/user-attachments/assets/52e810fe-acc4-4e09-978e-130dfefe3ed6)
 
 ## 🛒 AI 커머스
+![img1](https://i.imgur.com/BOk2k4i.gif)
+![img2](https://i.imgur.com/vOzPkCc.gif)
+
 
 
 ---
