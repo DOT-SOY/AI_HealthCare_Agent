@@ -199,7 +199,7 @@
 | JenKins Deploy Flow |
 | :--: | 
 | <img width="800" alt="jenkins-ci cd" src="https://github.com/user-attachments/assets/f7954d7f-4fa6-48d2-bc20-ba42b3eabc71" /> | 
-
+ 
 ---
 
 ## 🎥 [유튜브 시연영상 링크 바로보기](https://youtu.be/BuGlxz3XMa8?si=u5EC4rfaLf9PgRS7)
