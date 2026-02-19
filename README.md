@@ -23,7 +23,7 @@
 ---
 
 # 📆 개발 기간
-26.01.19(월) ~ 26.02.20(금)
+26.01.19(월) ~ 26.02.13(금)
 
 
 ---
@@ -202,9 +202,10 @@
 
 ---
 
-## 🎥 [유튜브 시연영상 링크 바로보기]()
+## 🎥 [유튜브 시연영상 링크 바로보기](https://youtu.be/jOqhvynaRwQ)
 
-## 📋 [PDF 보기 링크 바로 보기]()
+## 📋 [Fullstack PDF 바로 보기](https://dot-soy.github.io/woometan/fullstack_pdf.html)
+## 📋 [AI PDF 바로 보기](https://dot-soy.github.io/woometan/fullstack_pdf_ai.html)
 
 # ERD 구조
 
